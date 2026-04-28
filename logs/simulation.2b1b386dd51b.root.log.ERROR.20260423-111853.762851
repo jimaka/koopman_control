@@ -1,0 +1,1424 @@
+Log file created at: 2026/04/23 11:18:53
+Running on machine: 2b1b386dd51b
+Running duration (h:mm:ss): 0:00:00
+Log line format: [IWEF]yyyymmdd hh:mm:ss.uuuuuu threadid file:line] msg
+E20260423 11:18:53.963878 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:53.993247 762851 trajectory_evaluator.cc:584]  [planning]  smooth history piecewise path fail, use current result
+E20260423 11:18:54.000135 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.000161 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.085716 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.113322 762851 trajectory_evaluator.cc:584]  [planning]  smooth history piecewise path fail, use current result
+E20260423 11:18:54.120474 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.120503 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.177618 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.203831 762851 trajectory_evaluator.cc:584]  [planning]  smooth history piecewise path fail, use current result
+E20260423 11:18:54.211171 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.211195 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.258209 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.282094 762851 trajectory_evaluator.cc:584]  [planning]  smooth history piecewise path fail, use current result
+E20260423 11:18:54.289091 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.289112 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.345945 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.377293 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.377315 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.435117 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.467873 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.467895 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.525863 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.556830 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.556851 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.582429 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.615571 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.615600 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.672528 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.704522 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.704545 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.761968 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.793761 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.793797 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.852439 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.885027 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.885051 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:54.942186 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:54.975072 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:54.975122 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.034674 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.068550 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.068573 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.125281 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.157464 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.157495 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.216001 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.248018 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.248044 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.307152 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.339359 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.339381 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.396265 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.428144 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.428167 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.474916 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.507814 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.507843 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.565384 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.597376 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.597398 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.654407 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.685583 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.685611 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.743741 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.777633 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.777668 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.826683 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.858708 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.858731 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:55.915349 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:55.946939 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:55.946961 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.011250 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.044312 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.044340 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.105257 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.136883 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.136905 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.196223 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.228394 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.228417 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.286130 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.319245 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.319274 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.379072 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.412032 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.412055 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.468887 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.502283 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.502310 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.559206 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.590812 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.590849 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.650360 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.684194 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.684221 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.741902 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.774747 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.774777 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.832526 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.865588 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.865609 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:56.916530 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:56.948323 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:56.948351 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.006366 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.038312 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.038336 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.095999 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.127398 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.127424 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.184720 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.216488 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.216511 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.274187 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.306236 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.306262 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.363639 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.396355 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.396379 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.453163 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.484853 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.484879 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.542654 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.575510 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.575533 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.634407 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.667452 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.667482 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.719883 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.752853 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.752876 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.811363 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.842844 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.842883 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.899904 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:57.933137 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:57.933166 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:57.991597 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.024421 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.024444 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.082670 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.115787 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.115808 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.173454 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.207610 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.207638 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.265198 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.297957 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.297981 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.355942 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.388304 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.388327 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.447605 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.479547 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.479574 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.537034 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.570559 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.570581 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.627655 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.659500 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.659523 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.716204 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.748876 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.748899 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.806577 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.840636 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.840657 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.899084 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:58.931138 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:58.931162 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:58.989312 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.021131 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.021154 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.078763 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.112052 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.112075 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.170424 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.202222 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.202244 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.259673 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.291622 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.291646 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.350692 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.383337 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.383373 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.440738 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.473289 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.473315 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.531383 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.564610 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.564635 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.622453 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.653923 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.653947 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.711467 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.743551 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.743574 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.802412 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.834834 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.834858 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.892292 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:18:59.924046 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:18:59.924070 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:18:59.981123 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.012900 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.012923 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.070981 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.103188 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.103212 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.161093 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.191812 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.191838 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.249691 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.281728 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.281750 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.341439 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.373486 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.373509 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.431509 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.463554 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.463578 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.520949 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.552297 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.552320 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.609280 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.641130 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.641153 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.698822 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.730342 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.730370 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.792487 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.823791 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.823814 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.881852 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:00.912446 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:00.912468 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:00.970990 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.003371 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.003396 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.061391 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.094012 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.094035 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.153456 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.185936 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.185958 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.243321 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.275194 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.275219 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.332338 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.366026 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.366050 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.422570 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.454602 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.454628 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.512558 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.544961 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.544986 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.603250 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.636606 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.636628 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.695470 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.727632 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.727662 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.787153 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.819868 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.819891 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.877820 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:01.910364 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:01.910386 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:01.968786 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.001111 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.001134 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.059413 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.092043 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.092067 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.149781 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.182983 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.183007 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.240015 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.272894 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.272917 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.335708 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.367849 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.367890 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.424618 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.457191 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.457214 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.518199 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.549926 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.549950 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.606520 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.640645 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.640671 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.698030 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.730583 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.730611 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.790783 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.823421 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.823444 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.880085 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:02.911979 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:02.912001 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:02.969748 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.001531 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.001554 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.058774 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.092157 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.092180 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.149513 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.181141 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.181164 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.238147 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.270336 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.270363 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.327545 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.360108 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.360132 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.418097 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.449664 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.449695 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.507153 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.540174 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.540200 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.597268 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.630014 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.630038 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.687240 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.718803 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.718827 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.776551 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.808890 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.808915 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.867482 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.899149 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.899173 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:03.956517 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:03.987514 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:03.987537 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.044299 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.075817 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.075841 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.133085 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.165783 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.165807 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.223484 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.254580 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.254602 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.312140 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.343371 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.343395 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.400548 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.432922 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.432945 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.490248 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.522060 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.522084 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.579246 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.611948 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.611982 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.669499 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.701311 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.701339 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.758934 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.790530 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.790552 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.848032 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.880321 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.880347 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:04.938035 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:04.970127 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:04.970149 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.061690 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.092904 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.092928 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.150833 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.182708 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.182730 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.241112 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.272531 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.272554 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.329774 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.361912 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.361935 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.418861 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.450302 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.450347 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.508188 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.541359 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.541383 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.603381 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.637660 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.637691 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.695891 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.727289 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.727312 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.784759 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.818099 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.818125 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.876197 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:05.907958 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:05.907984 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:05.967594 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.000900 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.000934 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.063308 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.098308 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.098337 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.157699 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.190374 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.190399 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.252573 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.284449 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.284473 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.343494 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.377578 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.377626 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.436498 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.469952 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.469980 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.528434 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.561739 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.561771 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.620772 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.653824 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.653868 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.713581 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.745790 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.745815 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.803586 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.835413 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.835440 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.893134 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:06.924643 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:06.924667 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:06.983256 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.016146 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.016170 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.075285 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.108141 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.108168 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.165992 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.198813 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.198835 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.258667 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.291325 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.291350 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.350069 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.382519 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.382542 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.440097 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.471892 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.471915 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.529908 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.562498 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.562542 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.621133 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.653559 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.653582 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.710841 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.743276 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.743304 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.801220 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.834185 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.834211 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.892613 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:07.924222 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:07.924244 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:07.983927 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.015792 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.015815 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.075202 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.106693 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.106717 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.165352 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.199497 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.199545 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.259625 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.292146 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.292177 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.350325 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.381340 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.381371 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.439749 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.472956 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.473001 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.532922 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.565125 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.565151 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.622503 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.654935 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.654958 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.713104 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.744730 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.744752 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.801692 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.833328 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.833349 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.892283 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:08.924038 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:08.924063 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:08.981446 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.013954 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.013978 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.071043 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.102299 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.102324 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.159973 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.192538 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.192561 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.249724 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.281477 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.281504 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.339174 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.369496 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.369526 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.427016 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.459000 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.459022 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.516243 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.549449 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.549499 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.607144 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.638875 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.638896 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.696465 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.728091 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.728112 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.786789 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.819926 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.819952 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.877377 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.908670 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.908694 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:09.966751 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:09.998728 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:09.998749 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.056447 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.089478 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.089500 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.147073 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.178781 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.178807 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.238221 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.269614 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.269639 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.327350 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.360211 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.360234 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.417464 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.448865 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.448887 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.506219 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.538272 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.538296 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.628646 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.662446 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.662468 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.720451 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.752326 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.752351 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.809454 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.842106 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.842130 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.899677 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:10.931879 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:10.931903 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:10.989384 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.022586 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.022609 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.080219 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.113667 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.113693 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.171375 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.203019 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.203042 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.260819 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.295645 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.295668 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.354413 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.387619 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.387642 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.444852 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.477291 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.477313 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.534566 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.568286 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.568310 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.626379 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.658258 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.658280 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.718654 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.750744 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.750774 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.808650 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.843189 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.843211 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.900390 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:11.930999 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:11.931022 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:11.977048 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.008705 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.008731 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.067171 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.098822 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.098846 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.156872 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.189612 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.189636 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.247591 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.279197 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.279219 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.337087 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.368620 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.368643 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.426003 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.457721 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.457783 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.520015 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.552191 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.552214 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.610936 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.644537 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.644559 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.701435 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.734746 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.734774 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.794008 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.825734 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.825757 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.883229 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:12.916771 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:12.916795 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:12.976910 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.010159 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.010188 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.070580 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.103227 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.103255 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.164376 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.197139 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.197163 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.254781 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.286748 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.286779 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.344465 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.376235 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.376257 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.434373 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.466982 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.467034 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.524444 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.555878 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.555902 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.612820 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.647670 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.647693 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.705276 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.736948 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.736971 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.794849 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.827287 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.827310 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.884936 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:13.916285 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:13.916309 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:13.973495 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.005992 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.006016 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.063215 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.094887 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.094936 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.158095 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.193449 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.193475 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.255702 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.288651 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.288674 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.347323 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.381026 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.381048 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.438527 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.470333 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.470355 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.528559 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.561487 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.561508 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.619388 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.651543 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.651566 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.709064 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.743163 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.743189 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.802428 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.833628 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.833652 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.892015 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:14.922808 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:14.922830 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:14.980440 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.012352 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.012374 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.072237 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.103434 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.103457 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.162855 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.195065 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.195088 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.252743 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.283913 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.283951 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.342911 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.376399 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.376430 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.434932 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.468487 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.468513 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.527179 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.559501 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.559525 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.621639 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.652875 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.652899 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.711771 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.745440 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.745462 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.803359 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.834698 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.834720 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.892191 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:15.924669 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:15.924692 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:15.982336 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.014499 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.014521 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.072865 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.106046 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.106078 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.164176 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.196600 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.196626 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.253800 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.289311 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.289340 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.348760 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.381875 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.381901 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.439560 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.471381 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.471413 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.529225 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.560459 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.560482 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.618530 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.652472 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.652495 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.709638 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.741604 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.741627 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.798943 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.830837 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.830858 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.888568 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:16.920677 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:16.920701 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:16.978339 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.010295 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.010318 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.068778 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.101547 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.101586 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.158800 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.190393 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.190416 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.247634 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.280519 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.280539 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.340644 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.373701 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.373725 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.424947 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.456162 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.456197 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.514390 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.546048 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.546072 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.603411 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.635982 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.636013 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.693446 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.725771 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.725795 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.782704 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.815990 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.816015 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.875705 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:17.908980 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:17.909003 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:17.969177 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.001824 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.001849 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.059429 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.091459 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.091492 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.149475 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.181972 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.181994 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.239408 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.273485 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.273509 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.331969 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.365476 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.365499 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.427199 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.461071 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.461093 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.518410 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.550694 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.550717 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.608240 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.640543 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.640565 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.698684 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.731312 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.731338 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.788938 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.822259 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.822285 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.880677 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:18.913326 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:18.913353 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:18.970798 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.002681 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.002702 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.060235 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.091946 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.091969 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.149690 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.183563 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.183585 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.240929 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.272676 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.272698 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.330974 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.362929 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.362952 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.421098 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.454037 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.454059 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.511338 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.544618 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.544646 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.603538 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.635758 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.635783 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.693307 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.724900 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.724922 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.783120 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.815500 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.815522 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.874927 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.907312 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.907337 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:19.966077 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:19.998303 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:19.998327 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.055234 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.087517 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.087561 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.148000 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.182498 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.182521 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.240505 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.272688 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.272711 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.330152 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.360751 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.360780 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.417882 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.451032 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.451054 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.509369 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.541360 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.541384 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.599165 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.663307 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.663331 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.722751 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.754184 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.754207 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.813584 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.845503 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.845531 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.903111 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:20.934898 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:20.934921 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:20.992336 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.024492 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.024516 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.082614 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.115032 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.115056 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.175073 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.207535 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.207556 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.264896 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.296916 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.296947 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.355134 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.387856 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.387887 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.428207 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.457451 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.457474 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.514181 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.545508 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.545531 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.603690 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.634784 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.634806 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.694079 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.726097 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.726119 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.783049 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.814644 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.814670 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.872380 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.905226 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.905248 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:21.963198 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:21.997087 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:21.997108 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.056644 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.088896 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.088920 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.147866 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.181255 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.181283 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.242012 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.274752 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.274781 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.332262 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.363830 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.363855 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.421494 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.452812 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.452845 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.514102 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.556489 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.556519 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.583997 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.615819 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.615852 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.679548 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.712306 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.712329 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.772505 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.805462 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.805490 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.863354 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.895524 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.895562 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:22.958040 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:22.990218 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:22.990242 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.049494 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.082630 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.082657 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.139798 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.172581 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.172612 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.230430 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.262408 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.262432 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.320734 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.354137 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.354164 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.413772 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.446964 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.446985 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.504412 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.537424 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.537448 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.594739 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.627725 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.627748 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.685420 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.716967 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.716990 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.774415 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.808609 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.808634 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.867763 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.898972 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.898994 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:23.956037 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:23.987902 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:23.987926 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.045297 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.078465 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.078495 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.137125 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.168475 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.168498 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.227044 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.258426 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.258450 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.316617 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.349228 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.349253 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.409821 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.441578 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.441605 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.499467 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.533967 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.533990 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.591140 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.624040 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.624065 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.669978 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.702770 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.702798 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.761539 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.793449 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.793470 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.818485 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.850692 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.850714 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.908155 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:24.939460 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:24.939488 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:24.998139 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.031541 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.031566 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.090694 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.122726 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.122749 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.183871 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.216351 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.216372 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.273677 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.307682 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.307704 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.369176 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.401242 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.401264 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.458925 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.490329 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.490355 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.547449 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.580217 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.580242 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.654454 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.686504 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.686527 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.743716 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.775965 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.775990 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.833954 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.868722 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.868745 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:25.925886 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:25.958665 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:25.958688 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.018008 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.051695 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.051723 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.110152 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.142673 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.142694 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.202939 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.235039 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.235070 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.292533 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.325186 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.325208 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.383481 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.415079 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.415104 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.472816 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.506101 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.506126 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.564579 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.598233 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.598254 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.656430 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.688537 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.688584 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.745858 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.777689 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.777736 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.835906 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.868309 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.868333 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:26.927316 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:26.960510 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:26.960536 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.019832 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.052858 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.052882 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.112131 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.144757 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.144786 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.202119 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.235580 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.235602 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.292912 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.324522 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.324544 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.382169 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.415932 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.415962 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.468446 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.501302 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.501325 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.559394 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.591653 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.591682 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.650852 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.683458 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.683490 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.741869 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.772816 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.772840 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.830322 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.867596 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.867630 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:27.936352 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:27.968019 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:27.968041 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.027930 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.059681 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.059703 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.116894 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.149309 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.149340 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.207731 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.240839 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.240860 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.300412 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.332717 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.332742 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.391130 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.423928 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.423959 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.481740 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.513545 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.513576 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.573052 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.606045 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.606072 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.664251 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.696573 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.696600 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.754912 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.787732 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.787755 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.846091 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.877997 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.878019 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:28.935667 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:28.967043 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:28.967067 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.024784 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.057399 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.057421 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.114675 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.148065 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.148095 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.206836 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.239559 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.239583 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.297804 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.331480 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.331502 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.389441 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.421748 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.421787 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.479693 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.512252 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.512275 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.569711 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.601293 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.601316 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.659150 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.693346 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.693374 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.753592 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.786477 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.786499 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.844599 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.876191 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.876214 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:29.934535 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:29.966457 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:29.966480 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.023904 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.056519 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.056543 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.114174 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.146588 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.146611 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.204224 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.237322 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.237346 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.296260 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.329048 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.329072 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.386221 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.419802 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.419827 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.477918 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.509693 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.509716 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.568442 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.599135 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.599159 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.657928 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.690538 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.690562 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.747989 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.781128 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.781149 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.838665 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.870108 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.870136 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:30.928246 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:30.959805 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:30.959827 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.017778 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.049654 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.049677 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.108098 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.142305 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.142338 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.201262 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.233489 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.233511 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.292727 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.326122 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.326145 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.386075 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.419329 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.419376 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.476658 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.509461 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.509483 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.568819 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.602337 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.602360 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.660770 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.692991 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.693014 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.750666 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.782851 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.782884 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.840720 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.873155 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.873178 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:31.934238 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:31.967348 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:31.967370 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.025514 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.060886 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.060916 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.120085 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.152612 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.152637 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.210491 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.243521 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.243544 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.302541 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.333495 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.333518 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.391695 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.424202 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.424230 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.484123 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.518620 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.518646 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.576473 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.609983 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.610004 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.668058 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.699834 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.699860 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.757895 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.790892 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.790915 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.848440 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.880805 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.880829 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:32.938480 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:32.973318 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:32.973341 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.030851 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.062500 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.062526 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.120450 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.152982 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.153005 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.209909 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.241496 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.241519 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.300539 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.332804 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.332831 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.390656 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.423360 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.423384 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.481212 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.513563 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.513592 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.572841 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.605288 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.605310 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.663403 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.697225 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.697260 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.759312 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.791812 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.791836 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.851166 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.882934 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.882962 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:33.940189 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:33.972028 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:33.972059 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.030321 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.062662 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.062688 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.121969 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.153218 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.153241 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.210844 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.243300 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.243324 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.301615 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.333976 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.333997 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.393592 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.425455 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.425479 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.484097 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.516419 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.516441 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.573868 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.607537 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.607559 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.667127 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.700191 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.700220 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.759502 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.791610 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.791635 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.850353 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.884683 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.884719 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:34.944161 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:34.976473 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:34.976497 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.036264 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.069593 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.069617 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.131402 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.163190 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.163213 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.222461 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.254186 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.254210 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.311733 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.377691 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.377715 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.436796 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.469309 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.469332 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.527251 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.559630 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.559656 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.616930 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.651058 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.651082 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.711762 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.744526 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.744553 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.802099 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.834596 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.834620 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.892727 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:35.924561 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:35.924582 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:35.981843 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.013365 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.013386 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.070852 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.102756 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.102790 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.162071 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.193627 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.193658 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.251359 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.283432 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.283453 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.341260 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.373313 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.373337 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.433131 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.465092 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.465122 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.524868 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.557591 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.557631 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.616927 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.652058 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.652082 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
+E20260423 11:19:36.709532 762851 opencv_provider.cpp:27]  [planning]  occ grid map is nullptr
+E20260423 11:19:36.743391 762851 on_lane_planning.cpp:2536]  [planning]  grid_map_ref_line is nullptr, err
+E20260423 11:19:36.743413 762851 on_lane_planning.cpp:2563]  [planning]  shore_line_ref_line is nullptr, err
