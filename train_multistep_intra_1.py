@@ -273,6 +273,13 @@ def train():
     # 使用初始较低学习率，配合 StepLR 解决振荡
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+    
+    # 【新增】：为 6 个状态量分配不同的权重。
+    # 索引对应 -> 0:x, 1:y, 2:yaw, 3:u, 4:v, 5:r
+    # 给 yaw(2倍), v(5倍), r(5倍) 施加更强的惩罚，逼迫模型学习弯道耦合动力学
+    state_weights = torch.tensor([1.0, 1.0, 2.0, 1.0, 5.0, 5.0], device=device)
+    
+    # 隐空间的纯线性约束 Loss 仍用基础的 MSE
     mse_loss = nn.MSELoss()
     
     print(f"\n>>> [第二阶段] 开始多步训练 (使用设备: {device})")
@@ -315,10 +322,14 @@ def train():
                 
             x_pred_seq = torch.stack(pred_states, dim=1)
             
-            # 3. 代价函数计算
-            loss_pred = mse_loss(x_pred_seq, x_target_seq)
-            loss_recon = mse_loss(x_t_recon, x_t)
+            # 3. 代价函数计算 (引入 state_weights 加权)
+            # 预测 Loss 加权：均方误差乘以对应的特征权重
+            loss_pred = torch.mean(state_weights * (x_pred_seq - x_target_seq)**2)
             
+            # 重构 Loss 同样加权，保证特征重要性在编码/解码阶段一致
+            loss_recon = torch.mean(state_weights * (x_t_recon - x_t)**2)
+            
+            # 隐空间是低维抽象特征，无法对应物理意义，保持原样
             target_z_final = model.encode(x_target_seq[:, -1, :])
             loss_linear = mse_loss(pred_latents[-1], target_z_final)
             
@@ -357,7 +368,10 @@ def train():
                     z_current = z_next
                     
                 x_pred_seq = torch.stack(pred_states, dim=1)
-                total_loss_val += mse_loss(x_pred_seq, x_target_seq).item()
+                
+                # 验证集的 Loss 也换成加权计算，这样我们选出的 "最优模型" 才是弯道表现更好的那个
+                val_loss_weighted = torch.mean(state_weights * (x_pred_seq - x_target_seq)**2)
+                total_loss_val += val_loss_weighted.item()
                 
         avg_val_loss = total_loss_val / len(val_loader)
         
@@ -368,7 +382,7 @@ def train():
         print(f"Epoch [{epoch+1:02d}/{epochs}] | "
               f"LR: {current_lr:.6f} | "
               f"Train Total: {avg_train_loss:.4f} (Pred:{epoch_pred/num_batches:.4f}, Recon:{epoch_recon/num_batches:.4f}, Linear:{epoch_linear/num_batches:.4f}) | "
-              f"Val Pred: {avg_val_loss:.4f}")
+              f"Val Pred (Weighted): {avg_val_loss:.4f}")
 
         # --- 模型保存阶段 ---
         checkpoint = {
