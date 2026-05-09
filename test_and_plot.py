@@ -2,47 +2,119 @@ import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from koopman import HorizontalKoopmanModel
-from train_multistep_intra import IntraSegmentKoopmanDataset
 
+# ==========================================
+# 1. 显式读取的 Dataset (与新版训练代码保持一致)
+# ==========================================
+class ExplicitKoopmanDataset(Dataset):
+    def __init__(self, npz_path, pred_len=20, stats=None, is_train=False):
+        super().__init__()
+        self.segments = np.load(npz_path, allow_pickle=True)['datas']
+        self.pred_len = pred_len
+        self.indices = []
+        
+        # 构建展平的时间索引
+        for local_seg_idx, seg in enumerate(self.segments):
+            if seg['len'] > pred_len:
+                for t in range(0, seg['len'] - pred_len):
+                    self.indices.append((local_seg_idx, t))
+                    
+        # 验证/测试集必须严格复用训练集的 stats
+        self.stats = stats 
+        if self.stats is None and is_train:
+            self.stats = self._compute_local_statistics()
+            
+        mode_str = "TRAIN" if is_train else "TEST"
+        print(f"Dataset [{mode_str}] 加载完毕: {npz_path} | 包含 {len(self.segments)} 个动态段 | 共 {len(self.indices)} 个推演样本.")
+
+    def _get_raw_state(self, seg, t):
+        return np.array([seg['Pos'][0, t], seg['Pos'][1, t], seg['Euler'][2, t],
+                         seg['Vel'][0, t], seg['Vel'][1, t], seg['pqr'][0, t]], dtype=np.float32)
+
+    def _transform_to_local(self, x_t_raw, x_seq_raw):
+        yaw_t = x_t_raw[2]
+        cos_yaw, sin_yaw = np.cos(yaw_t), np.sin(yaw_t)
+        x_seq_local = np.zeros_like(x_seq_raw)
+        
+        for i in range(len(x_seq_raw)):
+            dx, dy = x_seq_raw[i, 0] - x_t_raw[0], x_seq_raw[i, 1] - x_t_raw[1]
+            x_seq_local[i] = [dx*cos_yaw + dy*sin_yaw, -dx*sin_yaw + dy*cos_yaw, 
+                              (x_seq_raw[i, 2] - yaw_t + np.pi) % (2 * np.pi) - np.pi, 
+                              x_seq_raw[i, 3], x_seq_raw[i, 4], x_seq_raw[i, 5]]
+            
+        x_t_local = np.array([0., 0., 0., x_t_raw[3], x_t_raw[4], x_t_raw[5]], dtype=np.float32)
+        return x_t_local, x_seq_local
+
+    def __getitem__(self, index):
+        seg = self.segments[self.indices[index][0]]
+        t = self.indices[index][1]
+        
+        x_t_raw = self._get_raw_state(seg, t)
+        x_seq_raw = np.array([self._get_raw_state(seg, t + i) for i in range(1, self.pred_len + 1)])
+        x_t_local, x_seq_local = self._transform_to_local(x_t_raw, x_seq_raw)
+        
+        x_t_norm = (x_t_local - self.stats["state_mean"]) / self.stats["state_std"]
+        x_seq_norm = (x_seq_local - self.stats["state_mean"]) / self.stats["state_std"]
+        u_seq_norm = np.array([(seg['Thrusters_CMD'][:, t+i] - self.stats["ctrl_mean"])/self.stats["ctrl_std"] for i in range(self.pred_len)])
+        
+        return torch.FloatTensor(x_t_norm), torch.FloatTensor(x_seq_norm), torch.FloatTensor(u_seq_norm)
+
+    def __len__(self): 
+        return len(self.indices)
+
+
+# ==========================================
+# 2. 评估与绘图主逻辑
+# ==========================================
 def evaluate_all_and_plot():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt_path = "checkpoints/koopman_best.pth"
-    npz_path = "test_ds/koopman_test_dataset.npz"
+    npz_path = "koopman_test.npz" # 指向新的物理隔离测试集（盲考数据集）
     pred_len = 20
-    batch_size = 2560 
+    batch_size = 2048 
     
     if not os.path.exists(ckpt_path):
         print(f"错误: 找不到模型文件 {ckpt_path}")
         return
-    
+    if not os.path.exists(npz_path):
+        print(f"错误: 找不到测试集文件 {npz_path}，请确认分包脚本已运行。")
+        return
+        
     print(f"✅ 设备: {device}")
+    
     # 注意这里设置了 weights_only=False 以兼容保存的归一化字典
     checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     
-    # 1. 模型加载 (结构需与训练时保持一致)
-    model = HorizontalKoopmanModel(state_dim=6, control_dim=4, latent_dim=32)
+    # 1. 模型加载 (必须与新版训练代码中的 128 维模型保持绝对一致)
+    model = HorizontalKoopmanModel(
+        state_dim=6, 
+        control_dim=4, 
+        latent_dim=128, 
+        enc_hidden=[256, 256], 
+        dec_hidden=[256, 256],
+        use_skip=True
+    )
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval() 
     
-    # 2. 获取归一化参数
+    # 2. 获取训练集的全局归一化参数
     stats = checkpoint['stats']
     state_mean = stats['state_mean']
     state_std = stats['state_std']
     
-    print("正在加载测试集...")
-    test_ds = IntraSegmentKoopmanDataset(npz_path, split_mode='test', pred_len=pred_len, ratios=(0.0, 0.0, 1.0), stats=stats)
+    print("\n正在加载盲考测试集 (Random Sail)...")
+    test_ds = ExplicitKoopmanDataset(npz_path, pred_len=pred_len, stats=stats, is_train=False)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     
     all_targets_list = []
     all_preds_list = []
     
     # 3. 多步预测推理
-    print(f"🚀 开始在 {len(test_ds)} 个样本上进行全局多步验证...")
+    print(f"🚀 开始在 {len(test_ds)} 个随机航行样本上进行全局多步验证...")
     with torch.no_grad():
         for batch_idx, (x_t_norm, x_target_seq_norm, u_seq_norm) in enumerate(test_loader):
             x_t_norm = x_t_norm.to(device)
@@ -54,7 +126,7 @@ def evaluate_all_and_plot():
             for step in range(pred_len):
                 u_t_step = u_seq_norm[:, step, :]
                 
-                # 这里调用的是 koopman.py 里的 latent_step，内部已经实现了 z + delta_z 的残差逻辑
+                # 调用 latent_step (内部已实现残差逻辑: z_next = z + A*z + B*u)
                 z_next = model.latent_step(z_current, u_t_step)
                 x_hat_step = model.reconstruct_state(z_next)
                 pred_states_norm.append(x_hat_step)
@@ -71,12 +143,11 @@ def evaluate_all_and_plot():
     total_samples = full_targets.shape[0]
 
     # ==========================================
-    # 5. 速度误差计算 (核心逻辑 - 已修复物理索引)
-    # 标准船舶运动学索引: 0:x, 1:y, 2:yaw, 3:u(纵向速度), 4:v(横向速度), 5:r(角速度)
+    # 5. 速度误差计算 (纵向速度 u + 横向速度 v)
     # ==========================================
-    print("正在分析速度误差...")
+    print("正在分析盲考测试集上的速度物理误差...")
     
-    # 反归一化真实的纵向速度(u)和横向速度(v)
+    # 反归一化真实的纵向速度(u)和横向速度(v) (索引3和4)
     gt_u = full_targets[:, :, 3] * state_std[3] + state_mean[3]
     gt_v = full_targets[:, :, 4] * state_std[4] + state_mean[4]
     
@@ -87,7 +158,6 @@ def evaluate_all_and_plot():
     # 计算每个步长的速度矢量模长误差: sqrt( (u_gt - u_pred)^2 + (v_gt - v_pred)^2 )
     vel_error = np.sqrt((gt_u - pred_u)**2 + (gt_v - pred_v)**2)
     
-    # 计算所有样本在每一步的平均误差
     mean_vel_error_per_step = np.mean(vel_error, axis=0)
 
     # ==========================================
@@ -98,6 +168,7 @@ def evaluate_all_and_plot():
     
     # --- 子图 1: 轨迹对比 ---
     plt.figure(figsize=(18, 12))
+    # 均匀抽取 6 个样本展示
     sample_indices = np.linspace(0, total_samples - 1, 6, dtype=int)
     for i, idx in enumerate(sample_indices):
         plt.subplot(2, 3, i+1)
@@ -122,7 +193,7 @@ def evaluate_all_and_plot():
     plt.plot(steps, mean_vel_error_per_step, marker='s', color='blue', linewidth=2, label='Mean Velocity L2 Error (u, v)')
     plt.fill_between(steps, 0, mean_vel_error_per_step, color='blue', alpha=0.1)
     
-    plt.title("Velocity Error Accumulation (Multi-step Prediction)", fontsize=14)
+    plt.title("Velocity Error Accumulation in Blind Test (Multi-step)", fontsize=14)
     plt.xlabel("Prediction Step", fontsize=12)
     plt.ylabel("Average Speed Error [m/s]", fontsize=12)
     plt.xticks(steps)
@@ -132,7 +203,7 @@ def evaluate_all_and_plot():
     plt.savefig(os.path.join(plot_dir, "velocity_error_curve.png"), dpi=200)
     
     print(f"✅ 可视化图表已保存至 {plot_dir} 目录。")
-    print(f"📊 平均速度误差 (全程): {np.mean(vel_error):.4f} m/s")
+    print(f"📊 盲考测试集平均速度误差 (全程): {np.mean(vel_error):.4f} m/s")
 
 if __name__ == "__main__":
     evaluate_all_and_plot()
