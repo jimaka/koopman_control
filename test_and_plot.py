@@ -92,9 +92,9 @@ def evaluate_all_and_plot():
     model = HorizontalKoopmanModel(
         state_dim=6, 
         control_dim=4, 
-        latent_dim=128, 
-        enc_hidden=[256, 256], 
-        dec_hidden=[256, 256],
+        latent_dim=32, 
+        enc_hidden=[64, 64], 
+        dec_hidden=[64, 64],
         use_skip=True
     )
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -126,7 +126,7 @@ def evaluate_all_and_plot():
             for step in range(pred_len):
                 u_t_step = u_seq_norm[:, step, :]
                 
-                # 调用 latent_step (内部已实现残差逻辑: z_next = z + A*z + B*u)
+                # 调用 latent_step
                 z_next = model.latent_step(z_current, u_t_step)
                 x_hat_step = model.reconstruct_state(z_next)
                 pred_states_norm.append(x_hat_step)
@@ -147,32 +147,27 @@ def evaluate_all_and_plot():
     # ==========================================
     print("正在分析盲考测试集上的速度物理误差...")
     
-    # 反归一化真实的纵向速度(u)和横向速度(v) (索引3和4)
     gt_u = full_targets[:, :, 3] * state_std[3] + state_mean[3]
     gt_v = full_targets[:, :, 4] * state_std[4] + state_mean[4]
     
-    # 反归一化预测的纵向速度(u)和横向速度(v)
     pred_u = full_preds[:, :, 3] * state_std[3] + state_mean[3]
     pred_v = full_preds[:, :, 4] * state_std[4] + state_mean[4]
 
-    # 计算每个步长的速度矢量模长误差: sqrt( (u_gt - u_pred)^2 + (v_gt - v_pred)^2 )
     vel_error = np.sqrt((gt_u - pred_u)**2 + (gt_v - pred_v)**2)
-    
     mean_vel_error_per_step = np.mean(vel_error, axis=0)
 
     # ==========================================
-    # 6. 作图
+    # 6. 作图 (新增了航向角、横纵速度随时间步的对比图)
     # ==========================================
     plot_dir = "test_analysis"
     os.makedirs(plot_dir, exist_ok=True)
     
+    sample_indices = np.linspace(0, total_samples - 1, 6, dtype=int)
+    
     # --- 子图 1: 轨迹对比 ---
     plt.figure(figsize=(18, 12))
-    # 均匀抽取 6 个样本展示
-    sample_indices = np.linspace(0, total_samples - 1, 6, dtype=int)
     for i, idx in enumerate(sample_indices):
         plt.subplot(2, 3, i+1)
-        # 反归一化位置 (索引 0 为 x，索引 1 为 y)
         gx = full_targets[idx, :, 0] * state_std[0] + state_mean[0]
         gy = full_targets[idx, :, 1] * state_std[1] + state_mean[1]
         px = full_preds[idx, :, 0] * state_std[0] + state_mean[0]
@@ -180,14 +175,66 @@ def evaluate_all_and_plot():
         
         plt.plot(gx, gy, 'g-o', label='GT Path', alpha=0.6)
         plt.plot(px, py, 'r--x', label='Koopman Pred')
-        plt.title(f"Sample {idx}")
+        plt.title(f"Sample {idx} - Trajectory")
         plt.axis('equal')
         plt.grid(True, alpha=0.3)
         if i == 0: plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, "trajectory_comparison.png"))
 
-    # --- 子图 2: 速度误差随步数变化 ---
+    # --- 子图 2: 航向角 (Yaw) 对比 (状态索引 2) ---
+    plt.figure(figsize=(18, 12))
+    for i, idx in enumerate(sample_indices):
+        plt.subplot(2, 3, i+1)
+        g_yaw = full_targets[idx, :, 2] * state_std[2] + state_mean[2]
+        p_yaw = full_preds[idx, :, 2] * state_std[2] + state_mean[2]
+        
+        # 转换为角度展示更直观
+        plt.plot(np.degrees(g_yaw), 'g-o', label='GT Yaw', alpha=0.6)
+        plt.plot(np.degrees(p_yaw), 'r--x', label='Koopman Pred')
+        plt.title(f"Sample {idx} - Yaw Angle")
+        plt.xlabel("Prediction Step")
+        plt.ylabel("Local Yaw Angle [deg]")
+        plt.grid(True, alpha=0.3)
+        if i == 0: plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "yaw_comparison.png"))
+
+    # --- 子图 3: 纵向速度 (u) 对比 (状态索引 3) ---
+    plt.figure(figsize=(18, 12))
+    for i, idx in enumerate(sample_indices):
+        plt.subplot(2, 3, i+1)
+        g_u = full_targets[idx, :, 3] * state_std[3] + state_mean[3]
+        p_u = full_preds[idx, :, 3] * state_std[3] + state_mean[3]
+        
+        plt.plot(g_u, 'g-o', label='GT Surge (u)', alpha=0.6)
+        plt.plot(p_u, 'r--x', label='Koopman Pred')
+        plt.title(f"Sample {idx} - Surge Velocity (u)")
+        plt.xlabel("Prediction Step")
+        plt.ylabel("Velocity [m/s]")
+        plt.grid(True, alpha=0.3)
+        if i == 0: plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "u_velocity_comparison.png"))
+
+    # --- 子图 4: 横向速度 (v) 对比 (状态索引 4) ---
+    plt.figure(figsize=(18, 12))
+    for i, idx in enumerate(sample_indices):
+        plt.subplot(2, 3, i+1)
+        g_v = full_targets[idx, :, 4] * state_std[4] + state_mean[4]
+        p_v = full_preds[idx, :, 4] * state_std[4] + state_mean[4]
+        
+        plt.plot(g_v, 'g-o', label='GT Sway (v)', alpha=0.6)
+        plt.plot(p_v, 'r--x', label='Koopman Pred')
+        plt.title(f"Sample {idx} - Sway Velocity (v)")
+        plt.xlabel("Prediction Step")
+        plt.ylabel("Velocity [m/s]")
+        plt.grid(True, alpha=0.3)
+        if i == 0: plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, "v_velocity_comparison.png"))
+
+    # --- 子图 5: 速度总误差随步数变化 ---
     plt.figure(figsize=(10, 6))
     steps = np.arange(1, pred_len + 1)
     plt.plot(steps, mean_vel_error_per_step, marker='s', color='blue', linewidth=2, label='Mean Velocity L2 Error (u, v)')
@@ -202,7 +249,7 @@ def evaluate_all_and_plot():
     
     plt.savefig(os.path.join(plot_dir, "velocity_error_curve.png"), dpi=200)
     
-    print(f"✅ 可视化图表已保存至 {plot_dir} 目录。")
+    print(f"✅ 可视化图表已保存至 {plot_dir} 目录。包含轨迹、偏航角、横/纵速度对比。")
     print(f"📊 盲考测试集平均速度误差 (全程): {np.mean(vel_error):.4f} m/s")
 
 if __name__ == "__main__":

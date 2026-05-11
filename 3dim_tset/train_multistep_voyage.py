@@ -1,4 +1,5 @@
 import os
+import math
 import yaml
 import numpy as np
 import torch
@@ -8,15 +9,10 @@ import argparse
 import logging
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
-import subprocess # [新增] 用于调用 nvidia-smi 获取 GPU 状态
+import subprocess
 
-# 为了支持实船的 OSQP MPC，必须使用纯线性的 HorizontalKoopmanModel
-# 依靠 128 维的隐空间来拟合高密度数据包中的非线性特征
 from koopman import HorizontalKoopmanModel
 
-# ==========================================
-# 0. 辅助工具：日志与 GPU 状态监控
-# ==========================================
 def setup_logger(log_dir):
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -24,52 +20,31 @@ def setup_logger(log_dir):
 
     logger = logging.getLogger("KoopmanTrainer")
     logger.setLevel(logging.INFO)
-
     fh = logging.FileHandler(log_file, encoding='utf-8')
     fh.setLevel(logging.INFO)
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
-
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
-
     logger.addHandler(fh)
     logger.addHandler(ch)
-    
     return logger, timestamp
 
 def get_gpu_power_bar(bar_length=10):
-    """
-    [修改] 增强版 GPU 状态监控，完美兼容无法读取功耗的 vGPU/MIG 环境
-    """
-    if not torch.cuda.is_available():
-        return "[N/A (CPU)]"
+    if not torch.cuda.is_available(): return "[N/A (CPU)]"
     try:
-        # 查询功耗和功耗限制
         cmd = "nvidia-smi --query-gpu=power.draw,power.limit --format=csv,noheader,nounits"
         result = subprocess.check_output(cmd, shell=True).decode('utf-8').strip().split('\n')[0]
-        
-        # [新增] 提前拦截包含 N/A 或 Not Supported 的情况
-        if "N/A" in result or "Not Supported" in result:
-            return "[Pwr: N/A (Unsupported)]"
-            
+        if "N/A" in result or "Not Supported" in result: return "[Pwr: N/A]"
         draw, limit = map(float, result.split(','))
-        
         percent = (draw / limit) * 100 if limit > 0 else 0
         filled = int((percent / 100) * bar_length)
         bar = '|' * filled + ' ' * (bar_length - filled)
         return f"[{bar}] {percent:4.1f}%"
-        
-    except ValueError:
-        # 如果依然发生了类型转换错误，优雅地吃掉它
-        return "[Pwr: N/A (Parse Error)]"
-    except Exception as e:
-        return f"[Cmd Error: {str(e)}]"
+    except:
+        return "[Pwr: Error]"
 
-# ==========================================
-# 1. 显式读取的高效 Dataset
-# ==========================================
 class ExplicitKoopmanDataset(Dataset):
     def __init__(self, npz_path, pred_len=20, stats=None, is_train=False, logger=None):
         super().__init__()
@@ -86,41 +61,33 @@ class ExplicitKoopmanDataset(Dataset):
         self.stats = stats if stats is not None else self._compute_local_statistics()
             
         mode_str = "TRAIN" if is_train else "EVAL"
-        msg = f"Dataset [{mode_str}] 加载完毕: {npz_path} | 包含 {len(self.segments)} 个动态段 | 共 {len(self.indices)} 个推演样本."
-        if self.logger: 
-            self.logger.info(msg) 
-        else:
-            print(msg)
+        msg = f"Dataset [{mode_str}] 加载: {npz_path} | {len(self.segments)}段 | {len(self.indices)}样本"
+        if self.logger: self.logger.info(msg) 
+        else: print(msg)
 
     def _get_raw_state(self, seg, t):
-        return np.array([seg['Pos'][0, t], seg['Pos'][1, t], seg['Euler'][2, t],
-                         seg['Vel'][0, t], seg['Vel'][1, t], seg['pqr'][0, t]], dtype=np.float32)
-
-    def _transform_to_local(self, x_t_raw, x_seq_raw):
-        yaw_t = x_t_raw[2]
-        cos_yaw, sin_yaw = np.cos(yaw_t), np.sin(yaw_t)
-        x_seq_local = np.zeros_like(x_seq_raw)
+        u = seg['Vel'][0, t]
+        v = seg['Vel'][1, t]
+        r = seg['pqr'][0, t]
         
-        for i in range(len(x_seq_raw)):
-            dx, dy = x_seq_raw[i, 0] - x_t_raw[0], x_seq_raw[i, 1] - x_t_raw[1]
-            x_seq_local[i] = [dx*cos_yaw + dy*sin_yaw, -dx*sin_yaw + dy*cos_yaw, 
-                              (x_seq_raw[i, 2] - yaw_t + np.pi) % (2 * np.pi) - np.pi, 
-                              x_seq_raw[i, 3], x_seq_raw[i, 4], x_seq_raw[i, 5]]
-            
-        x_t_local = np.array([0., 0., 0., x_t_raw[3], x_t_raw[4], x_t_raw[5]], dtype=np.float32)
-        return x_t_local, x_seq_local
+        u_abs_u = u * abs(u)
+        v_abs_v = v * abs(v)
+        r_abs_r = r * abs(r)
+        u_r = u * r
+        v_r = v * r
+        
+        return np.array([u, v, r, u_abs_u, v_abs_v, r_abs_r, u_r, v_r], dtype=np.float32)
 
     def _compute_local_statistics(self):
-        if self.logger: self.logger.info(">>> 正在计算全局 Mean & Std...")
+        if self.logger: self.logger.info("正在计算 8 维特征全局统计量...")
         local_states, controls = [], []
         for local_seg_idx, t in self.indices:
             seg = self.segments[local_seg_idx]
             x_t_raw = self._get_raw_state(seg, t)
             x_seq_raw = np.array([self._get_raw_state(seg, t + i) for i in range(1, self.pred_len + 1)])
-            x_t_local, x_seq_local = self._transform_to_local(x_t_raw, x_seq_raw)
             
-            local_states.append(x_t_local)
-            local_states.extend(x_seq_local)
+            local_states.append(x_t_raw)
+            local_states.extend(x_seq_raw)
             for i in range(self.pred_len): 
                 controls.append(seg['Thrusters_CMD'][:, t + i])
                 
@@ -136,12 +103,11 @@ class ExplicitKoopmanDataset(Dataset):
         seg = self.segments[self.indices[index][0]]
         t = self.indices[index][1]
         
-        x_t_raw = self._get_raw_state(seg, t)
-        x_seq_raw = np.array([self._get_raw_state(seg, t + i) for i in range(1, self.pred_len + 1)])
-        x_t_local, x_seq_local = self._transform_to_local(x_t_raw, x_seq_raw)
+        x_t = self._get_raw_state(seg, t)
+        x_seq = np.array([self._get_raw_state(seg, t + i) for i in range(1, self.pred_len + 1)])
         
-        x_t_norm = (x_t_local - self.stats["state_mean"]) / self.stats["state_std"]
-        x_seq_norm = (x_seq_local - self.stats["state_mean"]) / self.stats["state_std"]
+        x_t_norm = (x_t - self.stats["state_mean"]) / self.stats["state_std"]
+        x_seq_norm = (x_seq - self.stats["state_mean"]) / self.stats["state_std"]
         u_seq_norm = np.array([(seg['Thrusters_CMD'][:, t+i] - self.stats["ctrl_mean"])/self.stats["ctrl_std"] for i in range(self.pred_len)])
         
         return torch.FloatTensor(x_t_norm), torch.FloatTensor(x_seq_norm), torch.FloatTensor(u_seq_norm)
@@ -150,9 +116,6 @@ class ExplicitKoopmanDataset(Dataset):
         return len(self.indices)
 
 
-# ==========================================
-# 2. 导出 OSQP 级 YAML 参数
-# ==========================================
 def export_params_to_yaml(model, stats, logger, save_path):
     def extract_matrix(matrix_attr, is_A_matrix=False):
         if matrix_attr is None: return []
@@ -164,6 +127,10 @@ def export_params_to_yaml(model, stats, logger, save_path):
             return mat_tensor.numpy().tolist()
         return []
 
+    def extract_bias(matrix_attr):
+        if matrix_attr is None or getattr(matrix_attr, 'bias', None) is None: return []
+        return matrix_attr.bias.detach().cpu().numpy().tolist()
+
     yaml_data = {
         "normalization": {
             "state_mean": stats["state_mean"].tolist(), "state_variance": (stats["state_std"]**2).tolist(), "state_std": stats["state_std"].tolist(),
@@ -173,34 +140,26 @@ def export_params_to_yaml(model, stats, logger, save_path):
             "state_min": stats["state_min"].tolist(), "state_max": stats["state_max"].tolist(),
             "ctrl_min": stats["ctrl_min"].tolist(), "ctrl_max": stats["ctrl_max"].tolist()
         },
-        "system_matrices": {"A": extract_matrix(getattr(model, 'A', None), True), "B": extract_matrix(getattr(model, 'B', None), False)}
+        "system_matrices": {
+            "A": extract_matrix(getattr(model, 'A', None), True), 
+            "B": extract_matrix(getattr(model, 'B', None), False),
+            "c": extract_bias(getattr(model, 'A', None)) # 导出常数偏置项
+        }
     }
     with open(save_path, 'w', encoding='utf-8') as f:
         yaml.dump(yaml_data, f, default_flow_style=None, sort_keys=False, indent=4)
-    logger.info(f">>> [完美导出] 高维 OSQP 矩阵参数已导出至: {save_path}")
+    logger.info(f">>> [完美导出] 高维 OSQP 矩阵参数（包含Bias）已导出至: {save_path}")
 
 
-# ==========================================
-# 3. 高密度数据训练主循环
-# ==========================================
 def train(args):
     logger, timestamp = setup_logger(args.log_dir)
     tb_writer = SummaryWriter(log_dir=os.path.join(args.log_dir, f'tensorboard_{timestamp}'))
-    
     os.makedirs(args.ckpt_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # 解析并设置各个维度的状态权重
     state_weights_list = [float(w) for w in args.state_weights.split(',')]
-    assert len(state_weights_list) == 6, "状态权重列表长度必须为 6 [x, y, yaw, u, v, r]"
+    assert len(state_weights_list) == 3, "目标状态维度必须为 3 [u, v, r]"
     state_weights = torch.tensor(state_weights_list, device=device)
-    
-    logger.info("=" * 50)
-    logger.info("训练参数及权重配置:")
-    for arg, value in vars(args).items():
-        logger.info(f"  {arg}: {value}")
-    logger.info(f"  Device: {device}")
-    logger.info("=" * 50)
     
     train_ds = ExplicitKoopmanDataset(args.train_data, pred_len=args.pred_len, is_train=True, logger=logger)
     val_ds = ExplicitKoopmanDataset(args.val_data, pred_len=args.pred_len, stats=train_ds.stats, is_train=False, logger=logger)
@@ -208,55 +167,63 @@ def train(args):
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True, prefetch_factor=args.prefetch, persistent_workers=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
-    model = HorizontalKoopmanModel(state_dim=6, control_dim=4, latent_dim=32, enc_hidden=[64, 64], dec_hidden=[64, 64], use_skip=True).to(device)
+    # 【优化】：使用降维模型 (latent_dim=32, enc_hidden=[128,128])
+    model = HorizontalKoopmanModel(input_dim=8, state_dim=3, control_dim=4, latent_dim=32, enc_hidden=[128, 128], dec_hidden=[128, 128], use_skip=True).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
     mse_loss = nn.MSELoss()
     
-    temporal_weights_list = [1.0 + 0.05 * step for step in range(args.pred_len)]
+    # 强制指数递增的时间权重
+    temporal_weights_list = [math.exp(0.15 * step) for step in range(args.pred_len)]
     temporal_weights = torch.tensor(temporal_weights_list, device=device).view(1, -1, 1)
     
     best_val_loss = float('inf')
     
     for epoch in range(args.epochs):
         model.train()
-        epoch_losses = {'total': 0.0, 'pred': 0.0, 'acc': 0.0, 'recon': 0.0, 'linear': 0.0, 'stab': 0.0}
-        if torch.cuda.is_available(): torch.cuda.reset_peak_memory_stats()
+        epoch_losses = {'total': 0.0, 'pred': 0.0, 'acc': 0.0, 'recon': 0.0, 'linear': 0.0, 'inertia': 0.0}
         
-        for x_t, x_target_seq, u_seq in train_loader:
-            x_t, x_target_seq, u_seq = x_t.to(device), x_target_seq.to(device), u_seq.to(device)
+        for x_t_8d, x_target_seq_8d, u_seq in train_loader:
+            x_t_8d, x_target_seq_8d, u_seq = x_t_8d.to(device), x_target_seq_8d.to(device), u_seq.to(device)
             optimizer.zero_grad()
             
-            z_current = model.encode(x_t)
-            x_t_recon = model.reconstruct_state(z_current)
-            pred_states, pred_latents = [], []
+            z_current = model.encode(x_t_8d)
+            x_t_recon_3d = model.reconstruct_state(z_current)
+            pred_states_3d, pred_latents = [], []
             
             for step in range(args.pred_len):
                 z_next = model.latent_step(z_current, u_seq[:, step, :])
                 pred_latents.append(z_next)
-                pred_states.append(model.reconstruct_state(z_next))
+                pred_states_3d.append(model.reconstruct_state(z_next))
                 z_current = z_next
                 
-            x_pred_seq = torch.stack(pred_states, dim=1)
+            x_pred_seq_3d = torch.stack(pred_states_3d, dim=1)
             pred_latents_stack = torch.stack(pred_latents, dim=1)
             
-            B, seq_len, dim = x_target_seq.shape
-            target_latents = model.encode(x_target_seq.view(B * seq_len, dim)).view(B, seq_len, -1)
+            B, seq_len, dim = x_target_seq_8d.shape
+            target_latents = model.encode(x_target_seq_8d.view(B * seq_len, dim)).view(B, seq_len, -1)
             
-            loss_pred = torch.mean(temporal_weights * state_weights * (x_pred_seq - x_target_seq)**2)
-            loss_recon = torch.mean(state_weights * (x_t_recon - x_t)**2)
+            x_target_seq_3d = x_target_seq_8d[:, :, :3]
+            x_t_target_3d = x_t_8d[:, :3]
+            
+            # 【优化】：引入全序列自编码重构惩罚
+            target_recon_3d = model.reconstruct_state(target_latents.view(B * seq_len, -1)).view(B, seq_len, 3)
+            loss_recon_seq = torch.mean(state_weights * (target_recon_3d - x_target_seq_3d)**2)
+            loss_recon_t0 = torch.mean(state_weights * (x_t_recon_3d - x_t_target_3d)**2)
+            
+            loss_recon = loss_recon_t0 + 0.5 * loss_recon_seq
+            
+            loss_pred = torch.mean(temporal_weights * state_weights * (x_pred_seq_3d - x_target_seq_3d)**2)
             loss_linear = mse_loss(pred_latents_stack, target_latents) 
-            loss_stab = torch.relu(model.spectral_radius() - 1.01) ** 2
-            
-            pred_vel, target_vel = x_pred_seq[:, :, 3:6], x_target_seq[:, :, 3:6]
-            loss_acc = torch.mean(((pred_vel[:, 1:, :] - pred_vel[:, :-1, :]) - (target_vel[:, 1:, :] - target_vel[:, :-1, :]))**2)
+            loss_acc = torch.mean(((x_pred_seq_3d[:, 1:, :] - x_pred_seq_3d[:, :-1, :]) - (x_target_seq_3d[:, 1:, :] - x_target_seq_3d[:, :-1, :]))**2)
+            loss_inertia = torch.mean(model.A.weight ** 2)
 
-            # [修改] 使用 argparse 配置的权重参数计算总 Loss
+            # 惯性权重微调为 0.1，允许矩阵适度学习阻尼
             loss = (args.w_pred * loss_pred + 
                     args.w_acc * loss_acc + 
                     args.w_recon * loss_recon + 
                     args.w_linear * loss_linear + 
-                    args.w_stab * loss_stab)
+                    0.1 * loss_inertia)
             
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -267,58 +234,35 @@ def train(args):
             epoch_losses['acc'] += loss_acc.item()
             epoch_losses['recon'] += loss_recon.item()
             epoch_losses['linear'] += loss_linear.item()
-            epoch_losses['stab'] += loss_stab.item()
+            epoch_losses['inertia'] += loss_inertia.item()
             
         num_batches = len(train_loader)
         for k in epoch_losses:
             epoch_losses[k] /= num_batches
             tb_writer.add_scalar(f'Train/{k.capitalize()}_Loss', epoch_losses[k], epoch)
             
-        # [修改] GPU 内存记录与 GPU 功率利用率状态记录
-        gpu_power_str = get_gpu_power_bar()
-        gpu_mem_str = "[N/A]"
-        
-        if torch.cuda.is_available():
-            # 1. 获取当前模型占用的峰值显存 (字节转MB)
-            max_mem_bytes = torch.cuda.max_memory_allocated()
-            max_mem_mb = max_mem_bytes / (1024 ** 2)
-            
-            # 2. 获取显卡的物理总显存容量
-            total_mem_bytes = torch.cuda.get_device_properties(device).total_memory
-            
-            # 3. 计算占用率百分比
-            mem_percent = (max_mem_bytes / total_mem_bytes) * 100
-            
-            # 格式化字符串，例如: "4500MB (54.9%)"
-            gpu_mem_str = f"{max_mem_mb:.0f}MB ({mem_percent:.1f}%)"
-            
-            # 同步记录到 TensorBoard
-            tb_writer.add_scalar('System/GPU_Memory_Peak_MB', max_mem_mb, epoch)
-            tb_writer.add_scalar('System/GPU_Memory_Percent', mem_percent, epoch)
-
         model.eval()
         total_loss_val = 0.0
         with torch.no_grad():
-            for x_t, x_target_seq, u_seq in val_loader:
-                x_t, x_target_seq, u_seq = x_t.to(device), x_target_seq.to(device), u_seq.to(device)
-                z_current = model.encode(x_t)
-                pred_states = []
+            for x_t_8d, x_target_seq_8d, u_seq in val_loader:
+                x_t_8d, x_target_seq_8d, u_seq = x_t_8d.to(device), x_target_seq_8d.to(device), u_seq.to(device)
+                z_current = model.encode(x_t_8d)
+                pred_states_3d = []
                 for step in range(args.pred_len):
                     z_current = model.latent_step(z_current, u_seq[:, step, :])
-                    pred_states.append(model.reconstruct_state(z_current))
-                val_loss_weighted = torch.mean(temporal_weights * state_weights * (torch.stack(pred_states, dim=1) - x_target_seq)**2)
+                    pred_states_3d.append(model.reconstruct_state(z_current))
+                val_loss_weighted = torch.mean(temporal_weights * state_weights * (torch.stack(pred_states_3d, dim=1) - x_target_seq_8d[:, :, :3])**2)
                 total_loss_val += val_loss_weighted.item()
                 
         scheduler.step()
         avg_val_loss = total_loss_val / len(val_loader)
         tb_writer.add_scalar('Val/Total_Loss', avg_val_loss, epoch)
         
-        # [修改] 最终整合的日志输出形式
         log_msg = (
-            f"Epoch [{epoch+1:03d}/{args.epochs}] | LR: {optimizer.param_groups[0]['lr']:.6f} | "
-            f"Loss: {epoch_losses['total']:.4f} (Pred:{epoch_losses['pred']:.4f}, Acc:{epoch_losses['acc']:.4f}, "
-            f"Recon:{epoch_losses['recon']:.4f}, Lin:{epoch_losses['linear']:.4f}) | "
-            f"Val Loss: {avg_val_loss:.4f} | Mem: {gpu_mem_str} | Pwr: {gpu_power_str}"
+            f"Ep [{epoch+1:03d}/{args.epochs}] LR:{optimizer.param_groups[0]['lr']:.6f} | "
+            f"Loss:{epoch_losses['total']:.4f} (Pr:{epoch_losses['pred']:.4f}, Ac:{epoch_losses['acc']:.4f}, "
+            f"Rc:{epoch_losses['recon']:.4f}, Lr:{epoch_losses['linear']:.4f}, Iner:{epoch_losses['inertia']:.4f}) | "
+            f"Val:{avg_val_loss:.4f} | Pwr: {get_gpu_power_bar()}"
         )
         logger.info(log_msg)
 
@@ -333,15 +277,11 @@ def train(args):
     tb_writer.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Koopman Multi-step Training on Server")
-    
-    # 数据路径配置
-    parser.add_argument('--train_data', type=str, default='koopman_train.npz')
-    parser.add_argument('--val_data', type=str, default='koopman_val.npz')
-    parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
-    parser.add_argument('--log_dir', type=str, default='logs')
-    
-    # 训练基础参数
+    parser = argparse.ArgumentParser(description="Koopman 8D-EDMD Multi-step Training")
+    parser.add_argument('--train_data', type=str, default='../koopman_train.npz')
+    parser.add_argument('--val_data', type=str, default='../koopman_val.npz')
+    parser.add_argument('--ckpt_dir', type=str, default='../checkpoints')
+    parser.add_argument('--log_dir', type=str, default='../logs')
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=2048)
     parser.add_argument('--lr', type=float, default=1e-2)
@@ -349,20 +289,15 @@ if __name__ == "__main__":
     parser.add_argument('--step_size', type=int, default=25)
     parser.add_argument('--gamma', type=float, default=0.5)
     parser.add_argument('--pred_len', type=int, default=20)
-    
-    # 硬件与数据加载参数
     parser.add_argument('--num_workers', type=int, default=12)
     parser.add_argument('--prefetch', type=int, default=40)
     
-    # [新增] 损失项权重配置
-    parser.add_argument('--w_pred', type=float, default=10.0, help='预测序列损失权重')
-    parser.add_argument('--w_acc', type=float, default=5.0, help='加速度平滑惩罚权重')
-    parser.add_argument('--w_recon', type=float, default=1.0, help='编码器重构损失权重')
-    parser.add_argument('--w_linear', type=float, default=1.0, help='隐空间线性动力学损失权重')
-    parser.add_argument('--w_stab', type=float, default=0.1, help='系统稳定谱半径约束权重')
+    parser.add_argument('--w_pred', type=float, default=10.0)
+    parser.add_argument('--w_acc', type=float, default=5.0)
+    parser.add_argument('--w_recon', type=float, default=1.0)
+    parser.add_argument('--w_linear', type=float, default=1.0)
     
-    # [新增] 各状态维度偏差惩罚配置
-    parser.add_argument('--state_weights', type=str, default='2.0,2.0,2.0,3.0,5.0,5.0', help='各状态维度权重，用逗号分隔，顺序对应 [x, y, yaw, u, v, r]')
+    parser.add_argument('--state_weights', type=str, default='3.0,5.0,5.0', help='各状态维度权重[u, v, r]')
 
     args = parser.parse_args()
     train(args)
