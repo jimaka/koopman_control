@@ -1,0 +1,72 @@
+2026-05-12 09:31:16,544 - INFO - ==================================================
+2026-05-12 09:31:16,544 - INFO - 训练参数及权重配置 (采用深层残差网络):
+2026-05-12 09:31:16,544 - INFO -   train_data: koopman_train_merged.npz
+2026-05-12 09:31:16,544 - INFO -   val_data: koopman_val.npz
+2026-05-12 09:31:16,544 - INFO -   ckpt_dir: checkpoints
+2026-05-12 09:31:16,544 - INFO -   log_dir: logs
+2026-05-12 09:31:16,544 - INFO -   epochs: 150
+2026-05-12 09:31:16,544 - INFO -   batch_size: 1024
+2026-05-12 09:31:16,544 - INFO -   lr: 0.001
+2026-05-12 09:31:16,544 - INFO -   weight_decay: 0.0001
+2026-05-12 09:31:16,544 - INFO -   step_size: 30
+2026-05-12 09:31:16,544 - INFO -   gamma: 0.5
+2026-05-12 09:31:16,544 - INFO -   pred_len: 20
+2026-05-12 09:31:16,544 - INFO -   num_workers: 12
+2026-05-12 09:31:16,544 - INFO -   prefetch: 40
+2026-05-12 09:31:16,544 - INFO -   w_pred: 20.0
+2026-05-12 09:31:16,544 - INFO -   w_acc: 40.0
+2026-05-12 09:31:16,544 - INFO -   w_recon: 20.0
+2026-05-12 09:31:16,544 - INFO -   w_linear: 10.0
+2026-05-12 09:31:16,544 - INFO -   w_stab: 0.1
+2026-05-12 09:31:16,544 - INFO -   state_weights: 1.0,1.0,5.0,10.0,10.0,20.0
+2026-05-12 09:31:16,544 - INFO - ==================================================
+2026-05-12 09:31:16,597 - INFO - >>> 正在计算全局 Mean & Std...
+2026-05-12 09:31:29,192 - INFO - Dataset [TRAIN] 加载完毕: koopman_train_merged.npz | 包含 99 个动态段 | 共 195921 个推演样本.
+2026-05-12 09:31:29,199 - INFO - Dataset [EVAL] 加载完毕: koopman_val.npz | 包含 3 个动态段 | 共 35937 个推演样本.
+2026-05-12 09:32:09,304 - INFO - Epoch [001/150] | LR: 0.001000 | Loss: 134.6038 (Pred:6.0636, Phy:0.0363, Recon:0.2101, Lin:0.3324) | Val Loss: 0.1083 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:32:41,787 - INFO - Epoch [002/150] | LR: 0.001000 | Loss: 1.3548 (Pred:0.0425, Phy:0.0004, Recon:0.0166, Lin:0.0114) | Val Loss: 0.0590 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:33:14,116 - INFO - Epoch [003/150] | LR: 0.001000 | Loss: 0.7554 (Pred:0.0232, Phy:0.0003, Recon:0.0095, Lin:0.0060) | Val Loss: 0.0681 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:33:46,703 - INFO - Epoch [004/150] | LR: 0.001000 | Loss: 0.6176 (Pred:0.0198, Phy:0.0002, Recon:0.0078, Lin:0.0040) | Val Loss: 0.0576 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:34:19,559 - INFO - Epoch [005/150] | LR: 0.001000 | Loss: 0.4544 (Pred:0.0152, Phy:0.0001, Recon:0.0053, Lin:0.0028) | Val Loss: 0.0327 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:34:51,911 - INFO - Epoch [006/150] | LR: 0.001000 | Loss: 0.3746 (Pred:0.0128, Phy:0.0001, Recon:0.0039, Lin:0.0021) | Val Loss: 0.0268 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:35:24,539 - INFO - Epoch [007/150] | LR: 0.001000 | Loss: 0.3252 (Pred:0.0110, Phy:0.0001, Recon:0.0039, Lin:0.0015) | Val Loss: 0.0199 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:35:56,926 - INFO - Epoch [008/150] | LR: 0.001000 | Loss: 0.2860 (Pred:0.0101, Phy:0.0001, Recon:0.0029, Lin:0.0013) | Val Loss: 0.0249 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:36:29,749 - INFO - Epoch [009/150] | LR: 0.001000 | Loss: 0.2560 (Pred:0.0092, Phy:0.0001, Recon:0.0025, Lin:0.0012) | Val Loss: 0.0206 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:37:02,252 - INFO - Epoch [010/150] | LR: 0.001000 | Loss: 0.2536 (Pred:0.0091, Phy:0.0001, Recon:0.0024, Lin:0.0012) | Val Loss: 0.0268 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:37:34,903 - INFO - Epoch [011/150] | LR: 0.001000 | Loss: 0.2159 (Pred:0.0076, Phy:0.0001, Recon:0.0021, Lin:0.0008) | Val Loss: 0.0215 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:38:06,897 - INFO - Epoch [012/150] | LR: 0.001000 | Loss: 0.2596 (Pred:0.0102, Phy:0.0001, Recon:0.0014, Lin:0.0017) | Val Loss: 0.0252 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:38:39,056 - INFO - Epoch [013/150] | LR: 0.001000 | Loss: 0.1757 (Pred:0.0064, Phy:0.0000, Recon:0.0016, Lin:0.0011) | Val Loss: 0.0304 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:39:11,168 - INFO - Epoch [014/150] | LR: 0.001000 | Loss: 0.1598 (Pred:0.0057, Phy:0.0000, Recon:0.0014, Lin:0.0011) | Val Loss: 0.0190 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:39:44,063 - INFO - Epoch [015/150] | LR: 0.001000 | Loss: 0.1445 (Pred:0.0049, Phy:0.0001, Recon:0.0012, Lin:0.0011) | Val Loss: 0.0193 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:40:17,339 - INFO - Epoch [016/150] | LR: 0.001000 | Loss: 0.1460 (Pred:0.0049, Phy:0.0000, Recon:0.0016, Lin:0.0010) | Val Loss: 0.0115 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:40:51,088 - INFO - Epoch [017/150] | LR: 0.001000 | Loss: 0.1203 (Pred:0.0041, Phy:0.0000, Recon:0.0010, Lin:0.0011) | Val Loss: 0.0181 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:41:25,233 - INFO - Epoch [018/150] | LR: 0.001000 | Loss: 0.1020 (Pred:0.0038, Phy:0.0000, Recon:0.0007, Lin:0.0009) | Val Loss: 0.0286 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:41:58,944 - INFO - Epoch [019/150] | LR: 0.001000 | Loss: 0.1162 (Pred:0.0042, Phy:0.0000, Recon:0.0009, Lin:0.0010) | Val Loss: 0.0099 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:42:31,541 - INFO - Epoch [020/150] | LR: 0.001000 | Loss: 0.1050 (Pred:0.0039, Phy:0.0000, Recon:0.0007, Lin:0.0009) | Val Loss: 0.0202 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:43:03,857 - INFO - Epoch [021/150] | LR: 0.001000 | Loss: 0.1070 (Pred:0.0038, Phy:0.0000, Recon:0.0007, Lin:0.0010) | Val Loss: 0.0120 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:43:35,837 - INFO - Epoch [022/150] | LR: 0.001000 | Loss: 0.1143 (Pred:0.0039, Phy:0.0001, Recon:0.0009, Lin:0.0010) | Val Loss: 0.0106 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:44:07,548 - INFO - Epoch [023/150] | LR: 0.001000 | Loss: 0.0969 (Pred:0.0036, Phy:0.0000, Recon:0.0006, Lin:0.0009) | Val Loss: 0.0139 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:44:40,164 - INFO - Epoch [024/150] | LR: 0.001000 | Loss: 0.1584 (Pred:0.0061, Phy:0.0001, Recon:0.0007, Lin:0.0014) | Val Loss: 0.0098 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:45:11,681 - INFO - Epoch [025/150] | LR: 0.001000 | Loss: 0.0977 (Pred:0.0035, Phy:0.0000, Recon:0.0009, Lin:0.0008) | Val Loss: 0.0053 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:45:43,365 - INFO - Epoch [026/150] | LR: 0.001000 | Loss: 0.0817 (Pred:0.0030, Phy:0.0000, Recon:0.0005, Lin:0.0008) | Val Loss: 0.0165 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:46:14,963 - INFO - Epoch [027/150] | LR: 0.001000 | Loss: 0.0839 (Pred:0.0031, Phy:0.0000, Recon:0.0005, Lin:0.0007) | Val Loss: 0.0134 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:46:46,732 - INFO - Epoch [028/150] | LR: 0.001000 | Loss: 0.1621 (Pred:0.0067, Phy:0.0000, Recon:0.0006, Lin:0.0012) | Val Loss: 0.0090 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:47:18,325 - INFO - Epoch [029/150] | LR: 0.001000 | Loss: 0.0935 (Pred:0.0036, Phy:0.0000, Recon:0.0005, Lin:0.0008) | Val Loss: 0.0172 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:47:50,625 - INFO - Epoch [030/150] | LR: 0.000500 | Loss: 0.1136 (Pred:0.0043, Phy:0.0000, Recon:0.0007, Lin:0.0010) | Val Loss: 0.0078 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:48:23,276 - INFO - Epoch [031/150] | LR: 0.000500 | Loss: 0.0471 (Pred:0.0018, Phy:0.0000, Recon:0.0003, Lin:0.0005) | Val Loss: 0.0083 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:48:55,252 - INFO - Epoch [032/150] | LR: 0.000500 | Loss: 0.0458 (Pred:0.0017, Phy:0.0000, Recon:0.0003, Lin:0.0004) | Val Loss: 0.0059 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:49:26,826 - INFO - Epoch [033/150] | LR: 0.000500 | Loss: 0.0437 (Pred:0.0017, Phy:0.0000, Recon:0.0003, Lin:0.0004) | Val Loss: 0.0080 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:49:58,627 - INFO - Epoch [034/150] | LR: 0.000500 | Loss: 0.0431 (Pred:0.0016, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0056 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:50:30,602 - INFO - Epoch [035/150] | LR: 0.000500 | Loss: 0.0425 (Pred:0.0016, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0073 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:51:02,522 - INFO - Epoch [036/150] | LR: 0.000500 | Loss: 0.0431 (Pred:0.0017, Phy:0.0000, Recon:0.0003, Lin:0.0004) | Val Loss: 0.0089 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:51:34,180 - INFO - Epoch [037/150] | LR: 0.000500 | Loss: 0.0434 (Pred:0.0017, Phy:0.0000, Recon:0.0003, Lin:0.0004) | Val Loss: 0.0103 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:52:05,832 - INFO - Epoch [038/150] | LR: 0.000500 | Loss: 0.0435 (Pred:0.0017, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0087 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:52:38,511 - INFO - Epoch [039/150] | LR: 0.000500 | Loss: 0.0431 (Pred:0.0017, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0084 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:53:11,629 - INFO - Epoch [040/150] | LR: 0.000500 | Loss: 0.0442 (Pred:0.0017, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0111 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:53:46,073 - INFO - Epoch [041/150] | LR: 0.000500 | Loss: 0.0469 (Pred:0.0018, Phy:0.0000, Recon:0.0002, Lin:0.0005) | Val Loss: 0.0076 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:54:19,366 - INFO - Epoch [042/150] | LR: 0.000500 | Loss: 0.0705 (Pred:0.0027, Phy:0.0000, Recon:0.0002, Lin:0.0007) | Val Loss: 0.0119 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:54:52,590 - INFO - Epoch [043/150] | LR: 0.000500 | Loss: 0.0457 (Pred:0.0018, Phy:0.0000, Recon:0.0003, Lin:0.0004) | Val Loss: 0.0062 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:55:27,114 - INFO - Epoch [044/150] | LR: 0.000500 | Loss: 0.0432 (Pred:0.0017, Phy:0.0000, Recon:0.0003, Lin:0.0004) | Val Loss: 0.0065 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:56:00,819 - INFO - Epoch [045/150] | LR: 0.000500 | Loss: 0.0414 (Pred:0.0016, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0078 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:56:33,359 - INFO - Epoch [046/150] | LR: 0.000500 | Loss: 0.0413 (Pred:0.0016, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0094 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
+2026-05-12 09:57:05,731 - INFO - Epoch [047/150] | LR: 0.000500 | Loss: 0.0431 (Pred:0.0016, Phy:0.0000, Recon:0.0002, Lin:0.0004) | Val Loss: 0.0097 | Mem: 1318MB (17.1%) | Pwr: [Pwr: N/A (Unsupported)]
