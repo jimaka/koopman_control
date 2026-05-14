@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
 # 从你现有的 koopman.py 中导入模型
-from koopman import HorizontalKoopmanModel
+from koopman import DeepKoopmanModel
 
 # ==========================================
 # 1. 支持段内切分的自定义 Dataset
@@ -171,6 +171,75 @@ def collate_fn_local_frame(batch):
     
     return x_t_local, x_target_seq_local, u_seq
 
+
+def _weighted_mse(pred: torch.Tensor, target: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+    """Horizon-weighted MSE for tensors shaped (B, T, D)."""
+    return ((pred - target) ** 2 * weights).mean()
+
+
+def compute_deep_koopman_rollout_losses(
+    model: DeepKoopmanModel,
+    x_t: torch.Tensor,
+    x_target_seq: torch.Tensor,
+    u_seq: torch.Tensor,
+    mse_loss: nn.Module,
+):
+    """Compute standard Deep Koopman losses on the existing rollout batch.
+
+    The batch is already in the current local normalized state definition.  We
+    only change how the model is constrained: one encode at t=0, then fully
+    open-loop linear latent evolution across the provided control sequence.
+    """
+    batch_size, pred_len, state_dim = x_target_seq.shape
+
+    z0 = model.encode(x_t)
+    x_t_recon = model.reconstruct_state(z0)
+
+    z_current = z0
+    pred_states = []
+    pred_latents = []
+    for step in range(pred_len):
+        z_current = model.latent_step(z_current, u_seq[:, step, :])
+        pred_latents.append(z_current)
+        pred_states.append(model.reconstruct_state(z_current))
+
+    x_pred_seq = torch.stack(pred_states, dim=1)
+    z_pred_seq = torch.stack(pred_latents, dim=1)
+
+    flat_targets = x_target_seq.reshape(batch_size * pred_len, state_dim)
+    z_target_seq = model.encode(flat_targets).reshape(batch_size, pred_len, -1)
+    x_target_recon = model.reconstruct_state(
+        z_target_seq.reshape(batch_size * pred_len, -1)
+    ).reshape(batch_size, pred_len, state_dim)
+
+    horizon_weights = torch.linspace(
+        1.0, 2.0, pred_len, device=x_t.device, dtype=x_t.dtype
+    ).view(1, pred_len, 1)
+
+    loss_pred = _weighted_mse(x_pred_seq, x_target_seq, horizon_weights)
+    loss_recon = mse_loss(x_t_recon, x_t) + 0.25 * mse_loss(x_target_recon, x_target_seq)
+    loss_linear = _weighted_mse(z_pred_seq, z_target_seq, horizon_weights)
+
+    # Re-encoding decoded rollout states catches latent drift that is invisible
+    # to state-only prediction loss.
+    z_reencoded = model.encode(x_pred_seq.reshape(batch_size * pred_len, state_dim))
+    z_reencoded = z_reencoded.reshape_as(z_pred_seq)
+    loss_consistency = _weighted_mse(z_reencoded, z_pred_seq.detach(), horizon_weights)
+
+    latent_energy = torch.mean(z_pred_seq ** 2)
+    loss_drift = torch.relu(latent_energy - 4.0) ** 2
+    loss_stab = model.stability_regularization(rho_limit=0.995)
+
+    losses = {
+        "pred": loss_pred,
+        "recon": loss_recon,
+        "linear": loss_linear,
+        "consistency": loss_consistency,
+        "drift": loss_drift,
+        "stab": loss_stab,
+    }
+    return losses, x_pred_seq, z_pred_seq
+
 # ==========================================
 # 3. 多步训练主循环与模型保存
 # ==========================================
@@ -195,7 +264,7 @@ def train():
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
     
-    model = HorizontalKoopmanModel(state_dim=6, control_dim=4, latent_dim=16).to(device)
+    model = DeepKoopmanModel(state_dim=6, control_dim=4, latent_dim=16).to(device)
     
     # 使用初始较低学习率，配合 StepLR 解决振荡
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
@@ -214,6 +283,9 @@ def train():
         epoch_pred = 0.0
         epoch_recon = 0.0
         epoch_linear = 0.0
+        epoch_consistency = 0.0
+        epoch_drift = 0.0
+        epoch_stab = 0.0
         
         for batch_idx, (x_t, x_target_seq, u_seq) in enumerate(train_loader):
             x_t = x_t.to(device)
@@ -222,46 +294,37 @@ def train():
             
             optimizer.zero_grad()
             
-            # 1. 编码
-            z_t = model.encode(x_t)
-            x_t_recon = model.reconstruct_state(z_t)
-            
-            # 2. 多步隐空间推演
-            z_current = z_t
-            pred_states = []
-            pred_latents = []
-            
-            for step in range(pred_len):
-                u_t_step = u_seq[:, step, :]
-                z_next = model.latent_step(z_current, u_t_step)
-                x_hat_step = model.reconstruct_state(z_next)
-                
-                pred_latents.append(z_next)
-                pred_states.append(x_hat_step)
-                z_current = z_next
-                
-            x_pred_seq = torch.stack(pred_states, dim=1)
-            
-            # 3. 代价函数计算
-            loss_pred = mse_loss(x_pred_seq, x_target_seq)
-            loss_recon = mse_loss(x_t_recon, x_t)
-            
-            target_z_final = model.encode(x_target_seq[:, -1, :])
-            loss_linear = mse_loss(pred_latents[-1], target_z_final)
-            
-            rho = model.spectral_radius()
-            loss_stab = torch.relu(rho - 1.0) ** 2
-            
-            loss = 1.0 * loss_pred + 1.0 * loss_recon + 10.0 * loss_linear + 0.1 * loss_stab
+            losses, _, _ = compute_deep_koopman_rollout_losses(
+                model, x_t, x_target_seq, u_seq, mse_loss
+            )
+            loss_pred = losses["pred"]
+            loss_recon = losses["recon"]
+            loss_linear = losses["linear"]
+            loss_consistency = losses["consistency"]
+            loss_drift = losses["drift"]
+            loss_stab = losses["stab"]
+
+            loss = (
+                1.0 * loss_pred
+                + 1.0 * loss_recon
+                + 10.0 * loss_linear
+                + 1.0 * loss_consistency
+                + 0.05 * loss_drift
+                + 0.5 * loss_stab
+            )
             
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0) # 梯度裁剪防止爆炸
             optimizer.step()
+            model.project_stable_dynamics_(rho_limit=0.995)
             
             total_loss_train += loss.item()
             epoch_pred += loss_pred.item()
             epoch_recon += loss_recon.item()
             epoch_linear += loss_linear.item()
+            epoch_consistency += loss_consistency.item()
+            epoch_drift += loss_drift.item()
+            epoch_stab += loss_stab.item()
             
         num_batches = len(train_loader)
         avg_train_loss = total_loss_train / num_batches
@@ -275,16 +338,18 @@ def train():
                 x_target_seq = x_target_seq.to(device)
                 u_seq = u_seq.to(device)
                 
-                z_t = model.encode(x_t)
-                z_current = z_t
-                pred_states = []
-                for step in range(pred_len):
-                    z_next = model.latent_step(z_current, u_seq[:, step, :])
-                    pred_states.append(model.reconstruct_state(z_next))
-                    z_current = z_next
-                    
-                x_pred_seq = torch.stack(pred_states, dim=1)
-                total_loss_val += mse_loss(x_pred_seq, x_target_seq).item()
+                losses, x_pred_seq, _ = compute_deep_koopman_rollout_losses(
+                    model, x_t, x_target_seq, u_seq, mse_loss
+                )
+                val_loss = (
+                    losses["pred"]
+                    + losses["recon"]
+                    + 10.0 * losses["linear"]
+                    + losses["consistency"]
+                    + 0.05 * losses["drift"]
+                    + 0.5 * losses["stab"]
+                )
+                total_loss_val += val_loss.item()
                 
         avg_val_loss = total_loss_val / len(val_loader)
         
@@ -295,8 +360,11 @@ def train():
         # 打印这一轮的各项代价函数指标
         print(f"Epoch [{epoch+1:02d}/{epochs}] | "
               f"LR: {current_lr:.6f} | "
-              f"Train Total: {avg_train_loss:.4f} (Pred:{epoch_pred/num_batches:.4f}, Recon:{epoch_recon/num_batches:.4f}, Linear:{epoch_linear/num_batches:.4f}) | "
-              f"Val Pred: {avg_val_loss:.4f}")
+              f"Train Total: {avg_train_loss:.4f} "
+              f"(Pred:{epoch_pred/num_batches:.4f}, Recon:{epoch_recon/num_batches:.4f}, "
+              f"Linear:{epoch_linear/num_batches:.4f}, Cons:{epoch_consistency/num_batches:.4f}, "
+              f"Drift:{epoch_drift/num_batches:.4f}, Stab:{epoch_stab/num_batches:.4f}) | "
+              f"Val Total: {avg_val_loss:.4f}")
 
         # --- 模型保存阶段 ---
         # 组装要保存的字典（非常重要：把数据集归一化参数也存进去，实际部署推理时需要用）
@@ -305,6 +373,16 @@ def train():
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'val_loss': avg_val_loss,
+            'config': {
+                'model_type': 'deep',
+                'state_dim': 6,
+                'control_dim': 4,
+                'latent_dim': 16,
+                'enc_hidden': [64, 64],
+                'dec_hidden': [64, 64],
+                'use_skip': True,
+                'pred_len': pred_len,
+            },
             'stats': train_ds.stats # 包含 state_mean, state_std, ctrl_mean, ctrl_std
         }
 
