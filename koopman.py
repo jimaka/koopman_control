@@ -1,11 +1,8 @@
 import math
-from typing import List, Tuple, Optional
-
-from typing import List, Optional, Type
+from typing import List, Optional, Tuple, Type
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class ConvMLPBlock(nn.Module):
@@ -111,20 +108,69 @@ class BaseKoopmanModel(nn.Module):
                 self._spec_backend = "svd"
                 return S.max()
 
+    def stability_regularization(
+        self,
+        rho_limit: float = 0.995,
+        frobenius_weight: float = 1e-4,
+    ) -> torch.Tensor:
+        """Penalize unstable latent dynamics without changing the data model."""
+        rho = self.spectral_radius()
+        spectral_loss = torch.relu(rho - rho_limit) ** 2
+        frob_loss = torch.mean(self.A.weight ** 2)
+        return spectral_loss + frobenius_weight * frob_loss
+
+    @torch.no_grad()
+    def project_stable_dynamics_(self, rho_limit: float = 0.995) -> None:
+        """Project A back inside the requested spectral radius after an update."""
+        rho = self.spectral_radius()
+        if torch.isfinite(rho) and rho > rho_limit:
+            self.A.weight.mul_(rho_limit / (rho + 1e-8))
+
+    def rollout_latent(self, z0: torch.Tensor, controls: torch.Tensor) -> torch.Tensor:
+        """Roll out the latent state using only z_{k+1}=Az_k+Bu_k."""
+        if controls.dim() == 2:
+            controls = controls.unsqueeze(1)
+
+        latents = [z0]
+        z = z0
+        for t in range(controls.size(0)):
+            z = self.latent_step(z, controls[t])
+            latents.append(z)
+        return torch.stack(latents, dim=0)
+
+    def predict_sequence(
+        self,
+        x0: torch.Tensor,
+        controls: torch.Tensor,
+        return_latent: bool = False,
+    ) -> torch.Tensor:
+        """Predict a sequence with one encode followed by open-loop latent rollout."""
+        if x0.dim() == 1:
+            x0 = x0.unsqueeze(0)
+        if controls.dim() == 2:
+            controls = controls.unsqueeze(1)
+
+        z0 = self.encode(x0)
+        latents = self.rollout_latent(z0, controls)
+        states = [x0]
+        states.extend(self.reconstruct_state(latents[t]) for t in range(1, latents.size(0)))
+        states = torch.stack(states, dim=0)
+
+        if return_latent:
+            return states, latents
+        return states
+
 
 class HorizontalKoopmanModel(BaseKoopmanModel):
-    """Koopman model for horizontal plane ship motion (3-DOF).
-    
-    State dimension: 6 [x, y, yaw, u, v, r]
-    Control dimension: 4 [port_throttle, port_angle, starboard_throttle, starboard_angle]
-    
-    Args:
-        state_dim: State dimension (default: 6 for horizontal plane)
-        control_dim: Control dimension (default: 4 for thruster commands)
-        latent_dim: Latent dimension (default: 16)
-        enc_hidden: Encoder hidden layer sizes
-        dec_hidden: Decoder hidden layer sizes
-        use_skip: Whether to use skip connections in decoder
+    """State-lifted Deep Koopman model for horizontal ship motion.
+
+    The ship state definition stays unchanged:
+        [x, y, yaw, u, v, r]
+
+    The encoder builds Koopman observables as g(x) = [x, phi(x)].  This
+    makes the physical state directly observable in latent space, while the
+    latent evolution itself remains the standard controlled linear form:
+        z_{k+1} = A z_k + B u_k
     """
     
     def __init__(
@@ -135,38 +181,58 @@ class HorizontalKoopmanModel(BaseKoopmanModel):
         enc_hidden: List[int] = [64, 64],
         dec_hidden: List[int] = [64, 64],
         use_skip: bool = True,
+        dropout: float = 0.0,
     ) -> None:
         super().__init__()
+        if latent_dim < state_dim:
+            raise ValueError(
+                f"latent_dim ({latent_dim}) must be >= state_dim ({state_dim}) "
+                "for state-lifted Koopman observables."
+            )
+
         self.state_dim = state_dim
         self.control_dim = control_dim
         self.latent_dim = latent_dim
         self.use_skip = use_skip
-        
-        # Encoder network: maps state to latent space
-        self.encoder = mlp([state_dim] + enc_hidden + [latent_dim], dropout=0.1,use_conv=True)
-        
-        # Decoder network: maps latent space back to state
-        self.decoder = mlp([latent_dim] + dec_hidden + [state_dim],dropout=0.1,use_conv=True)
-        
+        self.observable_dim = latent_dim - state_dim
+
+        if self.observable_dim > 0:
+            self.encoder = mlp(
+                [state_dim] + enc_hidden + [self.observable_dim],
+                dropout=dropout,
+                use_conv=True,
+            )
+        else:
+            self.encoder = nn.Identity()
+
+        # The decoder learns a residual around the physically anchored state
+        # slice.  This avoids mean-output collapse while still allowing a
+        # nonlinear inverse map for the learned observables.
+        self.decoder = mlp(
+            [latent_dim] + dec_hidden + [state_dim],
+            dropout=dropout,
+            use_conv=True,
+        )
+
         # Linear dynamics in latent space: z' = A z + B u
         self.A = nn.Linear(latent_dim, latent_dim, bias=False)
         self.B = nn.Linear(control_dim, latent_dim, bias=False)
-        
-        # Optional: Additional linear term for state reconstruction
-        if use_skip:
-            self.C = nn.Linear(latent_dim, state_dim, bias=False)
-        
+
+        # Fixed state selector used by legacy export code as C.
+        self.C = nn.Linear(latent_dim, state_dim, bias=False)
+        self.C.weight.requires_grad_(False)
+
         self.reset_parameters()
-        
+
         print(f"Initialized HorizontalKoopmanModel:")
         print(f"  State dim: {state_dim}")
         print(f"  Control dim: {control_dim}")
         print(f"  Latent dim: {latent_dim}")
-        print(f"  Use skip: {use_skip}")
+        print(f"  Observable dim: {self.observable_dim}")
+        print(f"  State-lifted latent: True")
 
     def reset_parameters(self) -> None:
         """Initialize model parameters."""
-        # Kaiming uniform for MLPs
         def init_mlp(m):
             if isinstance(m, nn.Linear):
                 nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
@@ -177,65 +243,56 @@ class HorizontalKoopmanModel(BaseKoopmanModel):
 
         self.encoder.apply(init_mlp)
         self.decoder.apply(init_mlp)
-        
-        # Near identity for A; small values for B
+
+        # Make the residual decoder initially zero so decode(encode(x)) starts
+        # as the state anchor rather than an arbitrary nonlinear projection.
+        for module in reversed(self.decoder):
+            if isinstance(module, nn.Linear):
+                nn.init.zeros_(module.weight)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+                break
+
+        with torch.no_grad():
+            self.C.weight.zero_()
+            self.C.weight[:, :self.state_dim] = torch.eye(
+                self.state_dim,
+                device=self.C.weight.device,
+                dtype=self.C.weight.dtype,
+            )
+
         nn.init.eye_(self.A.weight)
         with torch.no_grad():
-            self.A.weight.data *= 0.95  # Slightly less than identity for stability
-        
-        nn.init.xavier_uniform_(self.B.weight, gain=0.1)  # Small gains
-        
-        if self.use_skip and hasattr(self, 'C'):
-            nn.init.xavier_uniform_(self.C.weight, gain=0.1)
+            self.A.weight.mul_(0.98)
+            if self.observable_dim > 0:
+                # Learned observables should not immediately dominate the
+                # anchored physical state during early rollout.
+                self.A.weight[:self.state_dim, self.state_dim:] *= 0.05
+                self.A.weight[self.state_dim:, :self.state_dim] *= 0.05
+
+        nn.init.xavier_uniform_(self.B.weight, gain=0.05)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode state to latent space.
-        
-        Args:
-            x: State tensor of shape (batch_size, state_dim) or (state_dim,)
-        
-        Returns:
-            Latent representation of shape (batch_size, latent_dim) or (latent_dim,)
-        """
-        return self.encoder(x)
+        """Encode state to Koopman observables g(x) = [x, phi(x)]."""
+        phi = self.encoder(x)
+        if self.observable_dim == 0:
+            return x
+        return torch.cat([x, phi], dim=-1)
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
-        """Decode latent vector to state space.
-        
-        Args:
-            z: Latent tensor of shape (batch_size, latent_dim) or (latent_dim,)
-        
-        Returns:
-            Reconstructed state of shape (batch_size, state_dim) or (state_dim,)
-        """
-        return self.decoder(z)
+        """Decode latent vector back to the current normalized state space."""
+        residual = self.decoder(z)
+        if self.use_skip:
+            return self.C(z) + residual
+        return residual
 
     def latent_step(self, z: torch.Tensor, u: torch.Tensor) -> torch.Tensor:
-        """Apply Koopman dynamics in latent space.
-        
-        Args:
-            z: Current latent state of shape (batch_size, latent_dim) or (latent_dim,)
-            u: Control input of shape (batch_size, control_dim) or (control_dim,)
-        
-        Returns:
-            Next latent state of shape (batch_size, latent_dim) or (latent_dim,)
-        """
+        """Apply the controlled linear Koopman operator in latent space."""
         return self.A(z) + self.B(u)
 
     def reconstruct_state(self, z: torch.Tensor) -> torch.Tensor:
-        """Reconstruct state from latent vector with optional skip connection.
-        
-        Args:
-            z: Latent tensor of shape (batch_size, latent_dim) or (latent_dim,)
-        
-        Returns:
-            Reconstructed state of shape (batch_size, state_dim) or (state_dim,)
-        """
-        if self.use_skip:
-            # Combine nonlinear decoder with linear projection
-            return self.decoder(z) + self.C(z)
-        else:
-            return self.decoder(z)
+        """Compatibility wrapper used by training and rollout scripts."""
+        return self.decode(z)
 
     def forward(
         self, 
@@ -257,95 +314,26 @@ class HorizontalKoopmanModel(BaseKoopmanModel):
                 x_t_recon: Reconstructed current state
                 x_tp1_hat: Predicted next state (if x_tp1 provided, also returns)
         """
-        # Encode current state
         z_t = self.encode(x_t)
-        
-        # Predict next latent state using Koopman dynamics
         z_tp1_hat = self.latent_step(z_t, u_t)
-        
-        # Reconstruct current state
         x_t_recon = self.reconstruct_state(z_t)
-        
-        # Predict next state
         x_tp1_hat = self.reconstruct_state(z_tp1_hat)
-        
+
         if x_tp1 is not None:
-            # Training mode: also encode true next state
             z_tp1 = self.encode(x_tp1)
             return z_t, z_tp1, z_tp1_hat, x_t_recon, x_tp1_hat
-        else:
-            # Inference mode
-            return z_t, z_tp1_hat, x_t_recon, x_tp1_hat
-
-    def predict_sequence(
-        self, 
-        x0: torch.Tensor, 
-        controls: torch.Tensor,
-        return_latent: bool = False
-    ) -> torch.Tensor:
-        """Predict a sequence of states given initial state and control sequence.
-        
-        Args:
-            x0: Initial state of shape (batch_size, state_dim) or (state_dim,)
-            controls: Control sequence of shape (seq_len, batch_size, control_dim) 
-                     or (seq_len, control_dim)
-            return_latent: Whether to return latent states as well
-        
-        Returns:
-            Predicted state sequence of shape (seq_len+1, batch_size, state_dim)
-            If return_latent is True, also returns latent sequence
-        """
-        # Ensure proper dimensions
-        if x0.dim() == 1:
-            x0 = x0.unsqueeze(0)  # (state_dim) -> (1, state_dim)
-        if controls.dim() == 2:
-            controls = controls.unsqueeze(1)  # (seq_len, control_dim) -> (seq_len, 1, control_dim)
-        
-        batch_size = x0.size(0)
-        seq_len = controls.size(0)
-        
-        # Initialize sequences
-        states = torch.zeros(seq_len + 1, batch_size, self.state_dim, device=x0.device)
-        states[0] = x0
-        
-        if return_latent:
-            latents = torch.zeros(seq_len + 1, batch_size, self.latent_dim, device=x0.device)
-            z = self.encode(x0)
-            latents[0] = z
-        
-        # Iterate through sequence
-        for t in range(seq_len):
-            z = self.encode(states[t])
-            u_t = controls[t]
-            
-            # Apply Koopman dynamics
-            z_next = self.latent_step(z, u_t)
-            
-            # Decode to state space
-            states[t + 1] = self.reconstruct_state(z_next)
-            
-            if return_latent:
-                latents[t + 1] = z_next
-        
-        if return_latent:
-            return states, latents
-        return states
+        return z_t, z_tp1_hat, x_t_recon, x_tp1_hat
 
 
-class DeepKoopmanModel(BaseKoopmanModel):
-    """Deep Koopman model with additional nonlinear terms in latent dynamics.
-    
-    Extends the basic Koopman model with additional nonlinear dynamics term.
-    
-    Args:
-        state_dim: State dimension (default: 6)
-        control_dim: Control dimension (default: 4)
-        latent_dim: Latent dimension (default: 16)
-        enc_hidden: Encoder hidden layer sizes
-        dyn_hidden: Dynamics network hidden layer sizes
-        dec_hidden: Decoder hidden layer sizes
+class DeepKoopmanModel(HorizontalKoopmanModel):
+    """Standard Deep Koopman model with linear latent evolution.
+
+    Kept as a separate class name for checkpoint/config compatibility.  Unlike
+    the previous implementation, this class does not add a nonlinear dynamics
+    network; nonlinearity belongs in the encoder/decoder and the latent
+    operator remains linear.
     """
-    
+
     def __init__(
         self,
         state_dim: int = 6,
@@ -354,107 +342,19 @@ class DeepKoopmanModel(BaseKoopmanModel):
         enc_hidden: List[int] = [64, 64],
         dyn_hidden: List[int] = [64, 64],
         dec_hidden: List[int] = [64, 64],
+        use_skip: bool = True,
+        dropout: float = 0.0,
     ) -> None:
-        super().__init__()
-        self.state_dim = state_dim
-        self.control_dim = control_dim
-        self.latent_dim = latent_dim
-        
-        # Encoder
-        self.encoder = mlp([state_dim] + enc_hidden + [latent_dim],dropout=0.1,use_conv=True)
-        
-        # Decoder
-        self.decoder = mlp([latent_dim] + dec_hidden + [state_dim],dropout=0.1,use_conv=True )
-        
-        # Linear dynamics terms
-        self.A = nn.Linear(latent_dim, latent_dim, bias=False)
-        self.B = nn.Linear(control_dim, latent_dim, bias=False)
-        
-        # Nonlinear dynamics term (optional)
-        self.dynamics_net = mlp([latent_dim + control_dim] + dyn_hidden + [latent_dim],dropout=0.1,use_conv=True)
-        
-        # Weight for mixing linear and nonlinear dynamics
-        self.alpha = nn.Parameter(torch.tensor(0.5))
-        
-        self.reset_parameters()
-        
-        print(f"Initialized DeepKoopmanModel:")
-        print(f"  State dim: {state_dim}")
-        print(f"  Control dim: {control_dim}")
-        print(f"  Latent dim: {latent_dim}")
-
-    def reset_parameters(self) -> None:
-        """Initialize model parameters."""
-        def init_mlp(m):
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
-                if m.bias is not None:
-                    fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
-                    bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-                    nn.init.uniform_(m.bias, -bound, bound)
-
-        self.encoder.apply(init_mlp)
-        self.decoder.apply(init_mlp)
-        self.dynamics_net.apply(init_mlp)
-        
-        # Initialize linear dynamics
-        nn.init.eye_(self.A.weight)
-        with torch.no_grad():
-            self.A.weight.data *= 0.95
-        
-        nn.init.xavier_uniform_(self.B.weight, gain=0.1)
-        
-        # Initialize alpha
-        nn.init.constant_(self.alpha, 0.5)
-
-    def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode state to latent space."""
-        return self.encoder(x)
-
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
-        """Decode latent vector to state space."""
-        return self.decoder(z)
-
-    def latent_step(self, z: torch.Tensor, u: torch.Tensor) -> torch.Tensor:
-        """Apply deep Koopman dynamics in latent space.
-        
-        Combines linear and nonlinear dynamics terms.
-        """
-        # Linear term
-        linear_term = self.A(z) + self.B(u)
-        
-        # Nonlinear term
-        zu = torch.cat([z, u], dim=-1)
-        nonlinear_term = self.dynamics_net(zu)
-        
-        # Combine with learnable weight
-        alpha = torch.sigmoid(self.alpha)  # Constrain to [0, 1]
-        return alpha * linear_term + (1 - alpha) * nonlinear_term
-
-    def forward(
-        self, 
-        x_t: torch.Tensor, 
-        u_t: torch.Tensor, 
-        x_tp1: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forward pass through the deep Koopman model."""
-        # Encode current state
-        z_t = self.encode(x_t)
-        
-        # Predict next latent state
-        z_tp1_hat = self.latent_step(z_t, u_t)
-        
-        # Reconstruct states
-        x_t_recon = self.decode(z_t)
-        x_tp1_hat = self.decode(z_tp1_hat)
-        
-        if x_tp1 is not None:
-            # Training mode
-            z_tp1 = self.encode(x_tp1)
-            return z_t, z_tp1, z_tp1_hat, x_t_recon, x_tp1_hat
-        else:
-            # Inference mode
-            return z_t, z_tp1_hat, x_t_recon, x_tp1_hat
+        _ = dyn_hidden  # accepted for backward-compatible constructor calls
+        super().__init__(
+            state_dim=state_dim,
+            control_dim=control_dim,
+            latent_dim=latent_dim,
+            enc_hidden=enc_hidden,
+            dec_hidden=dec_hidden,
+            use_skip=use_skip,
+            dropout=dropout,
+        )
 
 
 def create_koopman_model(
