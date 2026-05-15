@@ -1,0 +1,67 @@
+2026-05-15 14:48:49,395 - INFO - Device           = cpu | AMP = False
+2026-05-15 14:48:49,395 - INFO - Batch / NumWork  = 512 / 2
+2026-05-15 14:48:49,395 - INFO - pred_len curr.   = start 4 -> max 20 (grow every 10 ep)
+2026-05-15 14:48:49,395 - INFO - Loss weights     = vel 1.0 | acc 0.2 | lin 1.0 | recon 0.0 | stab 0.1 | l2 0.0001
+2026-05-15 14:48:49,395 - INFO - Dataset          = train 197505 samples | val 35937 samples
+2026-05-15 14:48:49,395 - INFO - Model params     = 12,344
+2026-05-15 14:48:49,396 - INFO - Spec radius init = 1.0442
+2026-05-15 14:48:49,397 - INFO - Optim/Sched      = AdamW(lr=0.001, wd=0.0001) / cosine
+2026-05-15 14:48:54,435 - INFO - Epoch [001/30] LR=0.000976 | L_tot=0.0027 (vel=0.0009, acc=0.0076, lin=0.0014, stab=0.0001) | val_vel_rmse_mean=0.5489 | val_vel_rmse@20=1.0437 | val_traj_xy@20=1.8822 | spec=1.0049 | t=4.5s
+2026-05-15 14:48:54,446 - INFO -   ✅ 新 best: vel_rmse_mean=0.5489 (epoch 1)
+2026-05-15 14:49:00,021 - INFO - Epoch [002/30] LR=0.000905 | L_tot=0.0003 (vel=0.0001, acc=0.0009, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.4080 | val_vel_rmse@20=0.7877 | val_traj_xy@20=1.4022 | spec=1.0049 | t=5.2s
+2026-05-15 14:49:00,028 - INFO -   ✅ 新 best: vel_rmse_mean=0.4080 (epoch 2)
+2026-05-15 14:49:05,615 - INFO - Epoch [003/30] LR=0.000794 | L_tot=0.0003 (vel=0.0001, acc=0.0008, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.2929 | val_vel_rmse@20=0.5727 | val_traj_xy@20=1.0054 | spec=1.0034 | t=4.9s
+2026-05-15 14:49:05,623 - INFO -   ✅ 新 best: vel_rmse_mean=0.2929 (epoch 3)
+2026-05-15 14:49:11,074 - INFO - Epoch [004/30] LR=0.000655 | L_tot=0.0002 (vel=0.0001, acc=0.0007, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.2070 | val_vel_rmse@20=0.4067 | val_traj_xy@20=0.7095 | spec=1.0031 | t=5.0s
+2026-05-15 14:49:11,081 - INFO -   ✅ 新 best: vel_rmse_mean=0.2070 (epoch 4)
+2026-05-15 14:49:16,569 - INFO - Epoch [005/30] LR=0.000500 | L_tot=0.0002 (vel=0.0000, acc=0.0007, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.1450 | val_vel_rmse@20=0.2847 | val_traj_xy@20=0.4958 | spec=1.0035 | t=5.0s
+2026-05-15 14:49:16,578 - INFO -   ✅ 新 best: vel_rmse_mean=0.1450 (epoch 5)
+2026-05-15 14:49:21,974 - INFO - Epoch [006/30] LR=0.000345 | L_tot=0.0002 (vel=0.0000, acc=0.0006, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.1014 | val_vel_rmse@20=0.1982 | val_traj_xy@20=0.3457 | spec=1.0032 | t=4.9s
+2026-05-15 14:49:21,983 - INFO -   ✅ 新 best: vel_rmse_mean=0.1014 (epoch 6)
+2026-05-15 14:49:27,859 - INFO - Epoch [007/30] LR=0.000206 | L_tot=0.0002 (vel=0.0000, acc=0.0006, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.0714 | val_vel_rmse@20=0.1387 | val_traj_xy@20=0.2423 | spec=1.0029 | t=5.4s
+2026-05-15 14:49:27,867 - INFO -   ✅ 新 best: vel_rmse_mean=0.0714 (epoch 7)
+2026-05-15 14:49:33,773 - INFO - Epoch [008/30] LR=0.000095 | L_tot=0.0002 (vel=0.0000, acc=0.0005, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.0509 | val_vel_rmse@20=0.0983 | val_traj_xy@20=0.1717 | spec=1.0042 | t=5.4s
+2026-05-15 14:49:33,781 - INFO -   ✅ 新 best: vel_rmse_mean=0.0509 (epoch 8)
+2026-05-15 14:49:39,494 - INFO - Epoch [009/30] LR=0.000024 | L_tot=0.0002 (vel=0.0000, acc=0.0005, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.0370 | val_vel_rmse@20=0.0713 | val_traj_xy@20=0.1245 | spec=1.0038 | t=5.0s
+2026-05-15 14:49:39,501 - INFO -   ✅ 新 best: vel_rmse_mean=0.0370 (epoch 9)
+2026-05-15 14:49:45,183 - INFO - Epoch [010/30] LR=0.001000 | L_tot=0.0002 (vel=0.0000, acc=0.0005, lin=0.0000, stab=0.0000) | val_vel_rmse_mean=0.0277 | val_vel_rmse@20=0.0533 | val_traj_xy@20=0.0927 | spec=1.0043 | t=5.2s
+2026-05-15 14:49:45,189 - INFO -   ✅ 新 best: vel_rmse_mean=0.0277 (epoch 10)
+2026-05-15 14:49:45,223 - INFO - [Curriculum] epoch 11: pred_len -> 6, #train samples -> 197307
+2026-05-15 14:49:51,306 - INFO - Epoch [011/30] LR=0.000994 | L_tot=0.0008 (vel=0.0003, acc=0.0017, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0238 | val_vel_rmse@20=0.0452 | val_traj_xy@20=0.0785 | spec=1.0017 | t=5.6s
+2026-05-15 14:49:51,313 - INFO -   ✅ 新 best: vel_rmse_mean=0.0238 (epoch 11)
+2026-05-15 14:49:57,706 - INFO - Epoch [012/30] LR=0.000976 | L_tot=0.0003 (vel=0.0001, acc=0.0006, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0164 | val_vel_rmse@20=0.0304 | val_traj_xy@20=0.0533 | spec=1.0030 | t=5.9s
+2026-05-15 14:49:57,715 - INFO -   ✅ 新 best: vel_rmse_mean=0.0164 (epoch 12)
+2026-05-15 14:50:03,668 - INFO - Epoch [013/30] LR=0.000946 | L_tot=0.0003 (vel=0.0001, acc=0.0006, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0127 | val_vel_rmse@20=0.0232 | val_traj_xy@20=0.0419 | spec=1.0033 | t=5.5s
+2026-05-15 14:50:03,677 - INFO -   ✅ 新 best: vel_rmse_mean=0.0127 (epoch 13)
+2026-05-15 14:50:09,646 - INFO - Epoch [014/30] LR=0.000905 | L_tot=0.0003 (vel=0.0001, acc=0.0005, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0111 | val_vel_rmse@20=0.0205 | val_traj_xy@20=0.0376 | spec=1.0039 | t=5.6s
+2026-05-15 14:50:09,653 - INFO -   ✅ 新 best: vel_rmse_mean=0.0111 (epoch 14)
+2026-05-15 14:50:14,765 - INFO - Epoch [015/30] LR=0.000854 | L_tot=0.0003 (vel=0.0001, acc=0.0005, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0105 | val_vel_rmse@20=0.0194 | val_traj_xy@20=0.0361 | spec=1.0015 | t=4.7s
+2026-05-15 14:50:14,774 - INFO -   ✅ 新 best: vel_rmse_mean=0.0105 (epoch 15)
+2026-05-15 14:50:20,125 - INFO - Epoch [016/30] LR=0.000794 | L_tot=0.0002 (vel=0.0001, acc=0.0005, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0101 | val_vel_rmse@20=0.0189 | val_traj_xy@20=0.0357 | spec=1.0021 | t=4.8s
+2026-05-15 14:50:20,134 - INFO -   ✅ 新 best: vel_rmse_mean=0.0101 (epoch 16)
+2026-05-15 14:50:25,291 - INFO - Epoch [017/30] LR=0.000727 | L_tot=0.0002 (vel=0.0001, acc=0.0005, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0099 | val_vel_rmse@20=0.0186 | val_traj_xy@20=0.0355 | spec=1.0009 | t=4.8s
+2026-05-15 14:50:25,299 - INFO -   ✅ 新 best: vel_rmse_mean=0.0099 (epoch 17)
+2026-05-15 14:50:30,806 - INFO - Epoch [018/30] LR=0.000655 | L_tot=0.0002 (vel=0.0001, acc=0.0005, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0096 | val_vel_rmse@20=0.0182 | val_traj_xy@20=0.0348 | spec=1.0011 | t=5.0s
+2026-05-15 14:50:30,815 - INFO -   ✅ 新 best: vel_rmse_mean=0.0096 (epoch 18)
+2026-05-15 14:50:37,146 - INFO - Epoch [019/30] LR=0.000578 | L_tot=0.0002 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0092 | val_vel_rmse@20=0.0174 | val_traj_xy@20=0.0334 | spec=1.0009 | t=5.9s
+2026-05-15 14:50:37,154 - INFO -   ✅ 新 best: vel_rmse_mean=0.0092 (epoch 19)
+2026-05-15 14:50:43,590 - INFO - Epoch [020/30] LR=0.000500 | L_tot=0.0002 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0087 | val_vel_rmse@20=0.0166 | val_traj_xy@20=0.0317 | spec=1.0046 | t=6.0s
+2026-05-15 14:50:43,598 - INFO -   ✅ 新 best: vel_rmse_mean=0.0087 (epoch 20)
+2026-05-15 14:50:43,622 - INFO - [Curriculum] epoch 21: pred_len -> 8, #train samples -> 197109
+2026-05-15 14:50:50,770 - INFO - Epoch [021/30] LR=0.000422 | L_tot=0.0003 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0085 | val_vel_rmse@20=0.0160 | val_traj_xy@20=0.0307 | spec=1.0013 | t=6.7s
+2026-05-15 14:50:50,781 - INFO -   ✅ 新 best: vel_rmse_mean=0.0085 (epoch 21)
+2026-05-15 14:50:58,130 - INFO - Epoch [022/30] LR=0.000345 | L_tot=0.0003 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0080 | val_vel_rmse@20=0.0151 | val_traj_xy@20=0.0290 | spec=1.0018 | t=6.8s
+2026-05-15 14:50:58,138 - INFO -   ✅ 新 best: vel_rmse_mean=0.0080 (epoch 22)
+2026-05-15 14:51:04,928 - INFO - Epoch [023/30] LR=0.000273 | L_tot=0.0003 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0075 | val_vel_rmse@20=0.0143 | val_traj_xy@20=0.0273 | spec=1.0009 | t=6.3s
+2026-05-15 14:51:04,937 - INFO -   ✅ 新 best: vel_rmse_mean=0.0075 (epoch 23)
+2026-05-15 14:51:11,783 - INFO - Epoch [024/30] LR=0.000206 | L_tot=0.0003 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0072 | val_vel_rmse@20=0.0136 | val_traj_xy@20=0.0259 | spec=1.0029 | t=6.4s
+2026-05-15 14:51:11,791 - INFO -   ✅ 新 best: vel_rmse_mean=0.0072 (epoch 24)
+2026-05-15 14:51:18,558 - INFO - Epoch [025/30] LR=0.000146 | L_tot=0.0003 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0070 | val_vel_rmse@20=0.0133 | val_traj_xy@20=0.0249 | spec=1.0027 | t=6.3s
+2026-05-15 14:51:18,566 - INFO -   ✅ 新 best: vel_rmse_mean=0.0070 (epoch 25)
+2026-05-15 14:51:25,951 - INFO - Epoch [026/30] LR=0.000095 | L_tot=0.0002 (vel=0.0001, acc=0.0004, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0070 | val_vel_rmse@20=0.0133 | val_traj_xy@20=0.0245 | spec=1.0012 | t=6.9s
+2026-05-15 14:51:25,959 - INFO -   ✅ 新 best: vel_rmse_mean=0.0070 (epoch 26)
+2026-05-15 14:51:32,658 - INFO - Epoch [027/30] LR=0.000054 | L_tot=0.0002 (vel=0.0001, acc=0.0003, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0070 | val_vel_rmse@20=0.0134 | val_traj_xy@20=0.0244 | spec=1.0012 | t=6.3s
+2026-05-15 14:51:38,822 - INFO - Epoch [028/30] LR=0.000024 | L_tot=0.0002 (vel=0.0001, acc=0.0003, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0072 | val_vel_rmse@20=0.0137 | val_traj_xy@20=0.0245 | spec=1.0028 | t=5.6s
+2026-05-15 14:51:46,030 - INFO - Epoch [029/30] LR=0.000006 | L_tot=0.0002 (vel=0.0001, acc=0.0003, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0073 | val_vel_rmse@20=0.0139 | val_traj_xy@20=0.0247 | spec=1.0041 | t=6.7s
+2026-05-15 14:51:53,320 - INFO - Epoch [030/30] LR=0.001000 | L_tot=0.0002 (vel=0.0001, acc=0.0003, lin=0.0001, stab=0.0000) | val_vel_rmse_mean=0.0074 | val_vel_rmse@20=0.0141 | val_traj_xy@20=0.0249 | spec=1.0043 | t=6.8s
+2026-05-15 14:51:53,351 - INFO - [YAML] 已导出 best 模型 -> checkpoints/koopman_best.yaml
