@@ -1,0 +1,36 @@
+# 默认超参（可被 CLI 覆盖；CLI 显式 > YAML > CLI 默认）。
+train_data: koopman_train_merged.npz
+val_data: koopman_val.npz
+ckpt_dir: checkpoints
+log_dir: logs
+
+epochs: 150
+batch_size: 1024
+lr: 0.001
+weight_decay: 0.0001
+scheduler: cosine
+cosine_T0: 20
+cosine_Tmult: 2
+
+amp: true
+ema_decay: 0.999
+encoder_dropout: 0.0
+
+pred_len_start: 4
+pred_len_max: 20
+pred_len_grow_every: 10
+dt: 0.1
+
+# 损失权重（速度为主）
+w_vel: 1.0
+w_acc: 0.2
+w_lin: 1.0
+w_recon: 0.0
+w_stab: 0.1
+w_l2: 0.0001
+gamma_w: 0.97
+rho_max: 1.005
+
+num_workers: 8
+prefetch_factor: 4
+seed: 42
