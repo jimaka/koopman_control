@@ -9,11 +9,15 @@
   - --report：打印合并前后段统计
 
 用法:
+  # 推荐：先由实船 bag 提取补充段
+  python3 extract_supplement_bag.py --bag supplement_1800s.bag --merge --report
+
+  # 或手动合并
   python3 scripts/merge_supplement_npz.py \\
       --base koopman_train.npz \\
       --append koopman_train_supplement.npz \\
       --out koopman_train_merged_v2.npz \\
-      --filter-zero-u --min-u-std 0.05 --report
+      --filter-zero-u --report
 """
 
 from __future__ import annotations
