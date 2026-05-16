@@ -23,6 +23,7 @@ CLI 见 ``--help``；冒烟自测 ``python3 train_koopman_v2.py --smoketest``。
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import json
 import logging
@@ -45,6 +46,28 @@ import yaml
 from koopman import HorizontalKoopmanModel
 from koopman_v3 import HorizontalKoopmanModelV3, FEATURE_DICT_ATOMS
 import eval_koopman as ek
+
+
+def _make_grad_scaler(enabled: bool):
+    """PyTorch 2.4+ 使用 torch.amp.GradScaler，旧版回退 cuda.amp。"""
+    if not enabled:
+        return None
+    if hasattr(torch.amp, "GradScaler"):
+        return torch.amp.GradScaler("cuda")
+    return torch.cuda.amp.GradScaler(enabled=True)
+
+
+@contextlib.contextmanager
+def _amp_autocast(enabled: bool, device_type: str = "cuda"):
+    if not enabled:
+        yield
+        return
+    if hasattr(torch.amp, "autocast"):
+        with torch.amp.autocast(device_type):
+            yield
+    else:
+        with torch.cuda.amp.autocast():
+            yield
 
 
 # =============================================================================
@@ -942,7 +965,7 @@ def train(args: argparse.Namespace) -> None:
         )
     else:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.5)
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp) if use_amp else None
+    scaler = _make_grad_scaler(use_amp)
     ema = None if args.no_ema else ModelEMA(model, decay=args.ema_decay)
 
     state = TrainState()
@@ -1042,7 +1065,7 @@ def train(args: argparse.Namespace) -> None:
             u_seq = u_seq.to(device, non_blocking=True)
             optimizer.zero_grad(set_to_none=True)
             if use_amp:
-                with torch.cuda.amp.autocast():
+                with _amp_autocast(True, device.type):
                     loss, info = compute_losses(
                         model, x_t_full, x_target_seq, u_seq,
                         dyn_mean_t, dyn_std_t, args, epoch, args.detach_target_lat,
