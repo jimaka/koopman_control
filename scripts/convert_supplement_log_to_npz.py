@@ -6,7 +6,9 @@
   len, Pos(2,T), Vel(2,T), pqr(1,T), Euler(3,T), Thrusters_CMD(4,T)
 
 用法:
-  g++ -O2 -std=c++17 -o koopman_supplement_mission scripts/koopman_supplement_mission.cpp
+  cd scripts && make
+  # 或: g++ -O2 -std=c++17 -o koopman_supplement_mission \\
+  #       koopman_supplement_mission.cpp
   ./koopman_supplement_mission -o supplement_mission_log.csv
 
   python3 scripts/convert_supplement_log_to_npz.py \\

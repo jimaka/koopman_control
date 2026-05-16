@@ -1,4 +1,4 @@
-# Supplement mission simulator
+# Supplement mission simulator (pilot: koopman_supplement_pilot.h)
 CXX ?= g++
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wextra
 
@@ -6,8 +6,8 @@ CXXFLAGS ?= -O2 -std=c++17 -Wall -Wextra
 
 all: koopman_supplement_mission
 
-koopman_supplement_mission: koopman_supplement_mission.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+koopman_supplement_mission: koopman_supplement_mission.cpp koopman_supplement_pilot.h
+	$(CXX) $(CXXFLAGS) -o $@ koopman_supplement_mission.cpp
 
 run: koopman_supplement_mission
 	./koopman_supplement_mission -o ../supplement_mission_log.csv
