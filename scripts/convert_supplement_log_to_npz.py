@@ -7,8 +7,8 @@
 
 用法:
   cd scripts && make
-  # 或: g++ -O2 -std=c++17 -o koopman_supplement_mission \\
-  #       koopman_supplement_mission.cpp
+  # 舵手头文件: koopman_supplement_voyage_pilot.hpp
+  # 类名: KoopmanSupplementVoyagePilot::update(heading_rad)
   ./koopman_supplement_mission -o supplement_mission_log.csv
 
   python3 scripts/convert_supplement_log_to_npz.py \\

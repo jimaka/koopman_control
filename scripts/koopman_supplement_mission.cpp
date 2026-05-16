@@ -1,22 +1,13 @@
 /**
  * koopman_supplement_mission.cpp
  *
- * 可选离线 3-DOF 仿真 + CSV 落盘；舵手逻辑在 koopman_supplement_pilot.h，
- * 与 KoopmanUltraGranularPilot 相同调用方式，便于嵌入实船程序。
+ * 可选离线仿真 + CSV；舵手见 koopman_supplement_voyage_pilot.hpp。
  *
- * 编译:
- *   cd scripts && make
- *
- * 仅仿真落盘:
- *   ./koopman_supplement_mission -o ../supplement_mission_log.csv
- *
- * 在你自己的节点中:
- *   #include "koopman_supplement_pilot.h"
- *   KoopmanSupplementPilot pilot(0.1, 0.0);
- *   USVCommand cmd = pilot.update(fusion_yaw);
+ * 编译: cd scripts && make
+ * 嵌入: #include "koopman_supplement_voyage_pilot.hpp"
  */
 
-#include "koopman_supplement_pilot.h"
+#include "koopman_supplement_voyage_pilot.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -27,6 +18,8 @@
 
 namespace {
 
+constexpr double kMissionSec = 2000.0;
+constexpr double kSegmentSec = 200.0;
 constexpr double kPi = M_PI;
 
 inline double wrapPi(double a) {
@@ -91,9 +84,13 @@ void integrate(ShipState& s, const USVCommand& cmd, const ShipParams& p,
   s.yaw = wrapPi(s.yaw + dt * s.r);
 }
 
+int segment_index(double time_sec) {
+  if (time_sec >= kMissionSec) return -1;
+  return static_cast<int>(std::floor(time_sec / kSegmentSec));
+}
+
 void run_offline_log(const std::string& out_csv, double dt, bool verbose) {
-  KoopmanSupplementPilot pilot(dt, 0.0);
-  pilot.set_time(0.0);
+  KoopmanSupplementVoyagePilot pilot(dt, 0.0);
 
   std::ofstream out(out_csv);
   if (!out) {
@@ -108,10 +105,10 @@ void run_offline_log(const std::string& out_csv, double dt, bool verbose) {
   ShipState s{};
   ShipParams params{};
   int logged_phase = -1;
+  double t_log = 0.0;
 
-  while (!pilot.finished()) {
-    const double t_log = pilot.time();
-    const int phase_id = pilot.segment_index();
+  while (!pilot.is_finished()) {
+    const int phase_id = segment_index(t_log);
     USVCommand cmd = pilot.update(s.yaw);
 
     out << t_log << "," << s.x << "," << s.y << "," << s.yaw << "," << s.u
@@ -125,11 +122,11 @@ void run_offline_log(const std::string& out_csv, double dt, bool verbose) {
     }
 
     integrate(s, cmd, params, dt);
+    t_log += dt;
   }
 
-  std::cout << "Wrote " << out_csv << " | duration="
-            << KoopmanSupplementPilot::kDefaultMissionSec << "s @ " << dt
-            << "Hz\n";
+  std::cout << "Wrote " << out_csv << " | duration=" << kMissionSec << "s @ "
+            << dt << "Hz\n";
 }
 
 }  // namespace
@@ -148,11 +145,10 @@ int main(int argc, char** argv) {
     } else if (arg == "-q" || arg == "--quiet") {
       verbose = false;
     } else if (arg == "-h" || arg == "--help") {
-      std::cout
-          << "Usage: koopman_supplement_mission [-o csv] [--dt 0.1]\n"
-          << "Pilot header: koopman_supplement_pilot.h (embed in your stack)\n"
-          << "Mission: " << KoopmanSupplementPilot::kDefaultMissionSec
-          << "s = 10 x " << KoopmanSupplementPilot::kSegmentSec << "s segments\n";
+      std::cout << "Usage: koopman_supplement_mission [-o csv] [--dt 0.1]\n"
+                << "Pilot: koopman_supplement_voyage_pilot.hpp\n"
+                << "Class: KoopmanSupplementVoyagePilot::update(heading_rad)\n"
+                << "Mission: 2000s = 10 x 200s segments\n";
       return 0;
     }
   }
