@@ -1,0 +1,60 @@
+{
+  "tag": "v3_run04",
+  "ckpt": "checkpoints/koopman_best.pth",
+  "n_samples": 35622,
+  "pred_len": 20,
+  "dt": 0.1,
+  "aggregate": {
+    "vel_rmse_mean": 0.006140217650681734,
+    "vel_rmse_step_1": 0.0005918325041420758,
+    "vel_rmse_step_5": 0.0029407860711216927,
+    "vel_rmse_step_10": 0.005851211957633495,
+    "vel_rmse_step_20": 0.011683541350066662,
+    "u_rmse_step_20": 0.011181434616446495,
+    "v_rmse_step_20": 0.0033884476870298386,
+    "r_rmse_step_20": 0.000633495335932821,
+    "acc_rmse_mean": 0.005920743692274156,
+    "traj_xy_rmse_step_20": 0.012581119313836098
+  },
+  "divergence": {
+    "ratio_step20_over_step1": 19.741297188472604,
+    "slope_loglog": 0.9946656768127713,
+    "slope_linear": 0.0005827436803514489,
+    "lyapunov_like": 0.1569848813446336,
+    "auc_error_curve": 0.005833333202463109,
+    "monotonic_increasing": true,
+    "instability_score": 2.1711399607479263,
+    "divergent_sample_pct": 99.89051709617652
+  },
+  "channel_bias": {
+    "u_bias_mean": -0.0011880190577358007,
+    "v_bias_mean": -0.00031446939101442695,
+    "r_bias_mean": 3.3053183869924396e-05
+  },
+  "tail": {
+    "vel_err_step20_p50": 0.00831689778715372,
+    "vel_err_step20_p90": 0.01875496841967106,
+    "vel_err_step20_p99": 0.027995526790618896,
+    "vel_err_step20_max": 0.04176954925060272
+  },
+  "fit_quality": {
+    "u_r2_mean": 0.9997577081409645,
+    "v_r2_mean": 0.9999479137748013,
+    "r_r2_mean": 0.9996755829023061,
+    "u_corr_mean": 0.9998835860946285,
+    "v_corr_mean": 0.9999770923908768,
+    "r_corr_mean": 0.9999012879069701
+  },
+  "per_segment": {
+    "worst_seg_idx": 3,
+    "worst_vel_rmse_K": 0.0159570574760437,
+    "best_seg_idx": 14,
+    "best_vel_rmse_K": 0.003677337896078825,
+    "ratio_worst_over_best": 4.339295960009234,
+    "per_seg_vel_rmse_K_std": 0.003410025639730004,
+    "high_speed_seg_mean": 0.008336011372092698,
+    "low_speed_seg_mean": 0.01148655286265744,
+    "high_speed_seg_count": 9,
+    "low_speed_seg_count": 9
+  }
+}

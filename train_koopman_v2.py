@@ -43,7 +43,33 @@ from torch.utils.tensorboard import SummaryWriter
 import yaml
 
 from koopman import HorizontalKoopmanModel
+from koopman_v3 import HorizontalKoopmanModelV3, FEATURE_DICT_ATOMS
 import eval_koopman as ek
+
+
+# =============================================================================
+# 0a. 模型工厂
+# =============================================================================
+
+def build_model(args: argparse.Namespace, device: torch.device) -> nn.Module:
+    """根据 ``args.model`` 构造 v1 / v2 / v3 模型。
+
+    v1 与 v2 共用同一个 ``HorizontalKoopmanModel`` 类（5 阶物理字典），
+    v3 用 ``HorizontalKoopmanModelV3``（5+11 阶字典）。
+    """
+    model_tag = getattr(args, "model", "v3")
+    if model_tag in ("v1", "v2"):
+        model = HorizontalKoopmanModel(state_dim=3, control_dim=4, hidden_dim=24)
+    elif model_tag == "v3":
+        model = HorizontalKoopmanModelV3(
+            state_dim=3, control_dim=4,
+            hidden_dim=int(getattr(args, "hidden_dim", 24)),
+            n_cubic=int(getattr(args, "n_cubic", 11)),
+            clamp_pif=float(getattr(args, "clamp_pif", 5.0)),
+        )
+    else:
+        raise ValueError(f"未知 --model {model_tag!r}; 支持 {{v1, v2, v3}}")
+    return model.to(device)
 
 
 # =============================================================================
@@ -199,7 +225,7 @@ def export_params_to_yaml(model: nn.Module, stats: Dict[str, np.ndarray], save_p
     A_w = (model.A.weight.detach().cpu() + torch.eye(model.A.weight.shape[0])).numpy().tolist()
     A_b = model.A.bias.detach().cpu().numpy().tolist() if model.A.bias is not None else []
     B_w = model.B.weight.detach().cpu().numpy().tolist()
-    yaml_data = {
+    yaml_data: Dict = {
         "normalization": {
             "dyn_mean": np.asarray(stats["state_mean"][3:6], dtype=float).tolist(),
             "dyn_std": np.asarray(stats["state_std"][3:6], dtype=float).tolist(),
@@ -207,8 +233,33 @@ def export_params_to_yaml(model: nn.Module, stats: Dict[str, np.ndarray], save_p
             "ctrl_std": np.asarray(stats["ctrl_std"], dtype=float).tolist(),
         },
         "system_matrices": {"A_weight": A_w, "A_bias": A_b, "B": B_w},
-        "info": "Latent z = [u, v, r, u|u|, v|v|, r|r|, vr, ur, h_1..h_24]",
     }
+    if isinstance(model, HorizontalKoopmanModelV3):
+        n_cubic = int(getattr(model, "n_cubic", 11))
+        all_quad = ["u_abs_u", "v_abs_v", "r_abs_r", "v_times_r", "u_times_r"]
+        all_cubic = [
+            "uvr", "u2r", "v2r", "ur2", "vr2",
+            "u_vabs_v", "v_uabs_u", "r_uabs_u", "r_vabs_v",
+            "uuu", "vvv",
+        ]
+        yaml_data["dictionary"] = {
+            "state_atoms": ["u", "v", "r"],
+            "quadratic_atoms": all_quad,
+            "cubic_atoms": all_cubic[:n_cubic],
+            "hidden_dim": int(getattr(model, "hidden_dim", 24)),
+            "latent_dim": int(getattr(model, "latent_dim")),
+            "note": (
+                "encoder = concat(state(3), quadratic(5), cubic(%d), hidden_mlp(%d));"
+                " all on NORMALIZED inputs"
+            ) % (n_cubic, int(getattr(model, "hidden_dim", 24))),
+        }
+        yaml_data["info"] = (
+            "Latent z = [u, v, r, "
+            + ", ".join(all_quad + all_cubic[:n_cubic])
+            + ", h_1..h_%d]" % int(getattr(model, "hidden_dim", 24))
+        )
+    else:
+        yaml_data["info"] = "Latent z = [u, v, r, u|u|, v|v|, r|r|, vr, ur, h_1..h_24]"
     with open(save_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(yaml_data, f, indent=4)
 
@@ -304,7 +355,37 @@ def compute_losses(
     # batch-mean(err) 的平方再按 step 加权（越后期越重，flatten 误差曲线）。
     bias_per_step = (err_vel * chan_scale).mean(dim=0)   # (K, 3)
     flatten_w = make_step_weights(K, args.gamma_bias, device).view(K, 1)
-    L_bias = ((bias_per_step ** 2) * flatten_w).mean()
+    # per-channel 加权（v3 引入）：默认 [u, v, r] 等权 1.0；CLI 通过
+    # --w_bias_u/v/r 各自调整权重。
+    chan_bias_w = torch.tensor(
+        [getattr(args, "w_bias_u_eff", 1.0),
+         getattr(args, "w_bias_v_eff", 1.0),
+         getattr(args, "w_bias_r_eff", 1.0)],
+        device=device, dtype=torch.float32,
+    ).view(1, 3)
+    L_bias = ((bias_per_step ** 2) * flatten_w * chan_bias_w).mean()
+
+    # 显式 log-log 斜率惩罚（v3 引入）。让 batch 的 vel_rmse-per-step 在 log-log 上
+    # 的最小二乘斜率不超过 ``args.slope_target``。该惩罚仅在 K>=4 时生效，否则
+    # 拟合自由度太低噪声很大。
+    L_slope = torch.zeros((), device=device)
+    if K >= 4 and getattr(args, "w_slope", 0.0) > 0:
+        eps_log = 1e-6
+        # 物理空间逐步水平速度误差 (B, K)
+        vel_err_phys = torch.sqrt(err_vel[..., 0] ** 2 + err_vel[..., 1] ** 2 + 1e-12)
+        # batch RMSE per step (K,)
+        vel_rmse_per_step = torch.sqrt((vel_err_phys ** 2).mean(dim=0) + 1e-12)
+        log_steps = torch.log(torch.arange(1, K + 1, device=device, dtype=torch.float32))
+        log_vel = torch.log(vel_rmse_per_step + eps_log)
+        # 最小二乘斜率（闭式）
+        n = float(K)
+        sx = log_steps.sum()
+        sy = log_vel.sum()
+        sxx = (log_steps * log_steps).sum()
+        sxy = (log_steps * log_vel).sum()
+        denom = n * sxx - sx * sx
+        slope_est = (n * sxy - sx * sy) / (denom + 1e-12)
+        L_slope = torch.relu(slope_est - float(args.slope_target)) ** 2
 
     # 加速度 Huber（带 dt）
     pred_acc = (pred_phys[:, 1:] - pred_phys[:, :-1]) / args.dt
@@ -344,6 +425,7 @@ def compute_losses(
         + args.w_stab * ramp * L_stab
         + args.w_l2 * L_l2
         + args.w_bias * L_bias
+        + getattr(args, "w_slope", 0.0) * L_slope
     )
 
     info = {
@@ -353,6 +435,7 @@ def compute_losses(
         "L_lin": float(L_lin.detach().item()),
         "L_stab": float(L_stab.detach().item()),
         "L_bias": float(L_bias.detach().item()),
+        "L_slope": float(L_slope.detach().item()) if isinstance(L_slope, torch.Tensor) else float(L_slope),
         "L_l2": float(L_l2.detach().item()),
         "spec_radius": float(spec.detach().item()),
         "ramp": ramp,
@@ -443,7 +526,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--w_stab", type=float, default=0.1)
     p.add_argument("--w_l2", type=float, default=1e-4)
     p.add_argument("--w_bias", type=float, default=0.0,
-                   help="batch-mean per-step bias 平方惩罚（强制误差零均值，flatten 曲线）")
+                   help="batch-mean per-step bias 平方惩罚（强制误差零均值，flatten 曲线）。"
+                        "若 --w_bias_u/v/r 任一显式给出则 --w_bias 被覆盖。")
+    p.add_argument("--w_bias_u", type=float, default=None,
+                   help="u 通道 bias 惩罚权重；显式给出则覆盖 --w_bias 标量行为。")
+    p.add_argument("--w_bias_v", type=float, default=None,
+                   help="v 通道 bias 惩罚权重；显式给出则覆盖 --w_bias 标量行为。")
+    p.add_argument("--w_bias_r", type=float, default=None,
+                   help="r 通道 bias 惩罚权重；显式给出则覆盖 --w_bias 标量行为。")
+    p.add_argument("--model", type=str, choices=["v1", "v2", "v3"], default="v3",
+                   help="选择模型：v1/v2 复用 HorizontalKoopmanModel，v3 用 V3。")
+    p.add_argument("--n_cubic", type=int, default=11,
+                   help="v3 的 cubic atom 数（最多 11，超出会报错）")
+    p.add_argument("--clamp_pif", type=float, default=5.0,
+                   help="v3 的物理字典 atom clamp 上限（绝对值），防止极端样本爆炸")
+    p.add_argument("--hidden_dim", type=int, default=24,
+                   help="v3 encoder 黑盒隐藏维度（与 v2 等同默认 24）")
+    p.add_argument("--w_slope", type=float, default=0.0,
+                   help="batch vel_rmse 在 log-log 上的斜率惩罚权重；当 slope_est > "
+                        "slope_target 时 relu^2 损失激活。v3 调优中用于压平误差增长。")
+    p.add_argument("--slope_target", type=float, default=0.65,
+                   help="期望的 batch log-log 斜率上界；默认 0.65（v2 基线 0.6695 略低）。")
     p.add_argument("--gamma_step", type=float, default=0.97, help="γ^k step weighting")
     p.add_argument("--gamma_bias", type=float, default=1.05,
                    help="L_bias 内的 γ^k step weighting（>1 强调晚期步）")
@@ -551,13 +654,31 @@ def train(args: argparse.Namespace) -> None:
     metrics_jsonl = os.path.join(args.log_dir, f"metrics_{timestamp}.jsonl")
     os.makedirs(args.ckpt_dir, exist_ok=True)
 
+    # ---- 解析 per-channel bias 权重（v3 引入；显式给出任一即覆盖标量 --w_bias） ----
+    has_per_chan = any(
+        getattr(args, f"w_bias_{c}", None) is not None for c in ("u", "v", "r")
+    )
+    if has_per_chan:
+        wbu = float(args.w_bias_u) if args.w_bias_u is not None else float(args.w_bias)
+        wbv = float(args.w_bias_v) if args.w_bias_v is not None else float(args.w_bias)
+        wbr = float(args.w_bias_r) if args.w_bias_r is not None else float(args.w_bias)
+        # 把全局 multiplier 设为 1，channel weight 内含全部权重
+        args.w_bias = 1.0
+        args.w_bias_u_eff, args.w_bias_v_eff, args.w_bias_r_eff = wbu, wbv, wbr
+    else:
+        # 兼容旧标量 --w_bias：channel weight 全 1（等价于历史 v2 行为）
+        args.w_bias_u_eff = args.w_bias_v_eff = args.w_bias_r_eff = 1.0
+
     # ---- Curriculum 第一阶段 ----
     pred_len = max(args.pred_len_start, 1)
     pred_len = min(pred_len, args.pred_len_max)
     train_ds, val_ds, train_loader, val_loader, stats = make_dataloaders(args, pred_len, None, logger)
 
     # ---- Model ----
-    model = HorizontalKoopmanModel(state_dim=3, control_dim=4, hidden_dim=24).to(device)
+    model = build_model(args, device)
+    # v3 字典自检（无论 smoketest 与否；smoketest 模式下必触发）
+    if isinstance(model, HorizontalKoopmanModelV3):
+        model._self_check_dict()
     for m in model.modules():
         if isinstance(m, nn.Dropout):
             m.p = float(args.encoder_dropout)
@@ -601,6 +722,13 @@ def train(args: argparse.Namespace) -> None:
     spec_init = float(model.spectral_radius().detach().item())
     logger.info("=" * 80)
     logger.info(f"Device: {device} | AMP: {use_amp}")
+    logger.info(
+        f"Model: {args.model} | class={model.__class__.__name__} "
+        f"| n_cubic={getattr(args, 'n_cubic', '-')} "
+        f"| latent_dim={getattr(model, 'latent_dim', '-')} "
+        f"| hidden_dim={getattr(args, 'hidden_dim', 24)} "
+        f"| clamp_pif={getattr(args, 'clamp_pif', '-')}"
+    )
     logger.info(f"Train data: {args.train_data} | Val: {args.val_data} | Test: {args.test_data}")
     logger.info(f"Batch: {args.batch_size} | Workers: {args.num_workers} | Seed: {args.seed}")
     logger.info(
@@ -610,7 +738,13 @@ def train(args: argparse.Namespace) -> None:
     logger.info(
         f"Loss weights: w_vel={args.w_vel} w_acc={args.w_acc} w_lin={args.w_lin} "
         f"w_recon={args.w_recon} w_stab={args.w_stab} w_l2={args.w_l2} "
-        f"gamma_step={args.gamma_step} huber_beta={args.huber_beta} rho_max={args.rho_max}"
+        f"w_bias={args.w_bias} (u={args.w_bias_u_eff}, v={args.w_bias_v_eff}, r={args.w_bias_r_eff}) "
+        f"gamma_step={args.gamma_step} gamma_bias={args.gamma_bias} "
+        f"huber_beta={args.huber_beta} rho_max={args.rho_max}"
+    )
+    logger.info(
+        f"Noise: input_std={args.noise_std} ctrl_std={args.ctrl_noise_std} | "
+        f"EMA decay={args.ema_decay} no_ema={args.no_ema} | best_metric={args.best_metric}"
     )
     logger.info(f"Train samples: {len(train_ds)} | Val samples: {len(val_ds)} | Params: {n_params}")
     logger.info(f"Initial spectral radius (I+A): {spec_init:.6g}")
@@ -633,7 +767,7 @@ def train(args: argparse.Namespace) -> None:
         model.train()
         epoch_acc: Dict[str, float] = {"L_total": 0.0, "L_vel": 0.0, "L_acc": 0.0,
                                        "L_lin": 0.0, "L_stab": 0.0, "L_bias": 0.0,
-                                       "L_l2": 0.0, "spec_radius": 0.0}
+                                       "L_slope": 0.0, "L_l2": 0.0, "spec_radius": 0.0}
         t0 = time.time()
         n_batches = 0
         for x_t_full, x_target_seq, u_seq in train_loader:
@@ -740,6 +874,9 @@ def train(args: argparse.Namespace) -> None:
             "scaler_state_dict": scaler.state_dict() if scaler is not None else None,
             "ema_state_dict": ema.state_dict() if ema is not None else None,
             "args": vars(args),
+            "model_class": model.__class__.__name__,
+            "feature_dict_atoms": list(FEATURE_DICT_ATOMS),
+            "latent_dim": int(getattr(model, "latent_dim", 32)),
         }
         torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_latest.pth"))
 
@@ -765,7 +902,8 @@ def train(args: argparse.Namespace) -> None:
     if os.path.exists(best_path):
         ck = torch.load(best_path, map_location=device, weights_only=False)
         sd = ck.get("ema_state_dict") or ck["model_state_dict"]
-        export_model = HorizontalKoopmanModel(state_dim=3, control_dim=4, hidden_dim=24)
+        # 用同一种 build_model 实例化以匹配 state_dict
+        export_model = build_model(args, torch.device("cpu"))
         export_model.load_state_dict(sd)
         export_yaml = os.path.join(args.ckpt_dir, "koopman_best.yaml")
         export_params_to_yaml(export_model, ck["stats"], export_yaml)
@@ -783,6 +921,34 @@ def train(args: argparse.Namespace) -> None:
             )
             verdict = ek.quantitative_verdict_block(res.summary)
             logger.info("\n" + verdict)
+            # 若是 v3 模型，则额外打印 12 阈值 verdict（PROMPT §9）。
+            if args.model == "v3":
+                v1_res = None
+                v2_res = None
+                v1_path = os.path.join(args.ckpt_dir, "koopman_v1_best.pth")
+                v2_path = os.path.join(args.ckpt_dir, "koopman_v2_best.pth")
+                try:
+                    if os.path.exists(v1_path):
+                        v1_res = ek.evaluate_one(
+                            ckpt_path=v1_path, data_path=args.test_data,
+                            pred_len=args.pred_len_max, dt=args.dt,
+                            tag="v1", out_dir=os.path.join(args.out_dir, "_v1_aux"),
+                            device=device, batch_size=args.batch_size,
+                            max_samples=None, write_files=False,
+                        )
+                    if os.path.exists(v2_path):
+                        v2_res = ek.evaluate_one(
+                            ckpt_path=v2_path, data_path=args.test_data,
+                            pred_len=args.pred_len_max, dt=args.dt,
+                            tag="v2", out_dir=os.path.join(args.out_dir, "_v2_aux"),
+                            device=device, batch_size=args.batch_size,
+                            max_samples=None, write_files=False,
+                        )
+                except Exception as ee:
+                    logger.warning(f"v1/v2 aux eval failed: {ee}")
+                v3_md, all_pass = ek.v3_threshold_verdict(res, v1_res=v1_res, v2_res=v2_res)
+                logger.info("\n" + v3_md)
+                logger.info(f"v3 auto-PASS = {all_pass}")
         except Exception as e:
             logger.warning(f"Auto post-train test eval failed: {e}")
 

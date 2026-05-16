@@ -1,0 +1,60 @@
+{
+  "tag": "v3_run05",
+  "ckpt": "checkpoints/koopman_best.pth",
+  "n_samples": 35622,
+  "pred_len": 20,
+  "dt": 0.1,
+  "aggregate": {
+    "vel_rmse_mean": 0.006642572581768036,
+    "vel_rmse_step_1": 0.0012429124908521771,
+    "vel_rmse_step_5": 0.0041944230906665325,
+    "vel_rmse_step_10": 0.006437047850340605,
+    "vel_rmse_step_20": 0.011553297750651836,
+    "u_rmse_step_20": 0.01108286902308464,
+    "v_rmse_step_20": 0.0032631265930831432,
+    "r_rmse_step_20": 0.0007799239829182625,
+    "acc_rmse_mean": 0.006064367382542083,
+    "traj_xy_rmse_step_20": 0.01348340604454279
+  },
+  "divergence": {
+    "ratio_step20_over_step1": 9.295342862578007,
+    "slope_loglog": 0.7066092409319175,
+    "slope_linear": 0.0004980220462027519,
+    "lyapunov_like": 0.1173428161720304,
+    "auc_error_curve": 0.0063226673431927335,
+    "monotonic_increasing": true,
+    "instability_score": 1.2921155166948972,
+    "divergent_sample_pct": 89.27909718713155
+  },
+  "channel_bias": {
+    "u_bias_mean": 3.891433607350336e-06,
+    "v_bias_mean": 0.000128577696159482,
+    "r_bias_mean": 4.8277161113219336e-05
+  },
+  "tail": {
+    "vel_err_step20_p50": 0.008917979896068573,
+    "vel_err_step20_p90": 0.01812373474240303,
+    "vel_err_step20_p99": 0.023077016696333885,
+    "vel_err_step20_max": 0.03285907953977585
+  },
+  "fit_quality": {
+    "u_r2_mean": 0.9997370194507779,
+    "v_r2_mean": 0.999952528894903,
+    "r_r2_mean": 0.9995577285932045,
+    "u_corr_mean": 0.9998694212062164,
+    "v_corr_mean": 0.9999826049543306,
+    "r_corr_mean": 0.9998970701331571
+  },
+  "per_segment": {
+    "worst_seg_idx": 3,
+    "worst_vel_rmse_K": 0.013549314811825752,
+    "best_seg_idx": 14,
+    "best_vel_rmse_K": 0.007513599935919046,
+    "ratio_worst_over_best": 1.8033053299860622,
+    "per_seg_vel_rmse_K_std": 0.001985923702858753,
+    "high_speed_seg_mean": 0.009544632863253355,
+    "low_speed_seg_mean": 0.010773004239632024,
+    "high_speed_seg_count": 9,
+    "low_speed_seg_count": 9
+  }
+}

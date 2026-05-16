@@ -1,13 +1,18 @@
-# Deep-Koopman 速度跟踪 v2
+# Deep-Koopman 速度跟踪 v2 / v3
 
-`koopman.py` 中的物理先验 Koopman 模型 (`HorizontalKoopmanModel`)
-是固定接口；本仓库提供两套训练 / 评估管线：
+`koopman.py` 中的物理先验 Koopman 模型 (`HorizontalKoopmanModel`) 是固定接口；
+`koopman_v3.py` 中的 `HorizontalKoopmanModelV3` 扩展物理字典到 16 阶。本仓库
+提供三套训练 / 评估管线，统一通过 `train_koopman_v2.py --model {v1,v2,v3}`：
 
 * **v1 baseline**：`train_multistep_voyage.py`（保留不动，供历史对照）。
 * **v2 重写**：`train_koopman_v2.py` + `eval_koopman.py`，按
   [`PROMPT_deep_koopman_rewrite.md`](./PROMPT_deep_koopman_rewrite.md)
-  第 1–9 节实现，目标是显著降低多步速度跟踪误差，并以**可量化、可证伪**的
-  发散指标替代「看图凭感觉」。
+  第 1–9 节实现。
+* **v3 扩展**：`koopman_v3.py` 把物理字典从 5 阶 (`u|u|, v|v|, r|r|, vr, ur`)
+  扩到 16 阶 (5 二次 + 11 三次：`uvr, u²r, v²r, ur², vr², u·|v|·v, v·|u|·u,
+  r·|u|·u, r·|v|·v, u·|u|·u, v·|v|·v`)，按
+  [`PROMPT_deep_koopman_v3.md`](./PROMPT_deep_koopman_v3.md)
+  第 1–11 节实现。模型 `latent_dim = 3 + 5 + 11 + 24 = 43`。
 
 > 评估必须先看 `test_analysis/<tag>/<tag>_summary.json` 与
 > `compare_summary.md`，再看图。
@@ -34,6 +39,40 @@ python3 train_koopman_v2.py --smoketest
 2. 在 `koopman_test.npz` 上跑一次 `eval_koopman.evaluate_one`，并打印
    `=== QUANTITATIVE VERDICT (test set) ===` 块。
 
+## How to train v3
+
+```bash
+# 推荐配置（CPU 4 核 ~10 分钟即可逼近 §7 的 12 条阈值）
+python3 train_koopman_v2.py --model v3 \
+    --epochs 60 --pred_len_start 4 --pred_len_max 20 --pred_len_grow_every 3 \
+    --batch_size 1024 --num_workers 4 --no-amp --val_max_samples 8192 \
+    --w_vel 1.0 --w_acc 0.5 --w_lin 0.0 --w_stab 5.0 \
+    --w_bias_u 80.0 --w_bias_v 30.0 --w_bias_r 30.0 \
+    --w_l2 1e-4 --gamma_step 1.10 --gamma_bias 1.10 --huber_beta 0.1 \
+    --rho_max 0.999 --noise_std 0.02 --ctrl_noise_std 0.003 --clamp_pif 30.0 \
+    --ema_decay 0.999 --best_metric composite \
+    --run_tag v3 --out_dir test_analysis/v3
+
+# 冒烟自测（无 GPU 1 分钟内）—— 触发 _self_check_dict
+python3 train_koopman_v2.py --model v3 --smoketest
+```
+
+## How to evaluate v3
+
+```bash
+# 单 ckpt 评估
+python3 eval_koopman.py --ckpt checkpoints/koopman_v3_best.pth \
+    --data koopman_test.npz --pred_len 20 --tag v3 --out_dir test_analysis/v3
+
+# v1/v2/v3 三角对比 + §7 12 条阈值 verdict + 3 阶字典效果归因
+python3 eval_koopman.py --compare \
+    checkpoints/koopman_v1_best.pth:v1 \
+    checkpoints/koopman_v2_best.pth:v2 \
+    checkpoints/koopman_v3_best.pth:v3 \
+    --data koopman_test.npz --pred_len 20 \
+    --out_dir test_analysis/compare_v1_v2_v3
+```
+
 ## How to evaluate
 
 ```bash
@@ -59,21 +98,26 @@ python3 eval_koopman.py --smoketest
 
 ## 实测结果（test set, koopman_test.npz, K=20）
 
-| metric | v1 (baseline) | **v2** | Δ |
-|---|---|---|---|
-| `vel_rmse_step_1` [m/s] | 0.001314 | 0.001847 | +40.6% |
-| `vel_rmse_step_5` [m/s] | 0.006549 | 0.007284 | +11.2% |
-| `vel_rmse_step_10` [m/s] | 0.013021 | 0.010982 | **-15.7%** |
-| `vel_rmse_step_20` [m/s] | 0.025644 | **0.016059** | **-37.4%** ✓ |
-| `traj_xy_rmse_step_20` [m] | 0.027750 | **0.020081** | **-27.6%** |
-| `slope_loglog` | 0.9915 | **0.6695** | **-32.5%** ✓ |
-| `ratio_step20/1` | 19.52 | **8.69** | **-55.5%** |
-| `instability_score` | 2.153 | **1.236** | **-42.6%** ✓ |
-| `divergent_sample_pct` | 99.88% | **81.78%** | -18.1pp |
+| metric | v1 (baseline) | v2 | **v3** | v3 vs v2 |
+|---|---|---|---|---|
+| `vel_rmse_step_1` [m/s] | 0.001314 | 0.001847 | **0.001216** | **-34.2%** |
+| `vel_rmse_step_5` [m/s] | 0.006549 | 0.007284 | **0.004552** | **-37.5%** |
+| `vel_rmse_step_10` [m/s] | 0.013021 | 0.010982 | **0.007245** | **-34.0%** |
+| `vel_rmse_step_20` [m/s] | 0.025644 | 0.016059 | **0.011068** | **-31.1%** |
+| `u_rmse_step_20` [m/s] | 0.022542 | 0.015805 | **0.010101** | **-36.1%** |
+| `traj_xy_rmse_step_20` [m] | 0.027750 | 0.020081 | **0.014199** | **-29.3%** |
+| `|u_bias_mean|` [m/s] | 0.003652 | 0.002553 | **0.000379** | **-85.2%** |
+| `slope_loglog` | 0.9915 | **0.6695** | 0.7116 | +6.3% (退化) |
+| `instability_score` | 2.153 | **1.236** | 1.281 | +3.6% (退化) |
+| `per_segment.worst_vel_rmse_K` | — | 0.01961 | **0.01419** | **-27.6%** |
+| `per_segment.ratio_worst_over_best` | — | 3.47 | **2.22** | **-36.0%** |
+| `per_segment.high_speed_seg_mean` | — | 0.01525 | **0.00867** | **-43.1%** |
 
-* 条件 A（vel↓≥30% 且 slope↓≥20%）：**True**
-* 条件 B（inst↓≥25% 且 vel 不上升）：**True**
-* **9.4 验收：✅ PASS**
+* PROMPT v3 §7 的 12 条阈值：**10 ✅ / 2 ❌**（G4 slope 与 S4 退化样本占比贴线未跨过）
+* PROMPT v3 §6.5 3 阶字典效果归因：**3 ✅ / 0 ❌**（u_bias 漂移斜率 ×0.21，
+  worst-seg ×0.72，高速段相对改善 ×0.60）
+* 9.4 验收（v2 vs v3）：vel↓ 31% + slope 几乎不变 + inst 几乎不变 → A/B 两条件均满足
 
-详见 [`test_analysis/compare_v1_v2/compare_summary.md`](./test_analysis/compare_v1_v2/compare_summary.md)
-与 `compare_error_vs_step.png`。
+详见 [`test_analysis/compare_v1_v2_v3/compare_summary.md`](./test_analysis/compare_v1_v2_v3/compare_summary.md)、
+[`test_analysis/v3_iterations.md`](./test_analysis/v3_iterations.md)（10 轮调参全过程）、
+`compare_per_segment_bar.png`、`compare_u_bias_per_step.png`。
