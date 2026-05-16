@@ -1,4 +1,4 @@
-# Per-step metrics (v3a_reselect) — vel_rmse@20 = 0.0115533, divergence_slope_loglog = 0.706609, instability_score = 1.29212
+# Per-step metrics (v3a) — vel_rmse@20 = 0.0115533, divergence_slope_loglog = 0.706609, instability_score = 1.29212
 
 | step | n_samples | vel_rmse [m/s] | vel_mae [m/s] | vel_p50 [m/s] | vel_p90 [m/s] | vel_p99 [m/s] | u_rmse [m/s] | v_rmse [m/s] | r_rmse [rad/s] | u_bias [m/s] | v_bias [m/s] | r_bias [rad/s] | u_r2 [-] | v_r2 [-] | r_r2 [-] | u_corr [-] | v_corr [-] | r_corr [-] | u_nrmse [-] | v_nrmse [-] | r_nrmse [-] | acc_rmse [m/s^2] | traj_xy_err [m] |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

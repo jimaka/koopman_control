@@ -1,4 +1,4 @@
-# per-segment metrics (v3a_reselect) — worst_seg = 3 (vel@K=0.0135493); best_seg = 14 (vel@K=0.0075136); 段间 mean 差距 = 1.8×; high_speed_mean = 0.00954463; low_speed_mean = 0.010773
+# per-segment metrics (v3a) — worst_seg = 3 (vel@K=0.0135493); best_seg = 14 (vel@K=0.0075136); 段间 mean 差距 = 1.8×; high_speed_mean = 0.00954463; low_speed_mean = 0.010773
 
 | seg_idx | n_windows | vel_rmse_1 | vel_rmse_5 | vel_rmse_10 | vel_rmse_K | u_rmse_K | v_rmse_K | r_rmse_K | u_bias_K | traj_xy_rmse_K | vel_err_p50_K | vel_err_p90_K | vel_err_p99_K | vel_err_max_K | ratio_K_over_1 | slope_loglog | instability_score | u_mean | u_std | v_std | r_std | dthr_mean |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

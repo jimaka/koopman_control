@@ -1,6 +1,6 @@
 {
-  "tag": "v3a_reselect",
-  "ckpt": "checkpoints/koopman_v3a_reselect_best.pth",
+  "tag": "v3a",
+  "ckpt": "checkpoints/koopman_v3a_best.pth",
   "n_samples": 35622,
   "pred_len": 20,
   "dt": 0.1,
