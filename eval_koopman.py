@@ -49,6 +49,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from koopman import HorizontalKoopmanModel
+try:
+    from koopman_v3 import HorizontalKoopmanModelV3, FEATURE_DICT_ATOMS
+except Exception:  # 容错：v3 模块缺失时仍能用 v1/v2
+    HorizontalKoopmanModelV3 = None  # type: ignore
+    FEATURE_DICT_ATOMS = []
 
 # ---------------------------------------------------------------------------
 # 1. 数据装载（与 train_koopman_v2.py 中的 dataset 等价，但不依赖它，
@@ -739,15 +744,32 @@ class EvalResult:
     gt_xy: np.ndarray
     pred_xy: np.ndarray
     vel_horiz_err: np.ndarray  # (M,K)
+    seg_idx: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.int64))
+    per_segment: Dict[int, Dict[str, float]] = field(default_factory=dict)
+    seg_order_by_v2: Optional[np.ndarray] = None
 
 
 def load_model_from_ckpt(ckpt_path: str, device: torch.device) -> Tuple[nn.Module, Dict]:
+    """根据 ckpt['model_class'] 自动 dispatch v1/v2/v3。"""
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     stats = ckpt["stats"]
-    # 优先用 EMA 权重（v2 训练保存的话），否则用普通权重
     sd = ckpt.get("ema_state_dict") or ckpt["model_state_dict"]
-    model = HorizontalKoopmanModel(state_dim=3, control_dim=4, hidden_dim=24)
-    # 关闭 dropout 影响
+    model_class = ckpt.get("model_class", "HorizontalKoopmanModel")
+    args_d = ckpt.get("args", {}) or {}
+    if model_class == "HorizontalKoopmanModelV3":
+        if HorizontalKoopmanModelV3 is None:
+            raise RuntimeError(
+                "ckpt 是 v3 模型但当前进程无 koopman_v3 模块，无法加载。"
+            )
+        model = HorizontalKoopmanModelV3(
+            state_dim=3, control_dim=4,
+            hidden_dim=int(args_d.get("hidden_dim", 24)),
+            n_cubic=int(args_d.get("n_cubic", 11)),
+            clamp_pif=float(args_d.get("clamp_pif", 5.0)),
+        )
+    else:
+        # v1/v2 共用同一个 HorizontalKoopmanModel
+        model = HorizontalKoopmanModel(state_dim=3, control_dim=4, hidden_dim=24)
     for m in model.modules():
         if isinstance(m, nn.Dropout):
             m.p = 0.0
@@ -755,6 +777,177 @@ def load_model_from_ckpt(ckpt_path: str, device: torch.device) -> Tuple[nn.Modul
     model.to(device)
     model.eval()
     return model, stats
+
+
+PER_SEGMENT_COLUMNS = [
+    "seg_idx", "n_windows",
+    "vel_rmse_1", "vel_rmse_5", "vel_rmse_10", "vel_rmse_K",
+    "u_rmse_K", "v_rmse_K", "r_rmse_K", "u_bias_K", "traj_xy_rmse_K",
+    "vel_err_p50_K", "vel_err_p90_K", "vel_err_p99_K", "vel_err_max_K",
+    "ratio_K_over_1", "slope_loglog", "instability_score",
+    "u_mean", "u_std", "v_std", "r_std", "dthr_mean",
+]
+
+
+def _segment_raw_stats(states_full: np.ndarray, ctrls_full: np.ndarray,
+                       seg_starts: np.ndarray, seg_lens: np.ndarray,
+                       sidx: int) -> Dict[str, float]:
+    """段内原始（未归一化）状态/控制统计量。
+
+    控制量 dthr_mean = 该段内 4 个推进器之间标准差的时间平均（粗略表征异轮转
+    强度，与 PROMPT v2 归因里的 dthr 含义一致）。
+    """
+    s0 = int(seg_starts[sidx])
+    T = int(seg_lens[sidx])
+    if T <= 0:
+        return {"u_mean": float("nan"), "u_std": float("nan"),
+                "v_std": float("nan"), "r_std": float("nan"),
+                "dthr_mean": float("nan")}
+    seg_state = states_full[s0:s0 + T]
+    seg_ctrl = ctrls_full[s0:s0 + T]
+    u_arr = seg_state[:, 3]
+    v_arr = seg_state[:, 4]
+    r_arr = seg_state[:, 5]
+    # dthr：相邻推进器差值的逐时刻标准差，再做时间均值
+    dthr_per_t = seg_ctrl.std(axis=1) if seg_ctrl.shape[1] > 1 else np.zeros(T)
+    return {
+        "u_mean": float(np.mean(u_arr)),
+        "u_std": float(np.std(u_arr)),
+        "v_std": float(np.std(v_arr)),
+        "r_std": float(np.std(r_arr)),
+        "dthr_mean": float(np.mean(dthr_per_t)),
+    }
+
+
+def compute_per_segment_metrics(
+    gt_dyn: np.ndarray, pred_dyn: np.ndarray,
+    gt_xy: np.ndarray, pred_xy: np.ndarray,
+    seg_idx_arr: np.ndarray,
+    states_full: np.ndarray, ctrls_full: np.ndarray,
+    seg_starts: np.ndarray, seg_lens: np.ndarray,
+    K: int,
+) -> Dict[int, Dict[str, float]]:
+    """每段聚合：返回 {seg_idx: dict[列名 -> 值]}。"""
+    eps = 1e-6
+    out: Dict[int, Dict[str, float]] = {}
+    unique_segs = np.unique(seg_idx_arr)
+    diff = pred_dyn - gt_dyn
+    vel_err = np.sqrt(diff[..., 0] ** 2 + diff[..., 1] ** 2)  # (M, K)
+    traj_err = np.sqrt(np.sum((pred_xy - gt_xy) ** 2, axis=-1))  # (M, K)
+
+    log_steps = np.log(np.arange(1, K + 1, dtype=np.float64))
+    A = np.vstack([log_steps, np.ones_like(log_steps)]).T
+
+    for sidx in unique_segs:
+        mask = (seg_idx_arr == sidx)
+        n_win = int(mask.sum())
+        if n_win == 0:
+            continue
+        d_seg = diff[mask]                   # (n_win, K, 3)
+        verr_seg = vel_err[mask]             # (n_win, K)
+        terr_seg = traj_err[mask]            # (n_win, K)
+        # NOTE: PROMPT v3 §2 中标的 v2 baseline (worst=0.01961, best=0.00566,
+        # ratio=3.47) 使用的是「mean(vel_horiz_err)」而非 sqrt-mean-square。
+        # 为了让 §7.2 的 S1/S2/S3 绝对阈值与基线对齐，per-segment 的
+        # vel_rmse_{1,5,10,K} 字段在此按 PROMPT 定义采用 mean（注意命名
+        # 沿用 PROMPT §6.2 spec 的 "vel_rmse_K"）。
+        vel_rmse_step = np.mean(verr_seg, axis=0)  # (K,)
+        u_rmse_K = float(np.sqrt(np.mean(d_seg[:, -1, 0] ** 2)))
+        v_rmse_K = float(np.sqrt(np.mean(d_seg[:, -1, 1] ** 2)))
+        r_rmse_K = float(np.sqrt(np.mean(d_seg[:, -1, 2] ** 2)))
+        u_bias_K = float(np.mean(d_seg[:, -1, 0]))
+        traj_xy_rmse_K = float(np.sqrt(np.mean(terr_seg[:, -1] ** 2)))
+
+        verr_K = verr_seg[:, -1]
+        ratio = float(verr_seg[:, -1].mean() / max(verr_seg[:, 0].mean(), eps))
+        log_vel = np.log(np.maximum(vel_rmse_step.astype(np.float64), eps))
+        slope_ll, _ = np.linalg.lstsq(A, log_vel, rcond=None)[0]
+        sig = 1.0 / (1.0 + np.exp(-slope_ll))
+        inst = float(sig * (1.0 + ratio / 10.0))
+
+        raw = _segment_raw_stats(states_full, ctrls_full, seg_starts, seg_lens, int(sidx))
+
+        row = {
+            "seg_idx": int(sidx),
+            "n_windows": n_win,
+            "vel_rmse_1": float(vel_rmse_step[0]),
+            "vel_rmse_5": float(vel_rmse_step[min(4, K - 1)]),
+            "vel_rmse_10": float(vel_rmse_step[min(9, K - 1)]),
+            "vel_rmse_K": float(vel_rmse_step[-1]),
+            "u_rmse_K": u_rmse_K, "v_rmse_K": v_rmse_K, "r_rmse_K": r_rmse_K,
+            "u_bias_K": u_bias_K, "traj_xy_rmse_K": traj_xy_rmse_K,
+            "vel_err_p50_K": float(np.percentile(verr_K, 50)),
+            "vel_err_p90_K": float(np.percentile(verr_K, 90)),
+            "vel_err_p99_K": float(np.percentile(verr_K, 99)),
+            "vel_err_max_K": float(np.max(verr_K)),
+            "ratio_K_over_1": ratio,
+            "slope_loglog": float(slope_ll),
+            "instability_score": inst,
+            **raw,
+        }
+        out[int(sidx)] = row
+    return out
+
+
+def write_per_segment_csv(per_seg: Dict[int, Dict[str, float]], path: str) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(",".join(PER_SEGMENT_COLUMNS) + "\n")
+        for sidx in sorted(per_seg.keys()):
+            row = per_seg[sidx]
+            f.write(",".join(_fmt(row.get(c, float("nan"))) for c in PER_SEGMENT_COLUMNS) + "\n")
+
+
+def write_per_segment_md(per_seg: Dict[int, Dict[str, float]], path: str, tag: str) -> None:
+    K_keys = list(per_seg.keys())
+    if not K_keys:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"# per-segment metrics ({tag}) — no segments\n")
+        return
+    velK = {k: v["vel_rmse_K"] for k, v in per_seg.items()}
+    worst = max(velK, key=lambda k: velK[k])
+    best = min(velK, key=lambda k: velK[k])
+    ratio_wb = velK[worst] / max(velK[best], 1e-9)
+    high_speed = [v["vel_rmse_K"] for v in per_seg.values() if v.get("u_mean", 0.0) > 3.0]
+    low_speed = [v["vel_rmse_K"] for v in per_seg.values() if v.get("u_mean", 0.0) <= 3.0]
+    hi_mean = float(np.mean(high_speed)) if high_speed else float("nan")
+    lo_mean = float(np.mean(low_speed)) if low_speed else float("nan")
+    title = (
+        f"# per-segment metrics ({tag}) — worst_seg = {worst} (vel@K={velK[worst]:.6g}); "
+        f"best_seg = {best} (vel@K={velK[best]:.6g}); "
+        f"段间 mean 差距 = {ratio_wb:.3g}×; "
+        f"high_speed_mean = {hi_mean:.6g}; low_speed_mean = {lo_mean:.6g}\n"
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(title + "\n")
+        f.write("| " + " | ".join(PER_SEGMENT_COLUMNS) + " |\n")
+        f.write("|" + "|".join(["---"] * len(PER_SEGMENT_COLUMNS)) + "|\n")
+        for sidx in sorted(per_seg.keys()):
+            row = per_seg[sidx]
+            f.write("| " + " | ".join(_fmt(row.get(c, float("nan"))) for c in PER_SEGMENT_COLUMNS) + " |\n")
+
+
+def build_per_segment_summary(per_seg: Dict[int, Dict[str, float]]) -> Dict:
+    if not per_seg:
+        return {}
+    velK = {k: v["vel_rmse_K"] for k, v in per_seg.items()}
+    worst = max(velK, key=lambda k: velK[k])
+    best = min(velK, key=lambda k: velK[k])
+    ratio_wb = velK[worst] / max(velK[best], 1e-9)
+    velK_arr = np.array(list(velK.values()), dtype=np.float64)
+    high = [v["vel_rmse_K"] for v in per_seg.values() if v.get("u_mean", 0.0) > 3.0]
+    low = [v["vel_rmse_K"] for v in per_seg.values() if v.get("u_mean", 0.0) <= 3.0]
+    return {
+        "worst_seg_idx": int(worst),
+        "worst_vel_rmse_K": float(velK[worst]),
+        "best_seg_idx": int(best),
+        "best_vel_rmse_K": float(velK[best]),
+        "ratio_worst_over_best": float(ratio_wb),
+        "per_seg_vel_rmse_K_std": float(velK_arr.std()),
+        "high_speed_seg_mean": float(np.mean(high)) if high else float("nan"),
+        "low_speed_seg_mean": float(np.mean(low)) if low else float("nan"),
+        "high_speed_seg_count": int(len(high)),
+        "low_speed_seg_count": int(len(low)),
+    }
 
 
 def evaluate_one(
@@ -771,7 +964,7 @@ def evaluate_one(
 ) -> EvalResult:
     os.makedirs(out_dir, exist_ok=True)
     model, stats = load_model_from_ckpt(ckpt_path, device)
-    states_full, ctrls_full, _, _, t0_global, seg_idx, t0_local = _flatten_segments(
+    states_full, ctrls_full, seg_starts, seg_lens, t0_global, seg_idx, t0_local = _flatten_segments(
         data_path, pred_len=pred_len, stride=1
     )
     if max_samples is not None and t0_global.shape[0] > max_samples:
@@ -791,6 +984,13 @@ def evaluate_one(
         tag=tag, ckpt_path=ckpt_path, n_samples=int(gt_dyn.shape[0]),
         pred_len=pred_len, dt=dt, per_step=per_step, div=div, per_sample=per_sample,
     )
+    # per-segment 指标（PROMPT v3 §6.2/§6.4）
+    per_seg = compute_per_segment_metrics(
+        gt_dyn, pred_dyn, gt_xy, pred_xy, seg_idx,
+        states_full, ctrls_full, seg_starts, seg_lens, K=pred_len,
+    )
+    summary["per_segment"] = build_per_segment_summary(per_seg)
+
     diff = pred_dyn - gt_dyn
     vel_horiz_err = np.sqrt(diff[..., 0] ** 2 + diff[..., 1] ** 2)
 
@@ -799,6 +999,8 @@ def evaluate_one(
         write_per_step_md(per_step, div, os.path.join(out_dir, f"{tag}_per_step_metrics.md"), tag)
         write_per_sample_csv(per_sample, seg_idx, t0_local, pred_len,
                              os.path.join(out_dir, f"{tag}_per_sample_step{pred_len}.csv"))
+        write_per_segment_csv(per_seg, os.path.join(out_dir, f"{tag}_per_segment_metrics.csv"))
+        write_per_segment_md(per_seg, os.path.join(out_dir, f"{tag}_per_segment_metrics.md"), tag)
         with open(os.path.join(out_dir, f"{tag}_summary.json"), "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2, ensure_ascii=False)
         plot_velocity_curve_grid(gt_dyn, pred_dyn, per_sample,
@@ -817,6 +1019,7 @@ def evaluate_one(
         tag=tag, ckpt_path=ckpt_path, summary=summary, per_step=per_step,
         per_sample=per_sample, gt_dyn=gt_dyn, pred_dyn=pred_dyn,
         gt_xy=gt_xy, pred_xy=pred_xy, vel_horiz_err=vel_horiz_err,
+        seg_idx=seg_idx, per_segment=per_seg,
     )
 
 
@@ -862,8 +1065,24 @@ def write_compare_csv_md(results: List[EvalResult], out_dir: str) -> Tuple[str, 
         for row in flat_rows:
             f.write("| " + " | ".join(row.get(k, "") for k in all_keys) + " |\n")
         f.write("\n## Verdict\n\n")
-        f.write(_compare_verdict_text(results))
+        f.write(_compare_verdict_text_with_v3(results))
     return csv_path, md_path
+
+
+def _compare_verdict_text_with_v3(results: List[EvalResult]) -> str:
+    """若有 v3 结果，则在末尾补 12 阈值 verdict + 3 阶字典归因。"""
+    base_text = _compare_verdict_text(results)
+    v3_res = next((r for r in results if r.tag == "v3"), None)
+    v2_res = next((r for r in results if r.tag == "v2"), None)
+    v1_res = next((r for r in results if r.tag == "v1"), None)
+    extra = ""
+    if v3_res is not None:
+        v3_md, _ = v3_threshold_verdict(v3_res, v1_res=v1_res, v2_res=v2_res)
+        extra += "\n" + v3_md
+        attribution = cubic_dictionary_attribution(v3_res, v2_res)
+        if attribution:
+            extra += "\n" + attribution
+    return base_text + extra
 
 
 def _compare_verdict_text(results: List[EvalResult]) -> str:
@@ -969,6 +1188,266 @@ def plot_compare_step_K_box(results: List[EvalResult], path: str) -> None:
     fig.tight_layout()
     fig.savefig(path, dpi=200)
     plt.close(fig)
+
+
+def plot_compare_per_segment_bar(results: List[EvalResult], path: str) -> None:
+    """段间柱状对比（x 轴 = seg idx，按 v2 段误差降序固定顺序）。"""
+    if not results:
+        return
+    K = results[0].summary["pred_len"]
+    # 选一个 reference 用作排序：优先 tag=='v2'，否则用第一个
+    ref = next((r for r in results if r.tag == "v2"), results[0])
+    if not ref.per_segment:
+        return
+    seg_ids_sorted = sorted(ref.per_segment.keys(),
+                            key=lambda s: -ref.per_segment[s]["vel_rmse_K"])
+    n_groups = len(seg_ids_sorted)
+    n_runs = len(results)
+    width = 0.8 / max(n_runs, 1)
+    fig, ax = plt.subplots(figsize=(max(8.0, n_groups * 0.7), 5.0))
+    x = np.arange(n_groups)
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
+    for j, r in enumerate(results):
+        vals = []
+        for s in seg_ids_sorted:
+            if s in r.per_segment:
+                vals.append(r.per_segment[s]["vel_rmse_K"])
+            else:
+                vals.append(np.nan)
+        ax.bar(x + j * width - 0.4 + width / 2, vals, width=width,
+               label=r.tag, color=colors[j % len(colors)], alpha=0.85)
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(s) for s in seg_ids_sorted], rotation=0, fontsize=8)
+    ax.set_xlabel(f"segment idx (sorted by {ref.tag} vel_rmse@{K} desc)")
+    ax.set_ylabel(f"vel_rmse@{K} [m/s]")
+    ax.grid(True, axis="y", alpha=0.3)
+    ax.legend(fontsize=9)
+    ax.set_title("Per-segment vel_rmse@K (lower is better)")
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+
+
+def plot_compare_u_bias_per_step(results: List[EvalResult], path: str) -> None:
+    """每个 ckpt 的 u_bias_per_step（K 个值）叠图，证明 v3 把 u 漂移斜率压平。"""
+    if not results:
+        return
+    K = results[0].summary["pred_len"]
+    steps = np.arange(1, K + 1)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.8))
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
+    for j, r in enumerate(results):
+        ub = r.per_step["u_bias"]
+        c = colors[j % len(colors)]
+        ax1.plot(steps, ub, "o-", label=r.tag, color=c, lw=1.5)
+        ax2.plot(steps, np.cumsum(ub), "o-", label=r.tag, color=c, lw=1.5)
+    for ax, title, ylab in [
+        (ax1, "u_bias per step (target=0)", "u_bias [m/s]"),
+        (ax2, "cumulative sum of u_bias per step (proxy for drift)", "cumsum u_bias [m/s]"),
+    ]:
+        ax.axhline(0, color="k", linestyle="--", alpha=0.4)
+        ax.set_xlabel("step")
+        ax.set_ylabel(ylab)
+        ax.set_title(title)
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=9)
+    fig.suptitle("u-bias drift profile (lower |slope| is better)", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# 12-threshold verdict (PROMPT v3 §7)
+# ---------------------------------------------------------------------------
+
+# 阈值常量；与 PROMPT §7 一一对应。
+V3_THRESHOLDS = {
+    # 全局 5
+    "G1_vel_rmse_step_K": 0.01285,
+    "G2_u_rmse_step_K":   0.01185,
+    "G3_abs_u_bias_mean": 0.00153,
+    "G4_slope_loglog":    0.6695,
+    "G5_instability":     1.2363,
+    # 段间 4
+    "S1_worst_vel_rmse_K": 0.01569,
+    "S2_ratio_w_over_b":   2.78,
+    "S3_high_speed_mean":  0.01144,
+    "S4_degraded_pct":     20.0,   # %
+    # 不准退化 3
+    "N1_vel_rmse_step_1":  0.00240,
+    "N2_traj_xy_rmse_K":   0.02108,
+    "N3_spec_radius":      1.005,
+}
+
+V2_BASELINE = {
+    "vel_rmse_step_K": 0.016059,
+    "u_rmse_step_K": 0.01580,
+    "u_bias_mean": -0.00255,
+    "slope_loglog": 0.6695,
+    "instability": 1.2363,
+    "worst_vel_rmse_K": 0.01961,
+    "ratio_worst_over_best": 3.47,
+    "high_speed_mean": 0.01525,
+    "vel_rmse_step_1": 0.001847,
+    "traj_xy_rmse_K": 0.02008,
+}
+
+
+def _spectral_radius_from_ckpt(ckpt_path: str) -> float:
+    """从 ckpt 还原模型并算 spec_radius (I+A)。"""
+    try:
+        device = torch.device("cpu")
+        m, _ = load_model_from_ckpt(ckpt_path, device)
+        return float(m.spectral_radius().detach().item())
+    except Exception:
+        return float("nan")
+
+
+def _compute_degraded_pct(new_res: EvalResult, base_res: EvalResult) -> float:
+    """新 ckpt 相对 base 的逐样本退化占比（vel_err@K 大于 base 的样本占比）。
+
+    PROMPT 中 v2 vs v1 的 26.1% 即用类似方式计算。
+    """
+    a = new_res.per_sample["vel_err_stepK"]
+    b = base_res.per_sample["vel_err_stepK"]
+    n = min(a.shape[0], b.shape[0])
+    if n == 0:
+        return float("nan")
+    return float(np.mean(a[:n] > b[:n]) * 100.0)
+
+
+def _u_bias_drift_rate(per_step: Dict[str, np.ndarray]) -> float:
+    """u_bias_per_step 的 |斜率| 用于「漂移率」对比。"""
+    ub = per_step["u_bias"].astype(np.float64)
+    K = ub.shape[0]
+    if K < 2:
+        return float("nan")
+    steps = np.arange(1, K + 1, dtype=np.float64)
+    A = np.vstack([steps, np.ones_like(steps)]).T
+    slope, _ = np.linalg.lstsq(A, ub, rcond=None)[0]
+    return float(abs(slope))
+
+
+def v3_threshold_verdict(
+    v3_res: EvalResult,
+    v1_res: Optional[EvalResult] = None,
+    v2_res: Optional[EvalResult] = None,
+) -> Tuple[str, bool]:
+    """对 v3 模型按 §7 的 12 条阈值逐条 ✅/❌ 判定，返回 (md_text, all_pass)。"""
+    K = v3_res.summary["pred_len"]
+    agg = v3_res.summary["aggregate"]
+    div = v3_res.summary["divergence"]
+    bias = v3_res.summary["channel_bias"]
+    ps = v3_res.summary.get("per_segment", {}) or {}
+
+    # 取 spec_radius
+    spec = _spectral_radius_from_ckpt(v3_res.ckpt_path)
+
+    # S4：v3 vs v1 退化样本占比
+    if v1_res is not None and v3_res.per_sample["vel_err_stepK"].shape == v1_res.per_sample["vel_err_stepK"].shape:
+        degraded_pct = _compute_degraded_pct(v3_res, v1_res)
+    else:
+        degraded_pct = float("nan")
+
+    th = V3_THRESHOLDS
+
+    checks = [
+        ("G1", "vel_rmse_step_K",
+            agg.get(f"vel_rmse_step_{K}", float("nan")), th["G1_vel_rmse_step_K"], "≤"),
+        ("G2", "u_rmse_step_K",
+            agg.get(f"u_rmse_step_{K}", float("nan")), th["G2_u_rmse_step_K"], "≤"),
+        ("G3", "|u_bias_mean|",
+            abs(bias.get("u_bias_mean", float("nan"))), th["G3_abs_u_bias_mean"], "≤"),
+        ("G4", "slope_loglog",
+            div.get("slope_loglog", float("nan")), th["G4_slope_loglog"], "≤"),
+        ("G5", "instability_score",
+            div.get("instability_score", float("nan")), th["G5_instability"], "≤"),
+        ("S1", "per_segment.worst_vel_rmse_K",
+            ps.get("worst_vel_rmse_K", float("nan")), th["S1_worst_vel_rmse_K"], "≤"),
+        ("S2", "per_segment.ratio_worst_over_best",
+            ps.get("ratio_worst_over_best", float("nan")), th["S2_ratio_w_over_b"], "≤"),
+        ("S3", "per_segment.high_speed_seg_mean",
+            ps.get("high_speed_seg_mean", float("nan")), th["S3_high_speed_mean"], "≤"),
+        ("S4", "degraded_pct (vs v1)",
+            degraded_pct, th["S4_degraded_pct"], "≤"),
+        ("N1", "vel_rmse_step_1",
+            agg.get("vel_rmse_step_1", float("nan")), th["N1_vel_rmse_step_1"], "≤"),
+        ("N2", "traj_xy_rmse_step_K",
+            agg.get(f"traj_xy_rmse_step_{K}", float("nan")), th["N2_traj_xy_rmse_K"], "≤"),
+        ("N3", "spectral_radius (I+A)",
+            spec, th["N3_spec_radius"], "≤"),
+    ]
+    all_pass = True
+    lines: List[str] = []
+    lines.append("### §7 12 条阈值逐条判定 (test set, K=20)")
+    lines.append("")
+    lines.append("| # | 指标 | v3 实测 | 阈值 | 判定 |")
+    lines.append("|---|---|---|---|---|")
+    for code, name, value, threshold, op in checks:
+        if isinstance(value, float) and np.isnan(value):
+            ok = False
+        elif op == "≤":
+            ok = value <= threshold
+        else:
+            ok = value >= threshold
+        if not ok:
+            all_pass = False
+        mark = "✅" if ok else "❌"
+        lines.append(f"| {code} | {name} | {_fmt(value)} | {op} {_fmt(threshold)} | {mark} |")
+    lines.append("")
+    lines.append(f"**{'PASS' if all_pass else 'FAIL'}** — §7 v3 验收。")
+    lines.append("")
+    return "\n".join(lines), all_pass
+
+
+def cubic_dictionary_attribution(
+    v3_res: EvalResult,
+    v2_res: Optional[EvalResult],
+) -> str:
+    """3 阶字典效果归因（PROMPT v3 §6.5/§11）。"""
+    if v2_res is None:
+        return ""
+    K = v3_res.summary["pred_len"]
+    ps_v3 = v3_res.summary.get("per_segment", {}) or {}
+    ps_v2 = v2_res.summary.get("per_segment", {}) or {}
+    drift_v3 = _u_bias_drift_rate(v3_res.per_step)
+    drift_v2 = _u_bias_drift_rate(v2_res.per_step)
+    ratio_drift = drift_v3 / max(drift_v2, 1e-9)
+    worst_v3 = ps_v3.get("worst_vel_rmse_K", float("nan"))
+    worst_v2 = ps_v2.get("worst_vel_rmse_K", float("nan"))
+    ratio_worst = worst_v3 / max(worst_v2, 1e-9) if worst_v2 > 0 else float("nan")
+    hi_v3 = ps_v3.get("high_speed_seg_mean", float("nan"))
+    hi_v2 = ps_v2.get("high_speed_seg_mean", float("nan"))
+    lo_v3 = ps_v3.get("low_speed_seg_mean", float("nan"))
+    lo_v2 = ps_v2.get("low_speed_seg_mean", float("nan"))
+    ratio_hi_lo = (hi_v3 / max(hi_v2, 1e-9)) / max(lo_v3 / max(lo_v2, 1e-9), 1e-9) if (
+        hi_v2 > 0 and lo_v2 > 0
+    ) else float("nan")
+
+    lines = []
+    lines.append("### 3 阶字典效果归因（v3 vs v2，全部数字来自 summary.json）")
+    lines.append("")
+    lines.append("| 问题 | v2 | v3 | v3/v2 | 判定 |")
+    lines.append("|---|---|---|---|---|")
+    a_ok = (ratio_drift < 0.6) if not np.isnan(ratio_drift) else False
+    lines.append(
+        f"| u_bias 漂移斜率 |slope| | {_fmt(drift_v2)} | {_fmt(drift_v3)} | "
+        f"{_fmt(ratio_drift)} | {'✅' if a_ok else '❌'} (<0.6) |"
+    )
+    b_ok = (ratio_worst < 0.80) if not np.isnan(ratio_worst) else False
+    lines.append(
+        f"| worst-seg vel_rmse@K | {_fmt(worst_v2)} | {_fmt(worst_v3)} | "
+        f"{_fmt(ratio_worst)} | {'✅' if b_ok else '❌'} (<0.80) |"
+    )
+    c_ok = (ratio_hi_lo < 0.95) if not np.isnan(ratio_hi_lo) else False
+    lines.append(
+        f"| (high/v2)/(low/v2) 高速相对低速改善 | {_fmt(hi_v2)} / {_fmt(lo_v2)} | "
+        f"{_fmt(hi_v3)} / {_fmt(lo_v3)} | "
+        f"{_fmt(ratio_hi_lo)} | {'✅' if c_ok else '❌'} (<0.95) |"
+    )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def plot_compare_trajectory_grid(results: List[EvalResult], path: str) -> None:
@@ -1111,6 +1590,8 @@ def main() -> int:
         plot_compare_error_vs_step(results, os.path.join(args.out_dir, "compare_error_vs_step.png"))
         plot_compare_step_K_box(results, os.path.join(args.out_dir, f"compare_step{args.pred_len}_box.png"))
         plot_compare_trajectory_grid(results, os.path.join(args.out_dir, "compare_trajectory_grid.png"))
+        plot_compare_per_segment_bar(results, os.path.join(args.out_dir, "compare_per_segment_bar.png"))
+        plot_compare_u_bias_per_step(results, os.path.join(args.out_dir, "compare_u_bias_per_step.png"))
         with open(os.path.join(args.out_dir, "compare_summary.md"), "r", encoding="utf-8") as f:
             print("\n" + f.read())
         return 0
