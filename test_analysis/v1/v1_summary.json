@@ -1,0 +1,48 @@
+{
+  "tag": "v1",
+  "ckpt": "checkpoints/koopman_v1_best.pth",
+  "n_samples": 35622,
+  "pred_len": 20,
+  "dt": 0.1,
+  "aggregate": {
+    "vel_rmse_mean": 0.013593544252216816,
+    "vel_rmse_step_1": 0.0013138724025338888,
+    "vel_rmse_step_5": 0.006548841018229723,
+    "vel_rmse_step_10": 0.013020658865571022,
+    "vel_rmse_step_20": 0.025643620640039444,
+    "u_rmse_step_20": 0.022541623562574387,
+    "v_rmse_step_20": 0.012225594371557236,
+    "r_rmse_step_20": 0.0007498030317947268,
+    "acc_rmse_mean": 0.012936810619736972,
+    "traj_xy_rmse_step_20": 0.027749868109822273
+  },
+  "divergence": {
+    "ratio_step20_over_step1": 19.51758830658445,
+    "slope_loglog": 0.9914561085925304,
+    "slope_linear": 0.001281178946242689,
+    "lyapunov_like": 0.15638505386760174,
+    "auc_error_curve": 0.012919606169452891,
+    "monotonic_increasing": true,
+    "instability_score": 2.152940381427249,
+    "divergent_sample_pct": 99.87928808039975
+  },
+  "channel_bias": {
+    "u_bias_mean": -0.003651905106380582,
+    "v_bias_mean": 8.744992373976856e-05,
+    "r_bias_mean": 2.737782779149711e-05
+  },
+  "tail": {
+    "vel_err_step20_p50": 0.01675610989332199,
+    "vel_err_step20_p90": 0.03621134161949158,
+    "vel_err_step20_p99": 0.08360916376113892,
+    "vel_err_step20_max": 0.1624719798564911
+  },
+  "fit_quality": {
+    "u_r2_mean": 0.999006778688074,
+    "v_r2_mean": 0.9993241580410042,
+    "r_r2_mean": 0.9995258450903526,
+    "u_corr_mean": 0.9995505951011829,
+    "v_corr_mean": 0.9998294922983593,
+    "r_corr_mean": 0.9998864594812046
+  }
+}
