@@ -341,7 +341,19 @@ def main() -> None:
         help="phase: 按 SupplementVoyage 相位; fixed: 固定 200s 窗",
     )
     p.add_argument("--min_fill_ratio", type=float, default=0.9)
-    p.add_argument("--no-report", action="store_true")
+    p.add_argument(
+        "--report",
+        dest="report",
+        action="store_true",
+        help="打印每段 u/v/r 统计（默认开启）",
+    )
+    p.add_argument(
+        "--no-report",
+        dest="report",
+        action="store_false",
+        help="不打印段统计",
+    )
+    p.set_defaults(report=True)
     p.add_argument(
         "--merge",
         action="store_true",
