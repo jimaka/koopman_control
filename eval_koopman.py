@@ -917,11 +917,11 @@ def _compare_verdict_text(results: List[EvalResult]) -> str:
         cond_b = (inst_drop_pct >= 25.0) and (sK_last <= sK_first)
         passed = cond_a or cond_b
         lines.append("")
-        lines.append("### 9.4 硬性指标门槛（first → last）")
-        lines.append(f"- `vel_rmse_step_{K}`: {sK_first:.6g} → {sK_last:.6g}  (Δ = {vel_drop_pct:+.1f}%)")
-        lines.append(f"- `slope_loglog`: {slope_first:.6g} → {slope_last:.6g}  (Δ = {slope_drop_pct:+.1f}%)")
+        lines.append("### 9.4 硬性指标门槛（first → last，正号 = 改善 / 下降）")
+        lines.append(f"- `vel_rmse_step_{K}`: {sK_first:.6g} → {sK_last:.6g}  (↓ {vel_drop_pct:+.1f}%)")
+        lines.append(f"- `slope_loglog`: {slope_first:.6g} → {slope_last:.6g}  (↓ {slope_drop_pct:+.1f}%)")
         lines.append(f"- `instability_score`: {first.summary['divergence']['instability_score']:.6g} → "
-                     f"{last.summary['divergence']['instability_score']:.6g}  (Δ = {inst_drop_pct:+.1f}%)")
+                     f"{last.summary['divergence']['instability_score']:.6g}  (↓ {inst_drop_pct:+.1f}%)")
         lines.append(f"- 条件 A (vel↓≥30% **且** slope↓≥20%) = **{cond_a}**")
         lines.append(f"- 条件 B (inst↓≥25% **且** vel 不上升) = **{cond_b}**")
         lines.append(f"- **{'✅ PASS' if passed else '❌ FAIL'}** — 9.4 验收。")

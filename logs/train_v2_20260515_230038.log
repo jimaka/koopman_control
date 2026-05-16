@@ -1,0 +1,26 @@
+2026-05-15 23:00:38,183 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197505 | pred_len=4 | stride=1
+2026-05-15 23:00:38,188 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35985 | pred_len=4 | stride=1
+2026-05-15 23:00:38,768 - INFO - ================================================================================
+2026-05-15 23:00:38,768 - INFO - Device: cpu | AMP: False
+2026-05-15 23:00:38,768 - INFO - Train data: koopman_train_merged.npz | Val: koopman_val.npz | Test: koopman_test.npz
+2026-05-15 23:00:38,768 - INFO - Batch: 512 | Workers: 0 | Seed: 42
+2026-05-15 23:00:38,768 - INFO - Curriculum pred_len: start=4 max=4 grow_every=999 stride=1
+2026-05-15 23:00:38,768 - INFO - Loss weights: w_vel=1.0 w_acc=0.2 w_lin=1.0 w_recon=0.0 w_stab=0.1 w_l2=0.0001 gamma_step=0.97 huber_beta=0.1 rho_max=1.005
+2026-05-15 23:00:38,768 - INFO - Train samples: 197505 | Val samples: 35985 | Params: 12344
+2026-05-15 23:00:38,768 - INFO - Initial spectral radius (I+A): 1.04421
+2026-05-15 23:00:38,768 - INFO - ================================================================================
+2026-05-15 23:00:43,380 - INFO - Epoch [001/1] pl=4 LR=9.94e-04 Ltot=0.0027 (vel=0.0009, acc=0.0074, lin=0.0014, stab=0.0001) | val_vel_rmse_mean=0.23979 @K=0.37830 slope=0.969 inst=1.002 spec=1.010 | 4.6s
+2026-05-15 23:00:43,385 - INFO -   ↳ new best vel_rmse_mean=0.23979 (epoch 1)
+2026-05-15 23:00:43,402 - INFO - Exported YAML -> checkpoints/koopman_best.yaml
+2026-05-15 23:00:48,798 - INFO - 
+=== QUANTITATIVE VERDICT (test set) ===
+vel_rmse@1=0.034258  vel_rmse@5=nan  vel_rmse@10=nan  vel_rmse@4=0.136262
+divergence: ratio4/1=3.97752  slope_loglog=0.99588  lyapunov_like=0.460219
+instability_score=1.02071  monotonic_increasing=True  divergent_sample_pct=2.45057%
+bias: u=-0.0165541  v=-0.00712481  r=-0.000314173
+fit_quality: R^2(u,v,r) = 0.954 / 0.9972 / 0.9977
+========================================
+
+2026-05-15 23:00:48,798 - INFO - Per-5-epoch summary:
+2026-05-15 23:00:48,798 - INFO - ep | lr | L_total | L_vel | L_acc | L_lin | val_vel_mean | val_vel@K | val_traj_xy@K | slope_ll | inst | spec
+2026-05-15 23:00:48,798 - INFO -   001 | 9.94e-04 | 0.0027 | 0.0009 | 0.0074 | 0.0014 | 0.23979 | 0.37830 | 0.0957 | 0.969 | 1.002 | 1.010

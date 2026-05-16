@@ -229,15 +229,29 @@ def rollout_train(
     model: nn.Module,
     x_t_dyn_n: torch.Tensor,           # (B, 3) normalized dyn at t0
     u_seq_n: torch.Tensor,             # (B, K, 4)
+    noise_std: float = 0.0,
+    ctrl_noise_std: float = 0.0,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """归一化空间下的 rollout。
-    返回 (pred_dyn_norm_seq (B,K,3), pred_latent_seq (B,K,Dz))。"""
+    """归一化空间下的 rollout，可选择注入噪声以学到「鲁棒」的算子。
+
+    注入策略：
+    * x_t_dyn_n 加入 N(0, noise_std) 高斯扰动（输入鲁棒性）。
+    * 控制信号每步加入 N(0, ctrl_noise_std)（鲁棒于控制噪声）。
+
+    通过让模型在训练时见到「带扰动的输入」，强制鲁棒性 → 推断时
+    每步注入的噪声不会同向累加 → 误差曲线更趋向 sqrt(k) 而非线性。
+    """
     K = u_seq_n.size(1)
+    if noise_std > 0:
+        x_t_dyn_n = x_t_dyn_n + torch.randn_like(x_t_dyn_n) * noise_std
     z = model.encode(x_t_dyn_n)
     pred_norm: List[torch.Tensor] = []
     pred_lat: List[torch.Tensor] = []
     for k in range(K):
-        z = model.latent_step(z, u_seq_n[:, k, :])
+        u_in = u_seq_n[:, k, :]
+        if ctrl_noise_std > 0:
+            u_in = u_in + torch.randn_like(u_in) * ctrl_noise_std
+        z = model.latent_step(z, u_in)
         pred_lat.append(z)
         pred_norm.append(model.reconstruct_state(z))
     return torch.stack(pred_norm, dim=1), torch.stack(pred_lat, dim=1)
@@ -267,7 +281,11 @@ def compute_losses(
     dyn_t_n = x_t_full_n[:, 3:6]
     dyn_target_n = x_target_seq_n[:, :, 3:6]            # (B, K, 3)
 
-    pred_norm_seq, pred_lat_seq = rollout_train(model, dyn_t_n, u_seq_n)  # (B,K,3) (B,K,Dz)
+    pred_norm_seq, pred_lat_seq = rollout_train(
+        model, dyn_t_n, u_seq_n,
+        noise_std=args.noise_std if model.training else 0.0,
+        ctrl_noise_std=args.ctrl_noise_std if model.training else 0.0,
+    )  # (B,K,3) (B,K,Dz)
 
     # 物理空间速度
     pred_phys = pred_norm_seq * dyn_std + dyn_mean      # (B,K,3)
@@ -280,6 +298,13 @@ def compute_losses(
     err_vel = pred_phys - target_phys                    # (B,K,3) 物理量
     huber_vel = huber(err_vel * chan_scale, beta=args.huber_beta)  # (B,K,3)
     L_vel = (huber_vel * step_w).mean()
+
+    # 系统性偏置惩罚：每个 (step, channel) 上 batch 平均误差应接近 0。
+    # 这是 v2_run01 失败的根因——u/v 上 bias 随 step 单调累积导致 slope_loglog≈1。
+    # batch-mean(err) 的平方再按 step 加权（越后期越重，flatten 误差曲线）。
+    bias_per_step = (err_vel * chan_scale).mean(dim=0)   # (K, 3)
+    flatten_w = make_step_weights(K, args.gamma_bias, device).view(K, 1)
+    L_bias = ((bias_per_step ** 2) * flatten_w).mean()
 
     # 加速度 Huber（带 dt）
     pred_acc = (pred_phys[:, 1:] - pred_phys[:, :-1]) / args.dt
@@ -318,6 +343,7 @@ def compute_losses(
         + args.w_recon * L_recon
         + args.w_stab * ramp * L_stab
         + args.w_l2 * L_l2
+        + args.w_bias * L_bias
     )
 
     info = {
@@ -326,6 +352,7 @@ def compute_losses(
         "L_acc": float(L_acc.detach().item()) if isinstance(L_acc, torch.Tensor) else float(L_acc),
         "L_lin": float(L_lin.detach().item()),
         "L_stab": float(L_stab.detach().item()),
+        "L_bias": float(L_bias.detach().item()),
         "L_l2": float(L_l2.detach().item()),
         "spec_radius": float(spec.detach().item()),
         "ramp": ramp,
@@ -415,7 +442,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--w_recon", type=float, default=0.0)
     p.add_argument("--w_stab", type=float, default=0.1)
     p.add_argument("--w_l2", type=float, default=1e-4)
+    p.add_argument("--w_bias", type=float, default=0.0,
+                   help="batch-mean per-step bias 平方惩罚（强制误差零均值，flatten 曲线）")
     p.add_argument("--gamma_step", type=float, default=0.97, help="γ^k step weighting")
+    p.add_argument("--gamma_bias", type=float, default=1.05,
+                   help="L_bias 内的 γ^k step weighting（>1 强调晚期步）")
+    p.add_argument("--noise_std", type=float, default=0.0,
+                   help="输入 dyn 状态归一化噪声 σ（迫使 encoder 鲁棒，破坏误差线性累积）")
+    p.add_argument("--ctrl_noise_std", type=float, default=0.0,
+                   help="控制信号归一化噪声 σ（每步注入）")
     p.add_argument("--huber_beta", type=float, default=0.1)
     p.add_argument("--rho_max", type=float, default=1.005)
     p.add_argument("--ramp_epochs", type=int, default=5)
@@ -425,6 +460,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ema_decay", type=float, default=0.999)
     p.add_argument("--no_ema", action="store_true", default=False)
     p.add_argument("--encoder_dropout", type=float, default=0.0)
+    p.add_argument("--best_metric", choices=["vel_rmse_mean", "instability_score", "composite"],
+                   default="composite",
+                   help="select best ckpt by: vel_rmse_mean / instability_score / composite="
+                        "vel_rmse_mean * max(1, instability_score)")
     # 工程
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--resume", type=str, default=None)
@@ -593,8 +632,8 @@ def train(args: argparse.Namespace) -> None:
 
         model.train()
         epoch_acc: Dict[str, float] = {"L_total": 0.0, "L_vel": 0.0, "L_acc": 0.0,
-                                       "L_lin": 0.0, "L_stab": 0.0, "L_l2": 0.0,
-                                       "spec_radius": 0.0}
+                                       "L_lin": 0.0, "L_stab": 0.0, "L_bias": 0.0,
+                                       "L_l2": 0.0, "spec_radius": 0.0}
         t0 = time.time()
         n_batches = 0
         for x_t_full, x_target_seq, u_seq in train_loader:
@@ -704,13 +743,22 @@ def train(args: argparse.Namespace) -> None:
         }
         torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_latest.pth"))
 
-        # best by val/vel_rmse_mean
-        cur_metric = val_metrics["val/vel_rmse_mean"]
+        # best 由 args.best_metric 决定（composite 默认平衡精度与发散）
+        if args.best_metric == "vel_rmse_mean":
+            cur_metric = val_metrics["val/vel_rmse_mean"]
+        elif args.best_metric == "instability_score":
+            cur_metric = val_metrics["val/instability_score"]
+        else:  # composite
+            cur_metric = val_metrics["val/vel_rmse_mean"] * max(1.0, val_metrics["val/instability_score"])
         if cur_metric < state.best_metric:
             state.best_metric = cur_metric
             ckpt["best_metric"] = state.best_metric
             torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_best.pth"))
-            logger.info(f"  ↳ new best vel_rmse_mean={cur_metric:.6g} (epoch {epoch + 1})")
+            logger.info(
+                f"  ↳ new best [{args.best_metric}]={cur_metric:.6g} "
+                f"(vel_rmse_mean={val_metrics['val/vel_rmse_mean']:.6g}, "
+                f"inst={val_metrics['val/instability_score']:.6g}, epoch {epoch + 1})"
+            )
 
     # ---- 训练结束：导出 best 的 yaml ----
     best_path = os.path.join(args.ckpt_dir, "koopman_best.pth")
