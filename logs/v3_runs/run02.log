@@ -1,0 +1,167 @@
+2026-05-16 02:41:26,564 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197505 | pred_len=4 | stride=1
+2026-05-16 02:41:26,569 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35985 | pred_len=4 | stride=1
+2026-05-16 02:41:27,148 - INFO - ================================================================================
+2026-05-16 02:41:27,149 - INFO - Device: cpu | AMP: False
+2026-05-16 02:41:27,149 - INFO - Model: v3 | class=HorizontalKoopmanModelV3 | n_cubic=11 | latent_dim=43 | hidden_dim=24 | clamp_pif=30.0
+2026-05-16 02:41:27,149 - INFO - Train data: koopman_train_merged.npz | Val: koopman_val.npz | Test: koopman_test.npz
+2026-05-16 02:41:27,149 - INFO - Batch: 1024 | Workers: 4 | Seed: 42
+2026-05-16 02:41:27,149 - INFO - Curriculum pred_len: start=4 max=20 grow_every=3 stride=1
+2026-05-16 02:41:27,149 - INFO - Loss weights: w_vel=1.0 w_acc=0.5 w_lin=0.0 w_recon=0.0 w_stab=5.0 w_l2=0.0001 w_bias=1.0 (u=80.0, v=30.0, r=30.0) gamma_step=1.1 gamma_bias=1.1 huber_beta=0.1 rho_max=0.999
+2026-05-16 02:41:27,149 - INFO - Noise: input_std=0.02 ctrl_std=0.003 | EMA decay=0.999 no_ema=False | best_metric=composite
+2026-05-16 02:41:27,149 - INFO - Train samples: 197505 | Val samples: 35985 | Params: 13224
+2026-05-16 02:41:27,149 - INFO - Initial spectral radius (I+A): 1.06615
+2026-05-16 02:41:27,149 - INFO - ================================================================================
+2026-05-16 02:41:31,055 - INFO - Epoch [001/60] pl=4 LR=9.94e-04 Ltot=0.0215 (vel=0.0061, acc=0.0255, lin=0.0647, stab=0.0003) | val_vel_rmse_mean=0.73042 @K=1.15626 slope=0.978 inst=1.008 spec=1.007 | 3.9s
+2026-05-16 02:41:31,062 - INFO -   ↳ new best [composite]=0.736429 (vel_rmse_mean=0.730421, inst=1.00823, epoch 1)
+2026-05-16 02:41:35,316 - INFO - Epoch [002/60] pl=4 LR=9.76e-04 Ltot=0.0027 (vel=0.0020, acc=0.0012, lin=0.0827, stab=0.0000) | val_vel_rmse_mean=0.59179 @K=0.92706 slope=0.956 inst=0.994 spec=0.998 | 4.3s
+2026-05-16 02:41:35,320 - INFO -   ↳ new best [composite]=0.591787 (vel_rmse_mean=0.591787, inst=0.993626, epoch 2)
+2026-05-16 02:41:39,375 - INFO - Epoch [003/60] pl=4 LR=9.46e-04 Ltot=0.0027 (vel=0.0020, acc=0.0011, lin=0.1207, stab=0.0000) | val_vel_rmse_mean=0.48090 @K=0.74590 slope=0.935 inst=0.980 spec=0.998 | 4.1s
+2026-05-16 02:41:39,379 - INFO -   ↳ new best [composite]=0.480897 (vel_rmse_mean=0.480897, inst=0.979936, epoch 3)
+2026-05-16 02:41:39,379 - INFO - [Curriculum] pred_len -> 6; rebuilding dataloaders...
+2026-05-16 02:41:39,416 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197307 | pred_len=6 | stride=1
+2026-05-16 02:41:39,421 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35979 | pred_len=6 | stride=1
+2026-05-16 02:41:43,770 - INFO - Epoch [004/60] pl=6 LR=9.05e-04 Ltot=0.0028 (vel=0.0021, acc=0.0011, lin=0.2983, stab=0.0000) | val_vel_rmse_mean=0.52252 @K=0.83960 slope=0.893 inst=1.060 spec=0.998 | 4.3s
+2026-05-16 02:41:48,510 - INFO - Epoch [005/60] pl=6 LR=8.54e-04 Ltot=0.0026 (vel=0.0020, acc=0.0009, lin=0.3865, stab=0.0000) | val_vel_rmse_mean=0.42362 @K=0.67208 slope=0.872 inst=1.040 spec=0.998 | 4.7s
+2026-05-16 02:41:48,515 - INFO -   ↳ new best [composite]=0.440732 (vel_rmse_mean=0.423617, inst=1.0404, epoch 5)
+2026-05-16 02:41:53,016 - INFO - Epoch [006/60] pl=6 LR=7.94e-04 Ltot=0.0026 (vel=0.0020, acc=0.0009, lin=0.4295, stab=0.0000) | val_vel_rmse_mean=0.34519 @K=0.54196 slope=0.854 inst=1.024 spec=0.998 | 4.5s
+2026-05-16 02:41:53,021 - INFO -   ↳ new best [composite]=0.353607 (vel_rmse_mean=0.34519, inst=1.02438, epoch 6)
+2026-05-16 02:41:53,021 - INFO - [Curriculum] pred_len -> 8; rebuilding dataloaders...
+2026-05-16 02:41:53,057 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197109 | pred_len=8 | stride=1
+2026-05-16 02:41:53,061 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35973 | pred_len=8 | stride=1
+2026-05-16 02:41:57,973 - INFO - Epoch [007/60] pl=8 LR=7.27e-04 Ltot=0.0027 (vel=0.0021, acc=0.0009, lin=0.6154, stab=0.0000) | val_vel_rmse_mean=0.33901 @K=0.53074 slope=0.811 inst=1.067 spec=0.998 | 4.9s
+2026-05-16 02:42:03,325 - INFO - Epoch [008/60] pl=8 LR=6.55e-04 Ltot=0.0026 (vel=0.0021, acc=0.0008, lin=0.6431, stab=0.0000) | val_vel_rmse_mean=0.27690 @K=0.42962 slope=0.797 inst=1.051 spec=0.998 | 5.3s
+2026-05-16 02:42:03,329 - INFO -   ↳ new best [composite]=0.29112 (vel_rmse_mean=0.276895, inst=1.05137, epoch 8)
+2026-05-16 02:42:08,413 - INFO - Epoch [009/60] pl=8 LR=5.78e-04 Ltot=0.0025 (vel=0.0021, acc=0.0008, lin=0.6555, stab=0.0000) | val_vel_rmse_mean=0.22712 @K=0.35009 slope=0.786 inst=1.040 spec=0.998 | 5.1s
+2026-05-16 02:42:08,417 - INFO -   ↳ new best [composite]=0.236283 (vel_rmse_mean=0.227125, inst=1.04032, epoch 9)
+2026-05-16 02:42:08,417 - INFO - [Curriculum] pred_len -> 10; rebuilding dataloaders...
+2026-05-16 02:42:08,454 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196911 | pred_len=10 | stride=1
+2026-05-16 02:42:08,459 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35967 | pred_len=10 | stride=1
+2026-05-16 02:42:13,800 - INFO - Epoch [010/60] pl=10 LR=5.00e-04 Ltot=0.0026 (vel=0.0022, acc=0.0008, lin=0.7908, stab=0.0000) | val_vel_rmse_mean=0.21227 @K=0.32395 slope=0.751 inst=1.068 spec=0.998 | 5.3s
+2026-05-16 02:42:13,805 - INFO -   ↳ new best [composite]=0.22672 (vel_rmse_mean=0.212273, inst=1.06806, epoch 10)
+2026-05-16 02:42:19,430 - INFO - Epoch [011/60] pl=10 LR=4.22e-04 Ltot=0.0026 (vel=0.0021, acc=0.0008, lin=0.7969, stab=0.0000) | val_vel_rmse_mean=0.17408 @K=0.26419 slope=0.742 inst=1.058 spec=0.998 | 5.6s
+2026-05-16 02:42:19,435 - INFO -   ↳ new best [composite]=0.184176 (vel_rmse_mean=0.17408, inst=1.058, epoch 11)
+2026-05-16 02:42:25,002 - INFO - Epoch [012/60] pl=10 LR=3.45e-04 Ltot=0.0026 (vel=0.0021, acc=0.0007, lin=0.8017, stab=0.0000) | val_vel_rmse_mean=0.14259 @K=0.21530 slope=0.734 inst=1.049 spec=0.997 | 5.6s
+2026-05-16 02:42:25,007 - INFO -   ↳ new best [composite]=0.149517 (vel_rmse_mean=0.142592, inst=1.04856, epoch 12)
+2026-05-16 02:42:25,007 - INFO - [Curriculum] pred_len -> 12; rebuilding dataloaders...
+2026-05-16 02:42:25,043 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196713 | pred_len=12 | stride=1
+2026-05-16 02:42:25,048 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35961 | pred_len=12 | stride=1
+2026-05-16 02:42:30,991 - INFO - Epoch [013/60] pl=12 LR=2.73e-04 Ltot=0.0027 (vel=0.0022, acc=0.0007, lin=0.9065, stab=0.0000) | val_vel_rmse_mean=0.12862 @K=0.19211 slope=0.703 inst=1.066 spec=0.997 | 5.9s
+2026-05-16 02:42:30,996 - INFO -   ↳ new best [composite]=0.137103 (vel_rmse_mean=0.128623, inst=1.06593, epoch 13)
+2026-05-16 02:42:37,440 - INFO - Epoch [014/60] pl=12 LR=2.06e-04 Ltot=0.0027 (vel=0.0022, acc=0.0007, lin=0.8985, stab=0.0000) | val_vel_rmse_mean=0.10520 @K=0.15632 slope=0.695 inst=1.056 spec=0.997 | 6.4s
+2026-05-16 02:42:37,445 - INFO -   ↳ new best [composite]=0.111112 (vel_rmse_mean=0.105202, inst=1.05618, epoch 14)
+2026-05-16 02:42:43,751 - INFO - Epoch [015/60] pl=12 LR=1.46e-04 Ltot=0.0026 (vel=0.0022, acc=0.0007, lin=0.8911, stab=0.0000) | val_vel_rmse_mean=0.08602 @K=0.12716 slope=0.688 inst=1.047 spec=0.998 | 6.3s
+2026-05-16 02:42:43,756 - INFO -   ↳ new best [composite]=0.0900894 (vel_rmse_mean=0.0860205, inst=1.0473, epoch 15)
+2026-05-16 02:42:43,756 - INFO - [Curriculum] pred_len -> 14; rebuilding dataloaders...
+2026-05-16 02:42:43,793 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196515 | pred_len=14 | stride=1
+2026-05-16 02:42:43,798 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35955 | pred_len=14 | stride=1
+2026-05-16 02:42:50,464 - INFO - Epoch [016/60] pl=14 LR=9.55e-05 Ltot=0.0027 (vel=0.0023, acc=0.0007, lin=0.9785, stab=0.0000) | val_vel_rmse_mean=0.07610 @K=0.11145 slope=0.661 inst=1.060 spec=0.998 | 6.6s
+2026-05-16 02:42:50,470 - INFO -   ↳ new best [composite]=0.0806579 (vel_rmse_mean=0.076096, inst=1.05995, epoch 16)
+2026-05-16 02:42:57,781 - INFO - Epoch [017/60] pl=14 LR=5.45e-05 Ltot=0.0027 (vel=0.0023, acc=0.0007, lin=0.9720, stab=0.0000) | val_vel_rmse_mean=0.06223 @K=0.09058 slope=0.654 inst=1.051 spec=0.998 | 7.3s
+2026-05-16 02:42:57,786 - INFO -   ↳ new best [composite]=0.0653979 (vel_rmse_mean=0.0622297, inst=1.05091, epoch 17)
+2026-05-16 02:43:04,804 - INFO - Epoch [018/60] pl=14 LR=2.45e-05 Ltot=0.0027 (vel=0.0023, acc=0.0007, lin=0.9674, stab=0.0000) | val_vel_rmse_mean=0.05095 @K=0.07373 slope=0.649 inst=1.043 spec=0.999 | 7.0s
+2026-05-16 02:43:04,809 - INFO -   ↳ new best [composite]=0.0531372 (vel_rmse_mean=0.0509461, inst=1.04301, epoch 18)
+2026-05-16 02:43:04,809 - INFO - [Curriculum] pred_len -> 16; rebuilding dataloaders...
+2026-05-16 02:43:04,846 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196317 | pred_len=16 | stride=1
+2026-05-16 02:43:04,851 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35949 | pred_len=16 | stride=1
+2026-05-16 02:43:12,265 - INFO - Epoch [019/60] pl=16 LR=6.16e-06 Ltot=0.0028 (vel=0.0024, acc=0.0007, lin=1.0467, stab=0.0000) | val_vel_rmse_mean=0.04453 @K=0.06402 slope=0.627 inst=1.054 spec=0.999 | 7.4s
+2026-05-16 02:43:12,270 - INFO -   ↳ new best [composite]=0.0469602 (vel_rmse_mean=0.0445337, inst=1.05449, epoch 19)
+2026-05-16 02:43:19,836 - INFO - Epoch [020/60] pl=16 LR=1.00e-03 Ltot=0.0028 (vel=0.0024, acc=0.0007, lin=1.0454, stab=0.0000) | val_vel_rmse_mean=0.03683 @K=0.05286 slope=0.627 inst=1.054 spec=0.999 | 7.6s
+2026-05-16 02:43:19,840 - INFO -   ↳ new best [composite]=0.0388127 (vel_rmse_mean=0.0368292, inst=1.05386, epoch 20)
+2026-05-16 02:43:27,372 - INFO - Epoch [021/60] pl=16 LR=9.98e-04 Ltot=0.0040 (vel=0.0031, acc=0.0013, lin=1.1681, stab=0.0000) | val_vel_rmse_mean=0.02991 @K=0.04274 slope=0.619 inst=1.042 spec=0.998 | 7.5s
+2026-05-16 02:43:27,376 - INFO -   ↳ new best [composite]=0.0311587 (vel_rmse_mean=0.0299075, inst=1.04183, epoch 21)
+2026-05-16 02:43:27,376 - INFO - [Curriculum] pred_len -> 18; rebuilding dataloaders...
+2026-05-16 02:43:27,413 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196119 | pred_len=18 | stride=1
+2026-05-16 02:43:27,418 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35943 | pred_len=18 | stride=1
+2026-05-16 02:43:35,393 - INFO - Epoch [022/60] pl=18 LR=9.94e-04 Ltot=0.0039 (vel=0.0031, acc=0.0010, lin=1.2552, stab=0.0000) | val_vel_rmse_mean=0.02561 @K=0.03602 slope=0.590 inst=1.033 spec=0.998 | 8.0s
+2026-05-16 02:43:35,399 - INFO -   ↳ new best [composite]=0.0264529 (vel_rmse_mean=0.025605, inst=1.03311, epoch 22)
+2026-05-16 02:43:43,214 - INFO - Epoch [023/60] pl=18 LR=9.86e-04 Ltot=0.0038 (vel=0.0030, acc=0.0009, lin=1.2575, stab=0.0000) | val_vel_rmse_mean=0.02082 @K=0.02909 slope=0.578 inst=1.015 spec=0.997 | 7.8s
+2026-05-16 02:43:43,219 - INFO -   ↳ new best [composite]=0.0211301 (vel_rmse_mean=0.02082, inst=1.0149, epoch 23)
+2026-05-16 02:43:51,183 - INFO - Epoch [024/60] pl=18 LR=9.76e-04 Ltot=0.0036 (vel=0.0028, acc=0.0008, lin=1.2594, stab=0.0000) | val_vel_rmse_mean=0.01786 @K=0.02561 slope=0.596 inst=1.039 spec=0.997 | 8.0s
+2026-05-16 02:43:51,188 - INFO -   ↳ new best [composite]=0.0185596 (vel_rmse_mean=0.0178649, inst=1.03889, epoch 24)
+2026-05-16 02:43:51,188 - INFO - [Curriculum] pred_len -> 20; rebuilding dataloaders...
+2026-05-16 02:43:51,224 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=195921 | pred_len=20 | stride=1
+2026-05-16 02:43:51,229 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35937 | pred_len=20 | stride=1
+2026-05-16 02:43:59,648 - INFO - Epoch [025/60] pl=20 LR=9.62e-04 Ltot=0.0038 (vel=0.0031, acc=0.0008, lin=1.2889, stab=0.0000) | val_vel_rmse_mean=0.01632 @K=0.02382 slope=0.609 inst=1.084 spec=0.997 | 8.4s
+2026-05-16 02:43:59,653 - INFO -   ↳ new best [composite]=0.0176898 (vel_rmse_mean=0.0163225, inst=1.08376, epoch 25)
+2026-05-16 02:44:08,566 - INFO - Epoch [026/60] pl=20 LR=9.46e-04 Ltot=0.0038 (vel=0.0031, acc=0.0008, lin=1.2803, stab=0.0000) | val_vel_rmse_mean=0.01487 @K=0.02294 slope=0.658 inst=1.164 spec=0.997 | 8.9s
+2026-05-16 02:44:08,571 - INFO -   ↳ new best [composite]=0.0173082 (vel_rmse_mean=0.0148707, inst=1.16392, epoch 26)
+2026-05-16 02:44:17,491 - INFO - Epoch [027/60] pl=20 LR=9.26e-04 Ltot=0.0038 (vel=0.0031, acc=0.0008, lin=1.2851, stab=0.0000) | val_vel_rmse_mean=0.01411 @K=0.02333 slope=0.732 inst=1.302 spec=0.997 | 8.9s
+2026-05-16 02:44:26,418 - INFO - Epoch [028/60] pl=20 LR=9.05e-04 Ltot=0.0038 (vel=0.0031, acc=0.0008, lin=1.2864, stab=0.0000) | val_vel_rmse_mean=0.01364 @K=0.02362 slope=0.791 inst=1.431 spec=0.997 | 8.9s
+2026-05-16 02:44:35,136 - INFO - Epoch [029/60] pl=20 LR=8.80e-04 Ltot=0.0036 (vel=0.0029, acc=0.0008, lin=1.2859, stab=0.0000) | val_vel_rmse_mean=0.01327 @K=0.02387 slope=0.847 inst=1.575 spec=0.997 | 8.7s
+2026-05-16 02:44:44,106 - INFO - Epoch [030/60] pl=20 LR=8.54e-04 Ltot=0.0036 (vel=0.0030, acc=0.0008, lin=1.2810, stab=0.0000) | val_vel_rmse_mean=0.01320 @K=0.02423 slope=0.889 inst=1.698 spec=0.997 | 9.0s
+2026-05-16 02:44:53,134 - INFO - Epoch [031/60] pl=20 LR=8.25e-04 Ltot=0.0035 (vel=0.0029, acc=0.0007, lin=1.2864, stab=0.0000) | val_vel_rmse_mean=0.01306 @K=0.02434 slope=0.922 inst=1.806 spec=0.997 | 9.0s
+2026-05-16 02:45:01,837 - INFO - Epoch [032/60] pl=20 LR=7.94e-04 Ltot=0.0035 (vel=0.0029, acc=0.0007, lin=1.2818, stab=0.0000) | val_vel_rmse_mean=0.01282 @K=0.02414 slope=0.952 inst=1.915 spec=0.997 | 8.7s
+2026-05-16 02:45:10,771 - INFO - Epoch [033/60] pl=20 LR=7.61e-04 Ltot=0.0034 (vel=0.0029, acc=0.0007, lin=1.2846, stab=0.0000) | val_vel_rmse_mean=0.01303 @K=0.02449 slope=0.965 inst=1.969 spec=0.997 | 8.9s
+2026-05-16 02:45:19,561 - INFO - Epoch [034/60] pl=20 LR=7.27e-04 Ltot=0.0035 (vel=0.0029, acc=0.0007, lin=1.2843, stab=0.0000) | val_vel_rmse_mean=0.01357 @K=0.02542 slope=0.980 inst=2.038 spec=0.997 | 8.8s
+2026-05-16 02:45:28,265 - INFO - Epoch [035/60] pl=20 LR=6.91e-04 Ltot=0.0035 (vel=0.0029, acc=0.0007, lin=1.2851, stab=0.0000) | val_vel_rmse_mean=0.01395 @K=0.02600 slope=0.984 inst=2.066 spec=0.997 | 8.7s
+2026-05-16 02:45:36,982 - INFO - Epoch [036/60] pl=20 LR=6.55e-04 Ltot=0.0034 (vel=0.0028, acc=0.0007, lin=1.2842, stab=0.0000) | val_vel_rmse_mean=0.01445 @K=0.02670 slope=0.980 inst=2.061 spec=0.998 | 8.7s
+2026-05-16 02:45:46,060 - INFO - Epoch [037/60] pl=20 LR=6.17e-04 Ltot=0.0034 (vel=0.0028, acc=0.0007, lin=1.2797, stab=0.0000) | val_vel_rmse_mean=0.01495 @K=0.02739 slope=0.967 inst=2.015 spec=0.998 | 9.1s
+2026-05-16 02:45:54,797 - INFO - Epoch [038/60] pl=20 LR=5.78e-04 Ltot=0.0034 (vel=0.0028, acc=0.0007, lin=1.2797, stab=0.0000) | val_vel_rmse_mean=0.01537 @K=0.02801 slope=0.964 inst=2.009 spec=0.998 | 8.7s
+2026-05-16 02:46:03,254 - INFO - Epoch [039/60] pl=20 LR=5.39e-04 Ltot=0.0033 (vel=0.0028, acc=0.0007, lin=1.2794, stab=0.0000) | val_vel_rmse_mean=0.01567 @K=0.02834 slope=0.957 inst=1.982 spec=0.998 | 8.5s
+2026-05-16 02:46:12,126 - INFO - Epoch [040/60] pl=20 LR=5.00e-04 Ltot=0.0033 (vel=0.0028, acc=0.0007, lin=1.2795, stab=0.0000) | val_vel_rmse_mean=0.01580 @K=0.02839 slope=0.953 inst=1.971 spec=0.998 | 8.9s
+2026-05-16 02:46:21,000 - INFO - Epoch [041/60] pl=20 LR=4.61e-04 Ltot=0.0033 (vel=0.0027, acc=0.0006, lin=1.2787, stab=0.0000) | val_vel_rmse_mean=0.01608 @K=0.02867 slope=0.943 inst=1.936 spec=0.998 | 8.9s
+2026-05-16 02:46:29,565 - INFO - Epoch [042/60] pl=20 LR=4.22e-04 Ltot=0.0032 (vel=0.0027, acc=0.0006, lin=1.2752, stab=0.0000) | val_vel_rmse_mean=0.01647 @K=0.02923 slope=0.937 inst=1.917 spec=0.998 | 8.6s
+2026-05-16 02:46:38,311 - INFO - Epoch [043/60] pl=20 LR=3.83e-04 Ltot=0.0031 (vel=0.0027, acc=0.0006, lin=1.2724, stab=0.0000) | val_vel_rmse_mean=0.01649 @K=0.02912 slope=0.933 inst=1.902 spec=0.998 | 8.7s
+2026-05-16 02:46:47,193 - INFO - Epoch [044/60] pl=20 LR=3.45e-04 Ltot=0.0031 (vel=0.0027, acc=0.0006, lin=1.2690, stab=0.0000) | val_vel_rmse_mean=0.01663 @K=0.02925 slope=0.929 inst=1.888 spec=0.998 | 8.9s
+2026-05-16 02:46:56,161 - INFO - Epoch [045/60] pl=20 LR=3.09e-04 Ltot=0.0031 (vel=0.0027, acc=0.0006, lin=1.2629, stab=0.0000) | val_vel_rmse_mean=0.01664 @K=0.02918 slope=0.927 inst=1.883 spec=0.998 | 9.0s
+2026-05-16 02:47:04,891 - INFO - Epoch [046/60] pl=20 LR=2.73e-04 Ltot=0.0031 (vel=0.0026, acc=0.0006, lin=1.2568, stab=0.0000) | val_vel_rmse_mean=0.01657 @K=0.02894 slope=0.924 inst=1.869 spec=0.998 | 8.7s
+2026-05-16 02:47:14,020 - INFO - Epoch [047/60] pl=20 LR=2.39e-04 Ltot=0.0030 (vel=0.0026, acc=0.0006, lin=1.2540, stab=0.0000) | val_vel_rmse_mean=0.01661 @K=0.02879 slope=0.915 inst=1.837 spec=0.998 | 9.1s
+2026-05-16 02:47:23,093 - INFO - Epoch [048/60] pl=20 LR=2.06e-04 Ltot=0.0030 (vel=0.0026, acc=0.0006, lin=1.2518, stab=0.0000) | val_vel_rmse_mean=0.01669 @K=0.02879 slope=0.908 inst=1.814 spec=0.998 | 9.1s
+2026-05-16 02:47:31,881 - INFO - Epoch [049/60] pl=20 LR=1.75e-04 Ltot=0.0030 (vel=0.0026, acc=0.0006, lin=1.2470, stab=0.0000) | val_vel_rmse_mean=0.01669 @K=0.02868 slope=0.904 inst=1.799 spec=0.998 | 8.8s
+2026-05-16 02:47:40,998 - INFO - Epoch [050/60] pl=20 LR=1.46e-04 Ltot=0.0030 (vel=0.0026, acc=0.0006, lin=1.2447, stab=0.0000) | val_vel_rmse_mean=0.01677 @K=0.02882 slope=0.905 inst=1.802 spec=0.998 | 9.1s
+2026-05-16 02:47:49,946 - INFO - Epoch [051/60] pl=20 LR=1.20e-04 Ltot=0.0030 (vel=0.0026, acc=0.0006, lin=1.2389, stab=0.0000) | val_vel_rmse_mean=0.01663 @K=0.02841 slope=0.898 inst=1.779 spec=0.998 | 8.9s
+2026-05-16 02:47:58,551 - INFO - Epoch [052/60] pl=20 LR=9.55e-05 Ltot=0.0030 (vel=0.0026, acc=0.0006, lin=1.2343, stab=0.0000) | val_vel_rmse_mean=0.01647 @K=0.02794 slope=0.892 inst=1.756 spec=0.998 | 8.6s
+2026-05-16 02:48:07,578 - INFO - Epoch [053/60] pl=20 LR=7.37e-05 Ltot=0.0029 (vel=0.0026, acc=0.0005, lin=1.2308, stab=0.0000) | val_vel_rmse_mean=0.01634 @K=0.02758 slope=0.887 inst=1.738 spec=0.999 | 9.0s
+2026-05-16 02:48:16,440 - INFO - Epoch [054/60] pl=20 LR=5.45e-05 Ltot=0.0029 (vel=0.0025, acc=0.0005, lin=1.2279, stab=0.0000) | val_vel_rmse_mean=0.01615 @K=0.02713 slope=0.882 inst=1.723 spec=0.998 | 8.9s
+2026-05-16 02:48:25,133 - INFO - Epoch [055/60] pl=20 LR=3.81e-05 Ltot=0.0029 (vel=0.0026, acc=0.0005, lin=1.2238, stab=0.0000) | val_vel_rmse_mean=0.01600 @K=0.02679 slope=0.880 inst=1.715 spec=0.999 | 8.7s
+2026-05-16 02:48:33,700 - INFO - Epoch [056/60] pl=20 LR=2.45e-05 Ltot=0.0029 (vel=0.0025, acc=0.0005, lin=1.2206, stab=0.0000) | val_vel_rmse_mean=0.01583 @K=0.02641 slope=0.875 inst=1.699 spec=0.999 | 8.6s
+2026-05-16 02:48:42,682 - INFO - Epoch [057/60] pl=20 LR=1.38e-05 Ltot=0.0029 (vel=0.0025, acc=0.0005, lin=1.2194, stab=0.0000) | val_vel_rmse_mean=0.01569 @K=0.02603 slope=0.868 inst=1.676 spec=0.999 | 9.0s
+2026-05-16 02:48:51,585 - INFO - Epoch [058/60] pl=20 LR=6.16e-06 Ltot=0.0029 (vel=0.0025, acc=0.0005, lin=1.2176, stab=0.0000) | val_vel_rmse_mean=0.01554 @K=0.02568 slope=0.863 inst=1.657 spec=0.998 | 8.9s
+2026-05-16 02:49:00,260 - INFO - Epoch [059/60] pl=20 LR=1.54e-06 Ltot=0.0029 (vel=0.0025, acc=0.0005, lin=1.2169, stab=0.0000) | val_vel_rmse_mean=0.01540 @K=0.02534 slope=0.858 inst=1.641 spec=0.998 | 8.7s
+2026-05-16 02:49:09,525 - INFO - Epoch [060/60] pl=20 LR=1.00e-03 Ltot=0.0028 (vel=0.0025, acc=0.0005, lin=1.2170, stab=0.0000) | val_vel_rmse_mean=0.01524 @K=0.02496 slope=0.853 inst=1.625 spec=0.999 | 9.3s
+2026-05-16 02:49:09,560 - INFO - Exported YAML -> checkpoints/koopman_best.yaml
+2026-05-16 02:49:15,440 - INFO - 
+=== QUANTITATIVE VERDICT (test set) ===
+vel_rmse@1=0.00121624  vel_rmse@5=0.00455221  vel_rmse@10=0.00724467  vel_rmse@20=0.0110681
+divergence: ratio20/1=9.10022  slope_loglog=0.711627  lyapunov_like=0.116226
+instability_score=1.28117  monotonic_increasing=True  divergent_sample_pct=90.5255%
+bias: u=+0.000378947  v=+0.000154354  r=+4.75032e-05
+fit_quality: R^2(u,v,r) = 0.9997 / 0.9999 / 0.9996
+========================================
+
+2026-05-16 02:49:16,271 - INFO - 
+### §7 12 条阈值逐条判定 (test set, K=20)
+
+| # | 指标 | v3 实测 | 阈值 | 判定 |
+|---|---|---|---|---|
+| G1 | vel_rmse_step_K | 0.0110681 | ≤ 0.01285 | ✅ |
+| G2 | u_rmse_step_K | 0.0101008 | ≤ 0.01185 | ✅ |
+| G3 | |u_bias_mean| | 0.000378947 | ≤ 0.00153 | ✅ |
+| G4 | slope_loglog | 0.711627 | ≤ 0.6695 | ❌ |
+| G5 | instability_score | 1.28117 | ≤ 1.2363 | ❌ |
+| S1 | per_segment.worst_vel_rmse_K | 0.0141883 | ≤ 0.01569 | ✅ |
+| S2 | per_segment.ratio_worst_over_best | 2.21534 | ≤ 2.78 | ✅ |
+| S3 | per_segment.high_speed_seg_mean | 0.00867062 | ≤ 0.01144 | ✅ |
+| S4 | degraded_pct (vs v1) | 22.9381 | ≤ 20 | ❌ |
+| N1 | vel_rmse_step_1 | 0.00121624 | ≤ 0.0024 | ✅ |
+| N2 | traj_xy_rmse_step_K | 0.0141993 | ≤ 0.02108 | ✅ |
+| N3 | spectral_radius (I+A) | 0.997886 | ≤ 1.005 | ✅ |
+
+**FAIL** — §7 v3 验收。
+
+2026-05-16 02:49:16,271 - INFO - v3 auto-PASS = False
+2026-05-16 02:49:16,271 - INFO - Per-5-epoch summary:
+2026-05-16 02:49:16,271 - INFO - ep | lr | L_total | L_vel | L_acc | L_lin | val_vel_mean | val_vel@K | val_traj_xy@K | slope_ll | inst | spec
+2026-05-16 02:49:16,271 - INFO -   001 | 9.94e-04 | 0.0215 | 0.0061 | 0.0255 | 0.0647 | 0.73042 | 1.15626 | 0.2923 | 0.978 | 1.008 | 1.007
+2026-05-16 02:49:16,271 - INFO -   005 | 8.54e-04 | 0.0026 | 0.0020 | 0.0009 | 0.3865 | 0.42362 | 0.67208 | 0.2543 | 0.872 | 1.040 | 0.998
+2026-05-16 02:49:16,271 - INFO -   010 | 5.00e-04 | 0.0026 | 0.0022 | 0.0008 | 0.7908 | 0.21227 | 0.32395 | 0.2122 | 0.751 | 1.068 | 0.998
+2026-05-16 02:49:16,271 - INFO -   015 | 1.46e-04 | 0.0026 | 0.0022 | 0.0007 | 0.8911 | 0.08602 | 0.12716 | 0.1031 | 0.688 | 1.047 | 0.998
+2026-05-16 02:49:16,271 - INFO -   020 | 1.00e-03 | 0.0028 | 0.0024 | 0.0007 | 1.0454 | 0.03683 | 0.05286 | 0.0586 | 0.627 | 1.054 | 0.999
+2026-05-16 02:49:16,271 - INFO -   025 | 9.62e-04 | 0.0038 | 0.0031 | 0.0008 | 1.2889 | 0.01632 | 0.02382 | 0.0324 | 0.609 | 1.084 | 0.997
+2026-05-16 02:49:16,271 - INFO -   030 | 8.54e-04 | 0.0036 | 0.0030 | 0.0008 | 1.2810 | 0.01320 | 0.02423 | 0.0266 | 0.889 | 1.698 | 0.997
+2026-05-16 02:49:16,271 - INFO -   035 | 6.91e-04 | 0.0035 | 0.0029 | 0.0007 | 1.2851 | 0.01395 | 0.02600 | 0.0281 | 0.984 | 2.066 | 0.997
+2026-05-16 02:49:16,271 - INFO -   040 | 5.00e-04 | 0.0033 | 0.0028 | 0.0007 | 1.2795 | 0.01580 | 0.02839 | 0.0316 | 0.953 | 1.971 | 0.998
+2026-05-16 02:49:16,271 - INFO -   045 | 3.09e-04 | 0.0031 | 0.0027 | 0.0006 | 1.2629 | 0.01664 | 0.02918 | 0.0334 | 0.927 | 1.883 | 0.998
+2026-05-16 02:49:16,271 - INFO -   050 | 1.46e-04 | 0.0030 | 0.0026 | 0.0006 | 1.2447 | 0.01677 | 0.02882 | 0.0336 | 0.905 | 1.802 | 0.998
+2026-05-16 02:49:16,271 - INFO -   055 | 3.81e-05 | 0.0029 | 0.0026 | 0.0005 | 1.2238 | 0.01600 | 0.02679 | 0.0321 | 0.880 | 1.715 | 0.999
+2026-05-16 02:49:16,271 - INFO -   060 | 1.00e-03 | 0.0028 | 0.0025 | 0.0005 | 1.2170 | 0.01524 | 0.02496 | 0.0307 | 0.853 | 1.625 | 0.999
