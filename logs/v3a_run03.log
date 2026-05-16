@@ -1,0 +1,18 @@
+2026-05-16 07:05:43,019 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197505 | pred_len=4 | stride=1
+2026-05-16 07:05:43,024 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35985 | pred_len=4 | stride=1
+2026-05-16 07:05:43,683 - INFO - ================================================================================
+2026-05-16 07:05:43,683 - INFO - Device: cpu | AMP: False
+2026-05-16 07:05:43,683 - INFO - Model: v3 | class=HorizontalKoopmanModelV3 | n_cubic=11 | latent_dim=43 | hidden_dim=24 | clamp_pif=30.0
+2026-05-16 07:05:43,683 - INFO - Train data: koopman_train_merged.npz | Val: koopman_val.npz | Test: koopman_test.npz
+2026-05-16 07:05:43,683 - INFO - Batch: 1024 | Workers: 4 | Seed: 42
+2026-05-16 07:05:43,683 - INFO - Curriculum pred_len: start=4 max=20 grow_every=3 stride=1
+2026-05-16 07:05:43,683 - INFO - Loss weights: w_vel=1.0 w_acc=0.5 w_lin=0.0 w_recon=0.0 w_stab=5.0 w_l2=0.0001 w_bias=1.0 (u=80.0, v=100.0, r=30.0) gamma_step=1.1 gamma_bias=1.1 huber_beta=0.1 rho_max=0.999
+2026-05-16 07:05:43,683 - INFO - Noise: input_std=0.025 ctrl_std=0.005 | EMA decay=0.999 no_ema=False | best_metric=composite_v3a
+2026-05-16 07:05:43,683 - INFO - [plan-A] w_bias_v effective=100.000 (plan-A recommends ~100, ratio=1.00×); w_bias_u=80.000 w_bias_r=30.000
+2026-05-16 07:05:43,683 - INFO - [plan-A] seg_resample=none alpha=1.0 | best_metric=composite_v3a | baseline_ckpt=checkpoints/koopman_v1_best.pth
+2026-05-16 07:05:43,683 - INFO - Train samples: 197505 | Val samples: 35985 | Params: 13224
+2026-05-16 07:05:43,683 - INFO - Initial spectral radius (I+A): 1.06615
+2026-05-16 07:05:43,683 - INFO - ================================================================================
+2026-05-16 07:05:48,820 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=4, n=8192, mean=0.00611
+2026-05-16 07:05:48,823 - INFO - Epoch [001/60] pl=4 LR=9.94e-04 Ltot=0.0283 (vel=0.0074, acc=0.0266, lin=0.0918, stab=0.0004, bias=0.0026) | val_vel_mean=0.70104 @K=1.08428 u@K=1.05870 v@K=0.23408 slope=0.930 inst=0.977 deg%=99.88 cV3a=5.57352 spec=1.008 | 5.1s
+2026-05-16 07:05:48,830 - INFO -   ↳ new best [composite_v3a]=5.57352 (vel_rmse_mean=0.701041, inst=0.976887, slope=0.9304, deg%=99.88, epoch 1)
