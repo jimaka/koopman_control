@@ -1,0 +1,5 @@
+# per-segment metrics (smoke) — worst_seg = 0 (vel@K=0.00508161); best_seg = 0 (vel@K=0.00508161); 段间 mean 差距 = 1×; high_speed_mean = nan; low_speed_mean = 0.00508161
+
+| seg_idx | n_windows | vel_rmse_1 | vel_rmse_5 | vel_rmse_10 | vel_rmse_K | u_rmse_K | v_rmse_K | r_rmse_K | u_bias_K | traj_xy_rmse_K | vel_err_p50_K | vel_err_p90_K | vel_err_p99_K | vel_err_max_K | ratio_K_over_1 | slope_loglog | instability_score | u_mean | u_std | v_std | r_std | dthr_mean |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 128 | 0.00127286 | 0.00508161 | 0.00508161 | 0.00508161 | 0.00454508 | 0.00289356 | 0.000171745 | -0.00375179 | 0.00139035 | 0.0053415 | 0.00732919 | 0.00803794 | 0.00994699 | 3.99228 | 0.998672 | 1.02255 | 2.60858 | 0.159334 | 0.0321061 | 0.0106208 | 17.944 |

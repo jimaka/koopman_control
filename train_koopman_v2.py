@@ -38,13 +38,22 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 import yaml
 
 from koopman import HorizontalKoopmanModel
 from koopman_v3 import HorizontalKoopmanModelV3, FEATURE_DICT_ATOMS
 import eval_koopman as ek
+
+
+# =============================================================================
+# 0z. PROMPT_deep_koopman_v3_planA 默认值常量（仅用于 banner 提示，不改 argparse 默认）
+# =============================================================================
+# A1 推荐 --w_bias_v ≈ 100（PROMPT v3 历史 30；v3 默认 argparse=None 兼容性保留）。
+PLAN_A_W_BIAS_V_DEFAULT = 100.0
+PLAN_A_SLOPE_TARGET = 0.65       # composite_v3a 中 slope_loglog 的软上界
+PLAN_A_DEGRADED_PCT_TARGET = 18  # composite_v3a 中 degraded_pct_vs_v1 的软上界（%）
 
 
 # =============================================================================
@@ -169,6 +178,67 @@ class KoopmanVoyageDataset(Dataset):
             "ctrl_mean": self.ctrls_full.mean(axis=0).astype(np.float32),
             "ctrl_std": (self.ctrls_full.std(axis=0) + 1e-6).astype(np.float32),
         }
+
+    # ------------------------------------------------------------------
+    # PROMPT_v3a A3 - per-segment raw stats (UNNORMALIZED u/v/r)。
+    # 用于构造 WeightedRandomSampler 的样本权重。
+    # ------------------------------------------------------------------
+    def per_segment_raw_stats(self) -> Dict[int, Dict[str, float]]:
+        """Return {seg_id: {u_mean, u_std, v_std, r_std}} in unnormalized space."""
+        out: Dict[int, Dict[str, float]] = {}
+        for sid in np.unique(self.seg_idx):
+            sid_int = int(sid)
+            s0 = int(self.seg_starts[sid_int])
+            T = int(self.seg_lens[sid_int])
+            if T <= 0:
+                out[sid_int] = {"u_mean": 0.0, "u_std": 0.0, "v_std": 0.0, "r_std": 0.0}
+                continue
+            seg_state = self.states_full[s0:s0 + T]
+            out[sid_int] = {
+                "u_mean": float(np.mean(seg_state[:, 3])),
+                "u_std":  float(np.std(seg_state[:, 3])),
+                "v_std":  float(np.std(seg_state[:, 4])),
+                "r_std":  float(np.std(seg_state[:, 5])),
+            }
+        return out
+
+    def sample_weights_by_segment(
+        self, mode: str, alpha: float
+    ) -> Optional[Tuple[np.ndarray, Dict[int, float], Dict[int, Dict[str, float]]]]:
+        """Build per-sample weights for ``WeightedRandomSampler``.
+
+        ``mode``:
+            - ``"none"``: return ``None`` (caller falls back to ``shuffle=True``).
+            - ``"u_mean2"``: ``w_seg = (u_mean**2 + eps) ** alpha``
+            - ``"u_var_r_var"``: ``w_seg = (u_std**2 + 0.5 * r_std**2 + eps) ** alpha``
+
+        Returns ``(per_sample_weights, w_seg_dict, per_seg_raw_stats)``.
+        """
+        mode = (mode or "none").lower()
+        if mode == "none":
+            return None
+        raw = self.per_segment_raw_stats()
+        eps = 1e-3
+        w_seg: Dict[int, float] = {}
+        for sid, st in raw.items():
+            if mode == "u_mean2":
+                base = st["u_mean"] ** 2
+            elif mode == "u_var_r_var":
+                base = st["u_std"] ** 2 + 0.5 * (st["r_std"] ** 2)
+            else:
+                raise ValueError(f"Unknown seg_resample mode: {mode!r}")
+            w_seg[sid] = float(max(base, 0.0) + eps) ** float(alpha)
+        # Build per-sample weights (numpy float64 for sampler).
+        seg_idx_arr = np.asarray(self.seg_idx, dtype=np.int64)
+        per_sample = np.empty(seg_idx_arr.shape[0], dtype=np.float64)
+        for sid, w in w_seg.items():
+            per_sample[seg_idx_arr == sid] = w
+        # Normalize so mean weight = 1 (interpretable, prevents under/overflow).
+        mean_w = float(per_sample.mean()) if per_sample.size else 1.0
+        if mean_w > 0:
+            per_sample = per_sample / mean_w
+            w_seg = {sid: w / mean_w for sid, w in w_seg.items()}
+        return per_sample, w_seg, raw
 
     def __len__(self) -> int:
         return int(self.t0_global.shape[0])
@@ -456,8 +526,14 @@ def quick_validation(
     dt: float,
     batch_size: int,
     max_samples: Optional[int] = None,
+    return_per_sample_vel_err_K: bool = False,
 ) -> Dict[str, float]:
-    """完整 rollout 在 val 上的物理量评估。复用 eval_koopman 的核心函数。"""
+    """完整 rollout 在 val 上的物理量评估。复用 eval_koopman 的核心函数。
+
+    若 ``return_per_sample_vel_err_K=True``，返回的 dict 额外含
+    ``"_per_sample_vel_err_K"`` 键（np.ndarray (n_samples,)），供 caller
+    计算 ``degraded_pct_vs_v1_val``（PROMPT_v3a §4.2 A2）。
+    """
     states_full = val_dataset.states_full
     ctrls_full = val_dataset.ctrls_full
     t0g = val_dataset.t0_global
@@ -471,17 +547,122 @@ def quick_validation(
     div = ek.compute_divergence_metrics(per_step)
     K = pred_len
     diff = pred_dyn - gt_dyn
-    vel = np.sqrt(diff[..., 0] ** 2 + diff[..., 1] ** 2)
-    return {
+    out = {
         "val/vel_rmse_mean": float(np.mean(per_step["vel_rmse"])),
         "val/vel_rmse_step1": float(per_step["vel_rmse"][0]),
         f"val/vel_rmse_step{K}": float(per_step["vel_rmse"][-1]),
+        f"val/u_rmse_step{K}": float(per_step["u_rmse"][-1]),
+        f"val/v_rmse_step{K}": float(per_step["v_rmse"][-1]),
+        f"val/r_rmse_step{K}": float(per_step["r_rmse"][-1]),
+        "val/u_bias_mean": float(np.mean(per_step["u_bias"])),
+        "val/v_bias_mean": float(np.mean(per_step["v_bias"])),
         "val/acc_rmse_mean": float(np.nanmean(per_step["acc_rmse"])),
         f"val/traj_xy_rmse_step{K}": float(per_step["traj_xy_err"][-1]),
         "val/slope_loglog": float(div["slope_loglog"]),
         f"val/ratio_step{K}_over_step1": float(div[f"ratio_step{K}_over_step1"]),
         "val/instability_score": float(div["instability_score"]),
     }
+    if return_per_sample_vel_err_K:
+        vel_err = np.sqrt(diff[..., 0] ** 2 + diff[..., 1] ** 2)  # (M,K)
+        out["_per_sample_vel_err_K"] = vel_err[:, -1].astype(np.float64)
+        out["_t0_global"] = t0g.astype(np.int64)
+    return out
+
+
+# =============================================================================
+# 5b. PROMPT_v3a A2 - val degraded_pct vs v1 baseline ckpt (cached per K)
+# =============================================================================
+
+class V1BaselineValCache:
+    """Cache per-sample vel_err@K of the v1 baseline ckpt on val data.
+
+    A2 的 composite_v3a 需要每个 epoch 计算 degraded_pct_vs_v1_val（即
+    模型 val vel_err@K 大于 v1 baseline 的样本占比）。v1 ckpt 与 val 数据
+    都不变，只有 K（pred_len）随 curriculum 变化，所以按 K 缓存一次即可。
+
+    若 ``baseline_ckpt`` 不存在则 ``available=False``，所有 degraded_pct
+    返回 0.0（composite_v3a 中相应项为 1.0，即不施压），同时打 warning。
+    """
+
+    def __init__(
+        self,
+        baseline_ckpt: str,
+        val_dataset: KoopmanVoyageDataset,
+        device: torch.device,
+        dt: float,
+        batch_size: int,
+        max_samples: Optional[int],
+        logger: logging.Logger,
+    ) -> None:
+        self.baseline_ckpt = baseline_ckpt
+        self.val_ds = val_dataset
+        self.device = device
+        self.dt = dt
+        self.batch_size = batch_size
+        self.max_samples = max_samples
+        self.logger = logger
+        self._per_K: Dict[Tuple[int, int], np.ndarray] = {}
+        # 唯一 key：(K, n_subsample)；后者由 max_samples 决定，K 由 pred_len 决定。
+        self.available = os.path.exists(baseline_ckpt)
+        self._baseline_model = None  # 延迟加载
+        if not self.available:
+            logger.warning(
+                f"[composite_v3a] baseline ckpt {baseline_ckpt!r} 不存在；"
+                "degraded_pct_vs_v1_val 强制为 0.0（即 composite_v3a 不在 S4 上施压）。"
+            )
+
+    def _ensure_model(self) -> None:
+        if not self.available or self._baseline_model is not None:
+            return
+        m, _ = ek.load_model_from_ckpt(self.baseline_ckpt, self.device)
+        m.eval()
+        self._baseline_model = m
+
+    @torch.no_grad()
+    def per_sample_vel_err_K(self, pred_len: int) -> Optional[np.ndarray]:
+        if not self.available:
+            return None
+        self._ensure_model()
+        # subsample 与 train.quick_validation 同步：用 linspace
+        t0g = self.val_ds.t0_global
+        if self.max_samples is not None and t0g.shape[0] > self.max_samples:
+            sel = np.linspace(0, t0g.shape[0] - 1, self.max_samples).astype(int)
+            t0g = t0g[sel]
+        key = (int(pred_len), int(t0g.shape[0]))
+        cached = self._per_K.get(key)
+        if cached is not None:
+            return cached
+        gt_dyn, pred_dyn, _, _ = ek.rollout_dataset(
+            self._baseline_model, self.val_ds.states_full, self.val_ds.ctrls_full,
+            t0g, pred_len, self.val_ds.stats, self.device, self.dt, self.batch_size,
+        )
+        diff = pred_dyn - gt_dyn
+        vel_err_K = np.sqrt(diff[:, -1, 0] ** 2 + diff[:, -1, 1] ** 2).astype(np.float64)
+        self._per_K[key] = vel_err_K
+        self.logger.info(
+            f"[composite_v3a] cached v1 baseline val vel_err@K={pred_len}, "
+            f"n={vel_err_K.shape[0]}, mean={vel_err_K.mean():.5f}"
+        )
+        return vel_err_K
+
+
+def _compute_composite_v3a(
+    val_metrics: Dict[str, float],
+    degraded_pct_v1: float,
+    slope_target: float = PLAN_A_SLOPE_TARGET,
+    degraded_target_pct: float = PLAN_A_DEGRADED_PCT_TARGET,
+) -> float:
+    """PROMPT_v3a §4.2 公式：
+    composite_v3a = vel_rmse_mean * max(1, instability_score)
+                  * (1 + 2 * max(0, slope_loglog - 0.65))
+                  * (1 + 5 * max(0, degraded_pct/100 - 0.18))
+    """
+    base = val_metrics["val/vel_rmse_mean"] * max(1.0, val_metrics["val/instability_score"])
+    slope = float(val_metrics["val/slope_loglog"])
+    slope_pen = 1.0 + 2.0 * max(0.0, slope - slope_target)
+    deg = float(degraded_pct_v1) / 100.0
+    deg_pen = 1.0 + 5.0 * max(0.0, deg - degraded_target_pct / 100.0)
+    return float(base * slope_pen * deg_pen)
 
 
 # =============================================================================
@@ -563,10 +744,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ema_decay", type=float, default=0.999)
     p.add_argument("--no_ema", action="store_true", default=False)
     p.add_argument("--encoder_dropout", type=float, default=0.0)
-    p.add_argument("--best_metric", choices=["vel_rmse_mean", "instability_score", "composite"],
+    p.add_argument("--best_metric",
+                   choices=["vel_rmse_mean", "instability_score", "composite", "composite_v3a"],
                    default="composite",
                    help="select best ckpt by: vel_rmse_mean / instability_score / composite="
-                        "vel_rmse_mean * max(1, instability_score)")
+                        "vel_rmse_mean * max(1, instability_score). PROMPT_v3a 引入 "
+                        "composite_v3a = composite * (1 + 2·max(0, slope_loglog - 0.65)) * "
+                        "(1 + 5·max(0, degraded_pct_vs_v1_val/100 - 0.18))，把 slope 与 S4 "
+                        "显式纳入 ckpt 选择。")
+    # PROMPT_v3a A3 - per-segment WeightedRandomSampler
+    p.add_argument("--seg_resample", choices=["none", "u_mean2", "u_var_r_var"],
+                   default="none",
+                   help="训练 sampler：none=均匀随机 shuffle；u_mean2=w∝u_mean²；"
+                        "u_var_r_var=w∝(u_std²+0.5·r_std²) （A 方案推荐，挑速度抖动大段强训）。")
+    p.add_argument("--seg_resample_alpha", type=float, default=1.0,
+                   help="seg_resample 权重的指数 (w_seg=base^alpha)；>1 加强、<1 弱化")
+    # PROMPT_v3a A2 - val degraded_pct vs v1 baseline ckpt
+    p.add_argument("--baseline_ckpt", type=str, default="checkpoints/koopman_v1_best.pth",
+                   help="composite_v3a 需要的 v1 基线 ckpt，用于每 epoch val 算 "
+                        "degraded_pct_vs_v1_val。文件不存在时 degraded_pct=0 不参与 composite。")
     # 工程
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--resume", type=str, default=None)
@@ -623,8 +819,52 @@ def make_dataloaders(
     )
     nw = args.num_workers
     pw = args.persistent_workers and nw > 0
+
+    # ------------------------------------------------------------------
+    # PROMPT_v3a A3 - optional per-segment WeightedRandomSampler.
+    # When --seg_resample != "none", sampler replaces shuffle=True.
+    # ------------------------------------------------------------------
+    seg_mode = getattr(args, "seg_resample", "none") or "none"
+    seg_alpha = float(getattr(args, "seg_resample_alpha", 1.0))
+    train_sampler = None
+    if seg_mode != "none":
+        ws_pack = train_ds.sample_weights_by_segment(seg_mode, seg_alpha)
+        if ws_pack is not None:
+            per_sample_w, w_seg, raw = ws_pack
+            train_sampler = WeightedRandomSampler(
+                weights=torch.as_tensor(per_sample_w, dtype=torch.double),
+                num_samples=len(train_ds),
+                replacement=True,
+            )
+            # 启动 banner（PROMPT_v3a §4.3 第 3 条要求）
+            vals = np.asarray(list(w_seg.values()), dtype=np.float64)
+            wmin, wmax = float(vals.min()), float(vals.max())
+            wmean, wstd = float(vals.mean()), float(vals.std())
+            logger.info(
+                f"[seg_resample] mode={seg_mode} alpha={seg_alpha} "
+                f"| n_segments={len(w_seg)} | w min={wmin:.4f} max={wmax:.4f} "
+                f"mean={wmean:.4f} std={wstd:.4f}"
+            )
+            # 详细每段表（INFO 级，便于 review）
+            for sid in sorted(w_seg.keys()):
+                st = raw[sid]
+                tag_hi = " HI" if wmax > 10.0 * wmean and w_seg[sid] == wmax else ""
+                logger.info(
+                    f"  seg {sid:3d} | w={w_seg[sid]:.4f} "
+                    f"| u_mean={st['u_mean']:+.3f} u_std={st['u_std']:.3f} "
+                    f"v_std={st['v_std']:.3f} r_std={st['r_std']:.4f}{tag_hi}"
+                )
+            if wmax > 10.0 * wmean:
+                logger.warning(
+                    f"[seg_resample] max w_seg ({wmax:.3f}) > 10× mean ({wmean:.3f}); "
+                    "consider lowering --seg_resample_alpha to avoid one-segment overfit."
+                )
+
     train_loader = DataLoader(
-        train_ds, batch_size=args.batch_size, shuffle=True, num_workers=nw,
+        train_ds, batch_size=args.batch_size,
+        shuffle=(train_sampler is None),
+        sampler=train_sampler,
+        num_workers=nw,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=pw,
         prefetch_factor=args.prefetch_factor if nw > 0 else None,
@@ -746,9 +986,30 @@ def train(args: argparse.Namespace) -> None:
         f"Noise: input_std={args.noise_std} ctrl_std={args.ctrl_noise_std} | "
         f"EMA decay={args.ema_decay} no_ema={args.no_ema} | best_metric={args.best_metric}"
     )
+    # PROMPT_v3a A1 - per-channel w_bias effective values vs plan-A recommendation
+    logger.info(
+        f"[plan-A] w_bias_v effective={args.w_bias_v_eff:.3f} "
+        f"(plan-A recommends ~{PLAN_A_W_BIAS_V_DEFAULT:.0f}, "
+        f"ratio={args.w_bias_v_eff / PLAN_A_W_BIAS_V_DEFAULT:.2f}×); "
+        f"w_bias_u={args.w_bias_u_eff:.3f} w_bias_r={args.w_bias_r_eff:.3f}"
+    )
+    # PROMPT_v3a A3 - sampler mode reminder
+    logger.info(
+        f"[plan-A] seg_resample={getattr(args, 'seg_resample', 'none')} "
+        f"alpha={getattr(args, 'seg_resample_alpha', 1.0)} "
+        f"| best_metric={args.best_metric} "
+        f"| baseline_ckpt={getattr(args, 'baseline_ckpt', '-')}"
+    )
     logger.info(f"Train samples: {len(train_ds)} | Val samples: {len(val_ds)} | Params: {n_params}")
     logger.info(f"Initial spectral radius (I+A): {spec_init:.6g}")
     logger.info("=" * 80)
+
+    # PROMPT_v3a A2 - v1 baseline cache for composite_v3a
+    v1_cache = V1BaselineValCache(
+        baseline_ckpt=getattr(args, "baseline_ckpt", "checkpoints/koopman_v1_best.pth"),
+        val_dataset=val_ds, device=device, dt=args.dt,
+        batch_size=args.batch_size, max_samples=args.val_max_samples, logger=logger,
+    )
 
     dyn_mean_t = torch.tensor(stats["state_mean"][3:6], device=device, dtype=torch.float32)
     dyn_std_t = torch.tensor(stats["state_std"][3:6], device=device, dtype=torch.float32)
@@ -809,10 +1070,35 @@ def train(args: argparse.Namespace) -> None:
 
         # ---- 验证：用 EMA 权重（如果有） ----
         eval_model = ema.module if ema is not None else model
+        need_per_sample = args.best_metric == "composite_v3a"
         val_metrics = quick_validation(
             eval_model, val_ds, pred_len, device, args.dt,
             batch_size=args.batch_size, max_samples=args.val_max_samples,
+            return_per_sample_vel_err_K=need_per_sample,
         )
+        # PROMPT_v3a A2 - degraded_pct_vs_v1_val（仅 composite_v3a 需要；其它 best_metric 也算并记录，但不影响 best 选择）
+        deg_pct_val = 0.0
+        if v1_cache.available:
+            base_per_sample = v1_cache.per_sample_vel_err_K(pred_len)
+            if base_per_sample is not None:
+                cur_per_sample = val_metrics.pop("_per_sample_vel_err_K", None)
+                if cur_per_sample is None:
+                    # 未请求 per_sample 时也补算一次，避免 logging 缺数据
+                    aux = quick_validation(
+                        eval_model, val_ds, pred_len, device, args.dt,
+                        batch_size=args.batch_size, max_samples=args.val_max_samples,
+                        return_per_sample_vel_err_K=True,
+                    )
+                    cur_per_sample = aux.get("_per_sample_vel_err_K")
+                if cur_per_sample is not None:
+                    n = min(cur_per_sample.shape[0], base_per_sample.shape[0])
+                    deg_pct_val = float(np.mean(cur_per_sample[:n] > base_per_sample[:n]) * 100.0)
+            val_metrics.pop("_t0_global", None)
+        else:
+            val_metrics.pop("_per_sample_vel_err_K", None)
+            val_metrics.pop("_t0_global", None)
+        val_metrics["val/degraded_pct_vs_v1_val"] = deg_pct_val
+        val_metrics["val/composite_v3a"] = _compute_composite_v3a(val_metrics, deg_pct_val)
 
         cur_lr = optimizer.param_groups[0]["lr"]
         elapsed = time.time() - t0
@@ -823,7 +1109,8 @@ def train(args: argparse.Namespace) -> None:
         tb.add_scalar("Train/lr", cur_lr, epoch)
         tb.add_scalar("Train/pred_len", pred_len, epoch)
         for k, v in val_metrics.items():
-            tb.add_scalar(k, v, epoch)
+            if isinstance(v, (int, float)):
+                tb.add_scalar(k, v, epoch)
         tb.add_scalar("Val/Divergence/slope_loglog", val_metrics["val/slope_loglog"], epoch)
         tb.add_scalar(
             "Val/Divergence/ratio_stepK_over_step1",
@@ -843,25 +1130,32 @@ def train(args: argparse.Namespace) -> None:
             f"LR={cur_lr:.2e} "
             f"Ltot={epoch_acc['L_total']:.4f} (vel={epoch_acc['L_vel']:.4f}, "
             f"acc={epoch_acc['L_acc']:.4f}, lin={epoch_acc['L_lin']:.4f}, "
-            f"stab={epoch_acc['L_stab']:.4f}) "
-            f"| val_vel_rmse_mean={val_metrics['val/vel_rmse_mean']:.5f} "
+            f"stab={epoch_acc['L_stab']:.4f}, bias={epoch_acc['L_bias']:.4f}) "
+            f"| val_vel_mean={val_metrics['val/vel_rmse_mean']:.5f} "
             f"@K={val_metrics[f'val/vel_rmse_step{pred_len}']:.5f} "
+            f"u@K={val_metrics[f'val/u_rmse_step{pred_len}']:.5f} "
+            f"v@K={val_metrics[f'val/v_rmse_step{pred_len}']:.5f} "
             f"slope={val_metrics['val/slope_loglog']:.3f} "
             f"inst={val_metrics['val/instability_score']:.3f} "
+            f"deg%={val_metrics['val/degraded_pct_vs_v1_val']:.2f} "
+            f"cV3a={val_metrics['val/composite_v3a']:.5f} "
             f"spec={epoch_acc['spec_radius']:.3f} "
             f"| {elapsed:.1f}s"
         )
         logger.info(log_msg)
         if (epoch + 1) % 5 == 0 or epoch == 0:
             metrics_summary_lines.append(
-                f"{epoch + 1:03d} | {cur_lr:.2e} | {epoch_acc['L_total']:.4f} | "
-                f"{epoch_acc['L_vel']:.4f} | {epoch_acc['L_acc']:.4f} | {epoch_acc['L_lin']:.4f} | "
-                f"{val_metrics['val/vel_rmse_mean']:.5f} | "
-                f"{val_metrics[f'val/vel_rmse_step{pred_len}']:.5f} | "
-                f"{val_metrics[f'val/traj_xy_rmse_step{pred_len}']:.4f} | "
-                f"{val_metrics['val/slope_loglog']:.3f} | "
-                f"{val_metrics['val/instability_score']:.3f} | "
-                f"{epoch_acc['spec_radius']:.3f}"
+                f"{epoch + 1:03d} | {cur_lr:.2e} | pl={pred_len} | "
+                f"L={epoch_acc['L_total']:.4f} (v={epoch_acc['L_vel']:.4f} "
+                f"a={epoch_acc['L_acc']:.4f} bu={epoch_acc['L_bias']:.4f}) | "
+                f"vK={val_metrics[f'val/vel_rmse_step{pred_len}']:.5f} "
+                f"uK={val_metrics[f'val/u_rmse_step{pred_len}']:.5f} "
+                f"vK={val_metrics[f'val/v_rmse_step{pred_len}']:.5f} "
+                f"slope={val_metrics['val/slope_loglog']:.3f} "
+                f"inst={val_metrics['val/instability_score']:.3f} "
+                f"deg%={val_metrics['val/degraded_pct_vs_v1_val']:.2f} "
+                f"cV3a={val_metrics['val/composite_v3a']:.5f} "
+                f"spec={epoch_acc['spec_radius']:.3f}"
             )
 
         ckpt = {
@@ -885,6 +1179,8 @@ def train(args: argparse.Namespace) -> None:
             cur_metric = val_metrics["val/vel_rmse_mean"]
         elif args.best_metric == "instability_score":
             cur_metric = val_metrics["val/instability_score"]
+        elif args.best_metric == "composite_v3a":  # PROMPT_v3a A2
+            cur_metric = val_metrics["val/composite_v3a"]
         else:  # composite
             cur_metric = val_metrics["val/vel_rmse_mean"] * max(1.0, val_metrics["val/instability_score"])
         if cur_metric < state.best_metric:
@@ -894,7 +1190,10 @@ def train(args: argparse.Namespace) -> None:
             logger.info(
                 f"  ↳ new best [{args.best_metric}]={cur_metric:.6g} "
                 f"(vel_rmse_mean={val_metrics['val/vel_rmse_mean']:.6g}, "
-                f"inst={val_metrics['val/instability_score']:.6g}, epoch {epoch + 1})"
+                f"inst={val_metrics['val/instability_score']:.6g}, "
+                f"slope={val_metrics['val/slope_loglog']:.4g}, "
+                f"deg%={val_metrics['val/degraded_pct_vs_v1_val']:.2f}, "
+                f"epoch {epoch + 1})"
             )
 
     # ---- 训练结束：导出 best 的 yaml ----
