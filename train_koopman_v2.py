@@ -587,7 +587,6 @@ class V1BaselineValCache:
     def __init__(
         self,
         baseline_ckpt: str,
-        val_dataset: KoopmanVoyageDataset,
         device: torch.device,
         dt: float,
         batch_size: int,
@@ -595,14 +594,13 @@ class V1BaselineValCache:
         logger: logging.Logger,
     ) -> None:
         self.baseline_ckpt = baseline_ckpt
-        self.val_ds = val_dataset
         self.device = device
         self.dt = dt
         self.batch_size = batch_size
         self.max_samples = max_samples
         self.logger = logger
-        self._per_K: Dict[Tuple[int, int], np.ndarray] = {}
-        # 唯一 key：(K, n_subsample)；后者由 max_samples 决定，K 由 pred_len 决定。
+        # Cache key 加上 val_dataset id —— curriculum 重建 val_ds 时 id 会变。
+        self._per_K: Dict[Tuple[int, int, int], np.ndarray] = {}
         self.available = os.path.exists(baseline_ckpt)
         self._baseline_model = None  # 延迟加载
         if not self.available:
@@ -619,22 +617,29 @@ class V1BaselineValCache:
         self._baseline_model = m
 
     @torch.no_grad()
-    def per_sample_vel_err_K(self, pred_len: int) -> Optional[np.ndarray]:
+    def per_sample_vel_err_K(
+        self, val_dataset: KoopmanVoyageDataset, pred_len: int,
+    ) -> Optional[np.ndarray]:
+        """Compute (or fetch from cache) v1 baseline per-sample vel_err@K on val.
+
+        ``val_dataset`` 必须是 *当前 curriculum pred_len* 对应的 val_ds，因为
+        ``t0_global`` 在不同 pred_len 下范围不同（pred_len 越大可起点越少）。
+        """
         if not self.available:
             return None
         self._ensure_model()
         # subsample 与 train.quick_validation 同步：用 linspace
-        t0g = self.val_ds.t0_global
+        t0g = val_dataset.t0_global
         if self.max_samples is not None and t0g.shape[0] > self.max_samples:
             sel = np.linspace(0, t0g.shape[0] - 1, self.max_samples).astype(int)
             t0g = t0g[sel]
-        key = (int(pred_len), int(t0g.shape[0]))
+        key = (id(val_dataset), int(pred_len), int(t0g.shape[0]))
         cached = self._per_K.get(key)
         if cached is not None:
             return cached
         gt_dyn, pred_dyn, _, _ = ek.rollout_dataset(
-            self._baseline_model, self.val_ds.states_full, self.val_ds.ctrls_full,
-            t0g, pred_len, self.val_ds.stats, self.device, self.dt, self.batch_size,
+            self._baseline_model, val_dataset.states_full, val_dataset.ctrls_full,
+            t0g, pred_len, val_dataset.stats, self.device, self.dt, self.batch_size,
         )
         diff = pred_dyn - gt_dyn
         vel_err_K = np.sqrt(diff[:, -1, 0] ** 2 + diff[:, -1, 1] ** 2).astype(np.float64)
@@ -1007,7 +1012,7 @@ def train(args: argparse.Namespace) -> None:
     # PROMPT_v3a A2 - v1 baseline cache for composite_v3a
     v1_cache = V1BaselineValCache(
         baseline_ckpt=getattr(args, "baseline_ckpt", "checkpoints/koopman_v1_best.pth"),
-        val_dataset=val_ds, device=device, dt=args.dt,
+        device=device, dt=args.dt,
         batch_size=args.batch_size, max_samples=args.val_max_samples, logger=logger,
     )
 
@@ -1079,7 +1084,7 @@ def train(args: argparse.Namespace) -> None:
         # PROMPT_v3a A2 - degraded_pct_vs_v1_val（仅 composite_v3a 需要；其它 best_metric 也算并记录，但不影响 best 选择）
         deg_pct_val = 0.0
         if v1_cache.available:
-            base_per_sample = v1_cache.per_sample_vel_err_K(pred_len)
+            base_per_sample = v1_cache.per_sample_vel_err_K(val_ds, pred_len)
             if base_per_sample is not None:
                 cur_per_sample = val_metrics.pop("_per_sample_vel_err_K", None)
                 if cur_per_sample is None:

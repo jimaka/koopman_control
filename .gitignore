@@ -3,4 +3,5 @@ __pycache__/
 logs/smoketest_v2/
 logs/tensorboard_v2_*/
 logs/metrics_*.jsonl
+test_analysis/smoketest/
 .tmp/

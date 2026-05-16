@@ -117,8 +117,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--ckpt_glob", type=str,
-        default="checkpoints/koopman_v3_run*_best.pth",
-        help="ckpt glob pattern；也可加多个 --ckpt_glob 重复参数。",
+        default=None,
+        help="ckpt glob pattern；可重复给出。默认 checkpoints/koopman_v3_run*_best.pth。",
         action="append",
     )
     parser.add_argument("--data", type=str, default="koopman_val.npz")
@@ -136,12 +136,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # argparse 在使用 action='append' 时不会丢弃 default —— 手动处理。
-    if isinstance(args.ckpt_glob, list) and len(args.ckpt_glob) > 1:
-        args.ckpt_glob = [g for g in args.ckpt_glob if g]
-    elif isinstance(args.ckpt_glob, list):
-        # 只有一个：可能就是默认值
-        pass
+    if not args.ckpt_glob:
+        args.ckpt_glob = ["checkpoints/koopman_v3_run*_best.pth"]
 
     device = (
         torch.device("cuda") if args.device == "auto" and torch.cuda.is_available()
