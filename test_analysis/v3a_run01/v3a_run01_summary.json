@@ -1,0 +1,60 @@
+{
+  "tag": "v3a_run01",
+  "ckpt": "checkpoints/koopman_best.pth",
+  "n_samples": 35622,
+  "pred_len": 20,
+  "dt": 0.1,
+  "aggregate": {
+    "vel_rmse_mean": 0.004831764381378889,
+    "vel_rmse_step_1": 0.0005240722675807774,
+    "vel_rmse_step_5": 0.0024703119415789843,
+    "vel_rmse_step_10": 0.004710222128778696,
+    "vel_rmse_step_20": 0.0088491914793849,
+    "u_rmse_step_20": 0.008324913680553436,
+    "v_rmse_step_20": 0.003000680822879076,
+    "r_rmse_step_20": 0.000616920180618763,
+    "acc_rmse_mean": 0.004545792520634438,
+    "traj_xy_rmse_step_20": 0.010027892887592316
+  },
+  "divergence": {
+    "ratio_step20_over_step1": 16.885441239305678,
+    "slope_loglog": 0.9378911439976898,
+    "slope_linear": 0.0004339543094637952,
+    "lyapunov_like": 0.14876062029078202,
+    "auc_error_curve": 0.004597433046728838,
+    "monotonic_increasing": true,
+    "instability_score": 1.9321853659118113,
+    "divergent_sample_pct": 98.66093986862052
+  },
+  "channel_bias": {
+    "u_bias_mean": -0.0007162513793446124,
+    "v_bias_mean": 0.00014002129319123924,
+    "r_bias_mean": 2.1863210349692963e-05
+  },
+  "tail": {
+    "vel_err_step20_p50": 0.0062481556087732315,
+    "vel_err_step20_p90": 0.012785237282514572,
+    "vel_err_step20_p99": 0.027170564979314804,
+    "vel_err_step20_max": 0.042738527059555054
+  },
+  "fit_quality": {
+    "u_r2_mean": 0.9998582717718266,
+    "v_r2_mean": 0.9999580648342056,
+    "r_r2_mean": 0.9996914708664922,
+    "u_corr_mean": 0.9999325326437292,
+    "v_corr_mean": 0.9999792966331377,
+    "r_corr_mean": 0.9998568118542479
+  },
+  "per_segment": {
+    "worst_seg_idx": 1,
+    "worst_vel_rmse_K": 0.014722004532814026,
+    "best_seg_idx": 14,
+    "best_vel_rmse_K": 0.00451453123241663,
+    "ratio_worst_over_best": 3.2610261785548293,
+    "per_seg_vel_rmse_K_std": 0.0025842521991127332,
+    "high_speed_seg_mean": 0.005938422038323349,
+    "low_speed_seg_mean": 0.008480151804784933,
+    "high_speed_seg_count": 9,
+    "low_speed_seg_count": 9
+  }
+}

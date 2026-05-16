@@ -1,0 +1,180 @@
+2026-05-16 07:05:43,019 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197505 | pred_len=4 | stride=1
+2026-05-16 07:05:43,024 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35985 | pred_len=4 | stride=1
+2026-05-16 07:05:43,683 - INFO - ================================================================================
+2026-05-16 07:05:43,683 - INFO - Device: cpu | AMP: False
+2026-05-16 07:05:43,683 - INFO - Model: v3 | class=HorizontalKoopmanModelV3 | n_cubic=11 | latent_dim=43 | hidden_dim=24 | clamp_pif=30.0
+2026-05-16 07:05:43,683 - INFO - Train data: koopman_train_merged.npz | Val: koopman_val.npz | Test: koopman_test.npz
+2026-05-16 07:05:43,683 - INFO - Batch: 1024 | Workers: 4 | Seed: 42
+2026-05-16 07:05:43,683 - INFO - Curriculum pred_len: start=4 max=20 grow_every=3 stride=1
+2026-05-16 07:05:43,683 - INFO - Loss weights: w_vel=1.0 w_acc=0.5 w_lin=0.0 w_recon=0.0 w_stab=5.0 w_l2=0.0001 w_bias=1.0 (u=80.0, v=100.0, r=30.0) gamma_step=1.1 gamma_bias=1.1 huber_beta=0.1 rho_max=0.999
+2026-05-16 07:05:43,683 - INFO - Noise: input_std=0.025 ctrl_std=0.005 | EMA decay=0.999 no_ema=False | best_metric=composite_v3a
+2026-05-16 07:05:43,683 - INFO - [plan-A] w_bias_v effective=100.000 (plan-A recommends ~100, ratio=1.00×); w_bias_u=80.000 w_bias_r=30.000
+2026-05-16 07:05:43,683 - INFO - [plan-A] seg_resample=none alpha=1.0 | best_metric=composite_v3a | baseline_ckpt=checkpoints/koopman_v1_best.pth
+2026-05-16 07:05:43,683 - INFO - Train samples: 197505 | Val samples: 35985 | Params: 13224
+2026-05-16 07:05:43,683 - INFO - Initial spectral radius (I+A): 1.06615
+2026-05-16 07:05:43,683 - INFO - ================================================================================
+2026-05-16 07:05:48,820 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=4, n=8192, mean=0.00611
+2026-05-16 07:05:48,823 - INFO - Epoch [001/60] pl=4 LR=9.94e-04 Ltot=0.0283 (vel=0.0074, acc=0.0266, lin=0.0918, stab=0.0004, bias=0.0026) | val_vel_mean=0.70104 @K=1.08428 u@K=1.05870 v@K=0.23408 slope=0.930 inst=0.977 deg%=99.88 cV3a=5.57352 spec=1.008 | 5.1s
+2026-05-16 07:05:48,830 - INFO -   ↳ new best [composite_v3a]=5.57352 (vel_rmse_mean=0.701041, inst=0.976887, slope=0.9304, deg%=99.88, epoch 1)
+2026-05-16 07:05:55,838 - INFO - Epoch [002/60] pl=4 LR=9.76e-04 Ltot=0.0042 (vel=0.0031, acc=0.0017, lin=0.1013, stab=0.0000, bias=0.0002) | val_vel_mean=0.55189 @K=0.83044 u@K=0.80884 v@K=0.18826 slope=0.876 inst=0.942 deg%=99.82 cV3a=4.07726 spec=0.999 | 7.0s
+2026-05-16 07:05:55,844 - INFO -   ↳ new best [composite_v3a]=4.07726 (vel_rmse_mean=0.551887, inst=0.942342, slope=0.8756, deg%=99.82, epoch 2)
+2026-05-16 07:06:00,996 - INFO - Epoch [003/60] pl=4 LR=9.46e-04 Ltot=0.0041 (vel=0.0031, acc=0.0014, lin=0.1369, stab=0.0000, bias=0.0002) | val_vel_mean=0.44177 @K=0.65120 u@K=0.63335 v@K=0.15138 slope=0.835 inst=0.918 deg%=99.73 cV3a=3.07941 spec=0.998 | 5.2s
+2026-05-16 07:06:01,002 - INFO -   ↳ new best [composite_v3a]=3.07941 (vel_rmse_mean=0.441767, inst=0.917985, slope=0.8352, deg%=99.73, epoch 3)
+2026-05-16 07:06:01,002 - INFO - [Curriculum] pred_len -> 6; rebuilding dataloaders...
+2026-05-16 07:06:01,054 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197307 | pred_len=6 | stride=1
+2026-05-16 07:06:01,059 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35979 | pred_len=6 | stride=1
+2026-05-16 07:06:06,860 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=6, n=8192, mean=0.00909
+2026-05-16 07:06:06,865 - INFO - Epoch [004/60] pl=6 LR=9.05e-04 Ltot=0.0044 (vel=0.0032, acc=0.0015, lin=0.3245, stab=0.0000, bias=0.0003) | val_vel_mean=0.44743 @K=0.65216 u@K=0.62689 v@K=0.17988 slope=0.751 inst=0.938 deg%=99.32 cV3a=2.72359 spec=0.998 | 5.8s
+2026-05-16 07:06:06,870 - INFO -   ↳ new best [composite_v3a]=2.72359 (vel_rmse_mean=0.447434, inst=0.937615, slope=0.7508, deg%=99.32, epoch 4)
+2026-05-16 07:06:12,770 - INFO - Epoch [005/60] pl=6 LR=8.54e-04 Ltot=0.0039 (vel=0.0031, acc=0.0011, lin=0.4045, stab=0.0000, bias=0.0002) | val_vel_mean=0.36539 @K=0.52698 u@K=0.50757 v@K=0.14172 slope=0.733 inst=0.924 deg%=99.29 cV3a=2.15601 spec=0.998 | 5.9s
+2026-05-16 07:06:12,775 - INFO -   ↳ new best [composite_v3a]=2.15601 (vel_rmse_mean=0.365395, inst=0.923897, slope=0.7325, deg%=99.29, epoch 5)
+2026-05-16 07:06:18,681 - INFO - Epoch [006/60] pl=6 LR=7.94e-04 Ltot=0.0038 (vel=0.0031, acc=0.0010, lin=0.4615, stab=0.0000, bias=0.0001) | val_vel_mean=0.30174 @K=0.43338 u@K=0.41879 v@K=0.11133 slope=0.723 inst=0.917 deg%=99.29 cV3a=1.75196 spec=0.997 | 5.9s
+2026-05-16 07:06:18,686 - INFO -   ↳ new best [composite_v3a]=1.75196 (vel_rmse_mean=0.301742, inst=0.917163, slope=0.7232, deg%=99.29, epoch 6)
+2026-05-16 07:06:18,686 - INFO - [Curriculum] pred_len -> 8; rebuilding dataloaders...
+2026-05-16 07:06:18,734 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=197109 | pred_len=8 | stride=1
+2026-05-16 07:06:18,739 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35973 | pred_len=8 | stride=1
+2026-05-16 07:06:25,586 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=8, n=8192, mean=0.01203
+2026-05-16 07:06:25,589 - INFO - Epoch [007/60] pl=8 LR=7.27e-04 Ltot=0.0039 (vel=0.0032, acc=0.0010, lin=0.6506, stab=0.0000, bias=0.0002) | val_vel_mean=0.28675 @K=0.40168 u@K=0.38641 v@K=0.10975 slope=0.667 inst=0.926 deg%=99.27 cV3a=1.50207 spec=0.998 | 6.8s
+2026-05-16 07:06:25,596 - INFO -   ↳ new best [composite_v3a]=1.50207 (vel_rmse_mean=0.286748, inst=0.92591, slope=0.6673, deg%=99.27, epoch 7)
+2026-05-16 07:06:33,329 - INFO - Epoch [008/60] pl=8 LR=6.55e-04 Ltot=0.0038 (vel=0.0032, acc=0.0010, lin=0.6870, stab=0.0000, bias=0.0001) | val_vel_mean=0.24006 @K=0.33822 u@K=0.32743 v@K=0.08475 slope=0.670 inst=0.928 deg%=99.26 cV3a=1.26295 spec=0.996 | 7.7s
+2026-05-16 07:06:33,335 - INFO -   ↳ new best [composite_v3a]=1.26295 (vel_rmse_mean=0.240062, inst=0.92836, slope=0.6696, deg%=99.26, epoch 8)
+2026-05-16 07:06:39,821 - INFO - Epoch [009/60] pl=8 LR=5.78e-04 Ltot=0.0037 (vel=0.0031, acc=0.0009, lin=0.7209, stab=0.0000, bias=0.0001) | val_vel_mean=0.20060 @K=0.28380 u@K=0.27613 v@K=0.06543 slope=0.671 inst=0.930 deg%=99.19 cV3a=1.05715 spec=0.996 | 6.5s
+2026-05-16 07:06:39,834 - INFO -   ↳ new best [composite_v3a]=1.05715 (vel_rmse_mean=0.200605, inst=0.929784, slope=0.6708, deg%=99.19, epoch 9)
+2026-05-16 07:06:39,834 - INFO - [Curriculum] pred_len -> 10; rebuilding dataloaders...
+2026-05-16 07:06:39,882 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196911 | pred_len=10 | stride=1
+2026-05-16 07:06:39,888 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35967 | pred_len=10 | stride=1
+2026-05-16 07:06:46,284 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=10, n=8192, mean=0.01492
+2026-05-16 07:06:46,288 - INFO - Epoch [010/60] pl=10 LR=5.00e-04 Ltot=0.0038 (vel=0.0032, acc=0.0009, lin=0.8707, stab=0.0000, bias=0.0002) | val_vel_mean=0.18414 @K=0.25654 u@K=0.25004 v@K=0.05739 slope=0.631 inst=0.939 deg%=99.11 cV3a=0.93092 spec=0.997 | 6.4s
+2026-05-16 07:06:46,295 - INFO -   ↳ new best [composite_v3a]=0.930922 (vel_rmse_mean=0.184143, inst=0.939222, slope=0.6313, deg%=99.11, epoch 10)
+2026-05-16 07:06:53,156 - INFO - Epoch [011/60] pl=10 LR=4.22e-04 Ltot=0.0038 (vel=0.0032, acc=0.0008, lin=0.8756, stab=0.0000, bias=0.0002) | val_vel_mean=0.15306 @K=0.21348 u@K=0.20895 v@K=0.04382 slope=0.630 inst=0.939 deg%=99.02 cV3a=0.77315 spec=0.998 | 6.9s
+2026-05-16 07:06:53,161 - INFO -   ↳ new best [composite_v3a]=0.773151 (vel_rmse_mean=0.153064, inst=0.938577, slope=0.6305, deg%=99.02, epoch 11)
+2026-05-16 07:07:00,717 - INFO - Epoch [012/60] pl=10 LR=3.45e-04 Ltot=0.0037 (vel=0.0032, acc=0.0008, lin=0.8803, stab=0.0000, bias=0.0001) | val_vel_mean=0.12739 @K=0.17800 u@K=0.17480 v@K=0.03358 slope=0.631 inst=0.939 deg%=98.95 cV3a=0.64298 spec=0.998 | 7.6s
+2026-05-16 07:07:00,722 - INFO -   ↳ new best [composite_v3a]=0.642982 (vel_rmse_mean=0.127386, inst=0.939066, slope=0.6308, deg%=98.95, epoch 12)
+2026-05-16 07:07:00,722 - INFO - [Curriculum] pred_len -> 12; rebuilding dataloaders...
+2026-05-16 07:07:00,762 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196713 | pred_len=12 | stride=1
+2026-05-16 07:07:00,767 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35961 | pred_len=12 | stride=1
+2026-05-16 07:07:09,243 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=12, n=8192, mean=0.01776
+2026-05-16 07:07:09,245 - INFO - Epoch [013/60] pl=12 LR=2.73e-04 Ltot=0.0038 (vel=0.0032, acc=0.0008, lin=0.9932, stab=0.0000, bias=0.0001) | val_vel_mean=0.11419 @K=0.15844 u@K=0.15608 v@K=0.02724 slope=0.601 inst=0.949 deg%=98.23 cV3a=0.57228 spec=0.999 | 8.4s
+2026-05-16 07:07:09,251 - INFO -   ↳ new best [composite_v3a]=0.572284 (vel_rmse_mean=0.114194, inst=0.949297, slope=0.6011, deg%=98.23, epoch 13)
+2026-05-16 07:07:17,597 - INFO - Epoch [014/60] pl=12 LR=2.06e-04 Ltot=0.0037 (vel=0.0032, acc=0.0008, lin=0.9847, stab=0.0000, bias=0.0001) | val_vel_mean=0.09467 @K=0.13123 u@K=0.12959 v@K=0.02064 slope=0.600 inst=0.948 deg%=97.66 cV3a=0.47173 spec=0.999 | 8.3s
+2026-05-16 07:07:17,603 - INFO -   ↳ new best [composite_v3a]=0.471733 (vel_rmse_mean=0.094672, inst=0.948366, slope=0.6003, deg%=97.66, epoch 14)
+2026-05-16 07:07:25,996 - INFO - Epoch [015/60] pl=12 LR=1.46e-04 Ltot=0.0037 (vel=0.0032, acc=0.0008, lin=0.9722, stab=0.0000, bias=0.0001) | val_vel_mean=0.07844 @K=0.10864 u@K=0.10749 v@K=0.01572 slope=0.600 inst=0.948 deg%=97.12 cV3a=0.38875 spec=0.999 | 8.4s
+2026-05-16 07:07:26,003 - INFO -   ↳ new best [composite_v3a]=0.388751 (vel_rmse_mean=0.0784411, inst=0.947844, slope=0.5999, deg%=97.12, epoch 15)
+2026-05-16 07:07:26,003 - INFO - [Curriculum] pred_len -> 14; rebuilding dataloaders...
+2026-05-16 07:07:26,046 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196515 | pred_len=14 | stride=1
+2026-05-16 07:07:26,051 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35955 | pred_len=14 | stride=1
+2026-05-16 07:07:35,622 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=14, n=8192, mean=0.02056
+2026-05-16 07:07:35,624 - INFO - Epoch [016/60] pl=14 LR=9.55e-05 Ltot=0.0038 (vel=0.0033, acc=0.0008, lin=1.0665, stab=0.0000, bias=0.0001) | val_vel_mean=0.06938 @K=0.09577 u@K=0.09500 v@K=0.01209 slope=0.577 inst=0.959 deg%=95.20 cV3a=0.33721 spec=0.999 | 9.5s
+2026-05-16 07:07:35,630 - INFO -   ↳ new best [composite_v3a]=0.33721 (vel_rmse_mean=0.0693829, inst=0.958653, slope=0.5769, deg%=95.20, epoch 16)
+2026-05-16 07:07:44,734 - INFO - Epoch [017/60] pl=14 LR=5.45e-05 Ltot=0.0037 (vel=0.0033, acc=0.0007, lin=1.0576, stab=0.0000, bias=0.0001) | val_vel_mean=0.05771 @K=0.07945 u@K=0.07886 v@K=0.00964 slope=0.578 inst=0.959 deg%=93.80 cV3a=0.27642 spec=0.999 | 9.1s
+2026-05-16 07:07:44,740 - INFO -   ↳ new best [composite_v3a]=0.276417 (vel_rmse_mean=0.0577079, inst=0.959338, slope=0.5781, deg%=93.80, epoch 17)
+2026-05-16 07:07:53,663 - INFO - Epoch [018/60] pl=14 LR=2.45e-05 Ltot=0.0037 (vel=0.0032, acc=0.0007, lin=1.0529, stab=0.0000, bias=0.0001) | val_vel_mean=0.04840 @K=0.06664 u@K=0.06611 v@K=0.00836 slope=0.583 inst=0.964 deg%=91.91 cV3a=0.22724 spec=0.999 | 8.9s
+2026-05-16 07:07:53,669 - INFO -   ↳ new best [composite_v3a]=0.227238 (vel_rmse_mean=0.0483965, inst=0.964279, slope=0.5833, deg%=91.91, epoch 18)
+2026-05-16 07:07:53,669 - INFO - [Curriculum] pred_len -> 16; rebuilding dataloaders...
+2026-05-16 07:07:53,708 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196317 | pred_len=16 | stride=1
+2026-05-16 07:07:53,713 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35949 | pred_len=16 | stride=1
+2026-05-16 07:08:03,407 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=16, n=8192, mean=0.02332
+2026-05-16 07:08:03,409 - INFO - Epoch [019/60] pl=16 LR=6.16e-06 Ltot=0.0038 (vel=0.0034, acc=0.0007, lin=1.1384, stab=0.0000, bias=0.0001) | val_vel_mean=0.04320 @K=0.05955 u@K=0.05898 v@K=0.00824 slope=0.572 inst=0.984 deg%=82.71 cV3a=0.18297 spec=0.999 | 9.7s
+2026-05-16 07:08:03,416 - INFO -   ↳ new best [composite_v3a]=0.18297 (vel_rmse_mean=0.0431968, inst=0.983816, slope=0.5722, deg%=82.71, epoch 19)
+2026-05-16 07:08:11,402 - INFO - Epoch [020/60] pl=16 LR=1.00e-03 Ltot=0.0038 (vel=0.0034, acc=0.0007, lin=1.1373, stab=0.0000, bias=0.0001) | val_vel_mean=0.03710 @K=0.05135 u@K=0.05062 v@K=0.00865 slope=0.586 inst=0.999 deg%=81.68 cV3a=0.15523 spec=0.999 | 8.0s
+2026-05-16 07:08:11,407 - INFO -   ↳ new best [composite_v3a]=0.155226 (vel_rmse_mean=0.037101, inst=0.99943, slope=0.5864, deg%=81.68, epoch 20)
+2026-05-16 07:08:20,689 - INFO - Epoch [021/60] pl=16 LR=9.98e-04 Ltot=0.0052 (vel=0.0040, acc=0.0013, lin=1.1554, stab=0.0000, bias=0.0005) | val_vel_mean=0.03249 @K=0.04654 u@K=0.04558 v@K=0.00938 slope=0.618 inst=1.040 deg%=66.66 cV3a=0.11598 spec=0.997 | 9.3s
+2026-05-16 07:08:20,695 - INFO -   ↳ new best [composite_v3a]=0.11598 (vel_rmse_mean=0.0324926, inst=1.0397, slope=0.6176, deg%=66.66, epoch 21)
+2026-05-16 07:08:20,695 - INFO - [Curriculum] pred_len -> 18; rebuilding dataloaders...
+2026-05-16 07:08:20,740 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=196119 | pred_len=18 | stride=1
+2026-05-16 07:08:20,745 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35943 | pred_len=18 | stride=1
+2026-05-16 07:08:31,256 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=18, n=8192, mean=0.02603
+2026-05-16 07:08:31,261 - INFO - Epoch [022/60] pl=18 LR=9.94e-04 Ltot=0.0052 (vel=0.0042, acc=0.0012, lin=1.2446, stab=0.0000, bias=0.0004) | val_vel_mean=0.03017 @K=0.04459 u@K=0.04305 v@K=0.01164 slope=0.636 inst=1.100 deg%=66.61 cV3a=0.11386 spec=0.998 | 10.5s
+2026-05-16 07:08:31,268 - INFO -   ↳ new best [composite_v3a]=0.113859 (vel_rmse_mean=0.0301666, inst=1.10017, slope=0.6358, deg%=66.61, epoch 22)
+2026-05-16 07:08:42,399 - INFO - Epoch [023/60] pl=18 LR=9.86e-04 Ltot=0.0049 (vel=0.0040, acc=0.0010, lin=1.2650, stab=0.0000, bias=0.0004) | val_vel_mean=0.02653 @K=0.03999 u@K=0.03792 v@K=0.01268 slope=0.657 inst=1.131 deg%=66.21 cV3a=0.10383 spec=0.998 | 11.1s
+2026-05-16 07:08:42,405 - INFO -   ↳ new best [composite_v3a]=0.103832 (vel_rmse_mean=0.0265263, inst=1.13086, slope=0.6574, deg%=66.21, epoch 23)
+2026-05-16 07:08:53,661 - INFO - Epoch [024/60] pl=18 LR=9.76e-04 Ltot=0.0049 (vel=0.0040, acc=0.0010, lin=1.2724, stab=0.0000, bias=0.0004) | val_vel_mean=0.02377 @K=0.03701 u@K=0.03456 v@K=0.01325 slope=0.692 inst=1.185 deg%=66.05 cV3a=0.10382 spec=0.998 | 11.3s
+2026-05-16 07:08:53,666 - INFO -   ↳ new best [composite_v3a]=0.10382 (vel_rmse_mean=0.0237748, inst=1.18495, slope=0.6915, deg%=66.05, epoch 24)
+2026-05-16 07:08:53,666 - INFO - [Curriculum] pred_len -> 20; rebuilding dataloaders...
+2026-05-16 07:08:53,711 - INFO - Dataset[TRAIN] koopman_train_merged.npz | segments=99 | samples=195921 | pred_len=20 | stride=1
+2026-05-16 07:08:53,716 - INFO - Dataset[VAL] koopman_val.npz | segments=3 | samples=35937 | pred_len=20 | stride=1
+2026-05-16 07:09:05,067 - INFO - [composite_v3a] cached v1 baseline val vel_err@K=20, n=8192, mean=0.02870
+2026-05-16 07:09:05,070 - INFO - Epoch [025/60] pl=20 LR=9.62e-04 Ltot=0.0053 (vel=0.0043, acc=0.0010, lin=1.3120, stab=0.0000, bias=0.0004) | val_vel_mean=0.02268 @K=0.03542 u@K=0.03189 v@K=0.01541 slope=0.711 inst=1.257 deg%=68.74 cV3a=0.11318 spec=0.998 | 11.3s
+2026-05-16 07:09:14,018 - INFO - Epoch [026/60] pl=20 LR=9.46e-04 Ltot=0.0052 (vel=0.0043, acc=0.0010, lin=1.3101, stab=0.0000, bias=0.0004) | val_vel_mean=0.02060 @K=0.03223 u@K=0.02821 v@K=0.01557 slope=0.721 inst=1.274 deg%=48.52 cV3a=0.07578 spec=0.998 | 8.9s
+2026-05-16 07:09:14,023 - INFO -   ↳ new best [composite_v3a]=0.0757839 (vel_rmse_mean=0.0206026, inst=1.2742, slope=0.7214, deg%=48.52, epoch 26)
+2026-05-16 07:09:23,766 - INFO - Epoch [027/60] pl=20 LR=9.26e-04 Ltot=0.0052 (vel=0.0042, acc=0.0010, lin=1.3097, stab=0.0000, bias=0.0004) | val_vel_mean=0.02004 @K=0.03143 u@K=0.02728 v@K=0.01561 slope=0.747 inst=1.329 deg%=48.34 cV3a=0.08007 spec=0.998 | 9.7s
+2026-05-16 07:09:34,715 - INFO - Epoch [028/60] pl=20 LR=9.05e-04 Ltot=0.0051 (vel=0.0041, acc=0.0009, lin=1.3116, stab=0.0000, bias=0.0004) | val_vel_mean=0.02008 @K=0.03193 u@K=0.02784 v@K=0.01563 slope=0.781 inst=1.406 deg%=48.16 cV3a=0.08931 spec=0.998 | 10.9s
+2026-05-16 07:09:45,291 - INFO - Epoch [029/60] pl=20 LR=8.80e-04 Ltot=0.0050 (vel=0.0041, acc=0.0009, lin=1.3113, stab=0.0000, bias=0.0004) | val_vel_mean=0.02002 @K=0.03196 u@K=0.02794 v@K=0.01552 slope=0.793 inst=1.439 deg%=48.03 cV3a=0.09264 spec=0.998 | 10.6s
+2026-05-16 07:09:55,442 - INFO - Epoch [030/60] pl=20 LR=8.54e-04 Ltot=0.0050 (vel=0.0041, acc=0.0009, lin=1.3082, stab=0.0000, bias=0.0003) | val_vel_mean=0.01998 @K=0.03218 u@K=0.02829 v@K=0.01533 slope=0.815 inst=1.501 deg%=47.94 cV3a=0.09961 spec=0.998 | 10.1s
+2026-05-16 07:10:06,623 - INFO - Epoch [031/60] pl=20 LR=8.25e-04 Ltot=0.0049 (vel=0.0040, acc=0.0009, lin=1.3153, stab=0.0000, bias=0.0004) | val_vel_mean=0.01989 @K=0.03263 u@K=0.02889 v@K=0.01515 slope=0.838 inst=1.573 deg%=47.78 cV3a=0.10724 spec=0.997 | 11.2s
+2026-05-16 07:10:17,086 - INFO - Epoch [032/60] pl=20 LR=7.94e-04 Ltot=0.0048 (vel=0.0039, acc=0.0008, lin=1.3129, stab=0.0000, bias=0.0003) | val_vel_mean=0.02007 @K=0.03313 u@K=0.02967 v@K=0.01474 slope=0.850 inst=1.610 deg%=47.66 cV3a=0.11228 spec=0.998 | 10.5s
+2026-05-16 07:10:28,010 - INFO - Epoch [033/60] pl=20 LR=7.61e-04 Ltot=0.0048 (vel=0.0040, acc=0.0008, lin=1.3096, stab=0.0000, bias=0.0003) | val_vel_mean=0.02011 @K=0.03359 u@K=0.03038 v@K=0.01431 slope=0.866 inst=1.665 deg%=47.68 cV3a=0.11910 spec=0.998 | 10.9s
+2026-05-16 07:10:39,054 - INFO - Epoch [034/60] pl=20 LR=7.27e-04 Ltot=0.0048 (vel=0.0040, acc=0.0008, lin=1.3115, stab=0.0000, bias=0.0003) | val_vel_mean=0.02047 @K=0.03426 u@K=0.03128 v@K=0.01399 slope=0.867 inst=1.668 deg%=47.71 cV3a=0.12172 spec=0.998 | 11.0s
+2026-05-16 07:10:49,256 - INFO - Epoch [035/60] pl=20 LR=6.91e-04 Ltot=0.0047 (vel=0.0038, acc=0.0008, lin=1.3135, stab=0.0000, bias=0.0003) | val_vel_mean=0.02068 @K=0.03465 u@K=0.03187 v@K=0.01360 slope=0.869 inst=1.675 deg%=47.74 cV3a=0.12388 spec=0.998 | 10.2s
+2026-05-16 07:11:00,143 - INFO - Epoch [036/60] pl=20 LR=6.55e-04 Ltot=0.0047 (vel=0.0039, acc=0.0008, lin=1.3126, stab=0.0000, bias=0.0003) | val_vel_mean=0.02065 @K=0.03476 u@K=0.03222 v@K=0.01307 slope=0.880 inst=1.708 deg%=17.59 cV3a=0.05146 spec=0.998 | 10.9s
+2026-05-16 07:11:00,149 - INFO -   ↳ new best [composite_v3a]=0.0514572 (vel_rmse_mean=0.0206511, inst=1.70756, slope=0.8796, deg%=17.59, epoch 36)
+2026-05-16 07:11:11,882 - INFO - Epoch [037/60] pl=20 LR=6.17e-04 Ltot=0.0045 (vel=0.0038, acc=0.0008, lin=1.3114, stab=0.0000, bias=0.0003) | val_vel_mean=0.02071 @K=0.03490 u@K=0.03253 v@K=0.01266 slope=0.881 inst=1.711 deg%=17.13 cV3a=0.05180 spec=0.998 | 11.7s
+2026-05-16 07:11:24,475 - INFO - Epoch [038/60] pl=20 LR=5.78e-04 Ltot=0.0046 (vel=0.0038, acc=0.0008, lin=1.3101, stab=0.0000, bias=0.0003) | val_vel_mean=0.02086 @K=0.03517 u@K=0.03297 v@K=0.01226 slope=0.883 inst=1.725 deg%=16.97 cV3a=0.05277 spec=0.998 | 12.6s
+2026-05-16 07:11:34,905 - INFO - Epoch [039/60] pl=20 LR=5.39e-04 Ltot=0.0045 (vel=0.0038, acc=0.0007, lin=1.3117, stab=0.0000, bias=0.0002) | val_vel_mean=0.02129 @K=0.03580 u@K=0.03379 v@K=0.01183 slope=0.881 inst=1.719 deg%=16.99 cV3a=0.05347 spec=0.998 | 10.4s
+2026-05-16 07:11:46,434 - INFO - Epoch [040/60] pl=20 LR=5.00e-04 Ltot=0.0045 (vel=0.0037, acc=0.0007, lin=1.3099, stab=0.0000, bias=0.0003) | val_vel_mean=0.02145 @K=0.03607 u@K=0.03420 v@K=0.01147 slope=0.882 inst=1.724 deg%=16.93 cV3a=0.05411 spec=0.998 | 11.5s
+2026-05-16 07:11:57,407 - INFO - Epoch [041/60] pl=20 LR=4.61e-04 Ltot=0.0044 (vel=0.0037, acc=0.0007, lin=1.3060, stab=0.0000, bias=0.0002) | val_vel_mean=0.02181 @K=0.03663 u@K=0.03490 v@K=0.01111 slope=0.882 inst=1.726 deg%=16.74 cV3a=0.05515 spec=0.998 | 11.0s
+2026-05-16 07:12:07,803 - INFO - Epoch [042/60] pl=20 LR=4.22e-04 Ltot=0.0045 (vel=0.0038, acc=0.0008, lin=1.3078, stab=0.0000, bias=0.0002) | val_vel_mean=0.02217 @K=0.03721 u@K=0.03560 v@K=0.01082 slope=0.882 inst=1.726 deg%=16.71 cV3a=0.05605 spec=0.998 | 10.4s
+2026-05-16 07:12:19,030 - INFO - Epoch [043/60] pl=20 LR=3.83e-04 Ltot=0.0043 (vel=0.0037, acc=0.0007, lin=1.3061, stab=0.0000, bias=0.0002) | val_vel_mean=0.02256 @K=0.03778 u@K=0.03627 v@K=0.01058 slope=0.881 inst=1.722 deg%=16.59 cV3a=0.05676 spec=0.998 | 11.2s
+2026-05-16 07:12:30,159 - INFO - Epoch [044/60] pl=20 LR=3.45e-04 Ltot=0.0043 (vel=0.0037, acc=0.0007, lin=1.3067, stab=0.0000, bias=0.0002) | val_vel_mean=0.02263 @K=0.03788 u@K=0.03643 v@K=0.01039 slope=0.882 inst=1.726 deg%=16.43 cV3a=0.05715 spec=0.998 | 11.1s
+2026-05-16 07:12:40,304 - INFO - Epoch [045/60] pl=20 LR=3.09e-04 Ltot=0.0043 (vel=0.0037, acc=0.0007, lin=1.3028, stab=0.0000, bias=0.0002) | val_vel_mean=0.02284 @K=0.03817 u@K=0.03680 v@K=0.01014 slope=0.880 inst=1.721 deg%=16.31 cV3a=0.05744 spec=0.998 | 10.1s
+2026-05-16 07:12:51,204 - INFO - Epoch [046/60] pl=20 LR=2.73e-04 Ltot=0.0042 (vel=0.0036, acc=0.0007, lin=1.3002, stab=0.0000, bias=0.0001) | val_vel_mean=0.02308 @K=0.03843 u@K=0.03713 v@K=0.00993 slope=0.878 inst=1.714 deg%=16.20 cV3a=0.05765 spec=0.998 | 10.9s
+2026-05-16 07:13:02,666 - INFO - Epoch [047/60] pl=20 LR=2.39e-04 Ltot=0.0042 (vel=0.0036, acc=0.0006, lin=1.2949, stab=0.0000, bias=0.0002) | val_vel_mean=0.02329 @K=0.03859 u@K=0.03734 v@K=0.00972 slope=0.874 inst=1.699 deg%=16.10 cV3a=0.05728 spec=0.998 | 11.5s
+2026-05-16 07:13:14,245 - INFO - Epoch [048/60] pl=20 LR=2.06e-04 Ltot=0.0041 (vel=0.0036, acc=0.0006, lin=1.2908, stab=0.0000, bias=0.0001) | val_vel_mean=0.02351 @K=0.03882 u@K=0.03761 v@K=0.00962 slope=0.871 inst=1.689 deg%=16.13 cV3a=0.05724 spec=0.998 | 11.6s
+2026-05-16 07:13:25,221 - INFO - Epoch [049/60] pl=20 LR=1.75e-04 Ltot=0.0041 (vel=0.0036, acc=0.0006, lin=1.2869, stab=0.0000, bias=0.0001) | val_vel_mean=0.02365 @K=0.03890 u@K=0.03771 v@K=0.00952 slope=0.866 inst=1.676 deg%=16.10 cV3a=0.05678 spec=0.998 | 11.0s
+2026-05-16 07:13:35,902 - INFO - Epoch [050/60] pl=20 LR=1.46e-04 Ltot=0.0041 (vel=0.0036, acc=0.0006, lin=1.2842, stab=0.0000, bias=0.0001) | val_vel_mean=0.02382 @K=0.03906 u@K=0.03792 v@K=0.00940 slope=0.864 inst=1.668 deg%=16.13 cV3a=0.05676 spec=0.998 | 10.7s
+2026-05-16 07:13:46,549 - INFO - Epoch [051/60] pl=20 LR=1.20e-04 Ltot=0.0040 (vel=0.0035, acc=0.0006, lin=1.2793, stab=0.0000, bias=0.0001) | val_vel_mean=0.02400 @K=0.03929 u@K=0.03817 v@K=0.00932 slope=0.862 inst=1.661 deg%=16.16 cV3a=0.05677 spec=0.998 | 10.6s
+2026-05-16 07:13:57,110 - INFO - Epoch [052/60] pl=20 LR=9.55e-05 Ltot=0.0040 (vel=0.0035, acc=0.0006, lin=1.2771, stab=0.0000, bias=0.0001) | val_vel_mean=0.02406 @K=0.03931 u@K=0.03819 v@K=0.00931 slope=0.860 inst=1.657 deg%=16.08 cV3a=0.05663 spec=0.998 | 10.6s
+2026-05-16 07:14:07,934 - INFO - Epoch [053/60] pl=20 LR=7.37e-05 Ltot=0.0040 (vel=0.0035, acc=0.0006, lin=1.2742, stab=0.0000, bias=0.0001) | val_vel_mean=0.02432 @K=0.03967 u@K=0.03857 v@K=0.00928 slope=0.858 inst=1.650 deg%=16.17 cV3a=0.05686 spec=0.999 | 10.8s
+2026-05-16 07:14:18,622 - INFO - Epoch [054/60] pl=20 LR=5.45e-05 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2717, stab=0.0000, bias=0.0001) | val_vel_mean=0.02447 @K=0.03981 u@K=0.03874 v@K=0.00919 slope=0.855 inst=1.640 deg%=16.20 cV3a=0.05660 spec=0.999 | 10.7s
+2026-05-16 07:14:29,673 - INFO - Epoch [055/60] pl=20 LR=3.81e-05 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2701, stab=0.0000, bias=0.0001) | val_vel_mean=0.02473 @K=0.04012 u@K=0.03907 v@K=0.00914 slope=0.852 inst=1.630 deg%=16.30 cV3a=0.05659 spec=0.999 | 11.0s
+2026-05-16 07:14:40,437 - INFO - Epoch [056/60] pl=20 LR=2.45e-05 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2692, stab=0.0000, bias=0.0001) | val_vel_mean=0.02485 @K=0.04023 u@K=0.03918 v@K=0.00913 slope=0.850 inst=1.623 deg%=16.33 cV3a=0.05641 spec=0.999 | 10.8s
+2026-05-16 07:14:52,090 - INFO - Epoch [057/60] pl=20 LR=1.38e-05 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2661, stab=0.0000, bias=0.0001) | val_vel_mean=0.02507 @K=0.04049 u@K=0.03944 v@K=0.00913 slope=0.846 inst=1.611 deg%=16.44 cV3a=0.05622 spec=0.999 | 11.6s
+2026-05-16 07:15:03,264 - INFO - Epoch [058/60] pl=20 LR=6.16e-06 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2655, stab=0.0000, bias=0.0001) | val_vel_mean=0.02528 @K=0.04068 u@K=0.03967 v@K=0.00904 slope=0.842 inst=1.600 deg%=16.49 cV3a=0.05601 spec=0.999 | 11.2s
+2026-05-16 07:15:15,046 - INFO - Epoch [059/60] pl=20 LR=1.54e-06 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2648, stab=0.0000, bias=0.0000) | val_vel_mean=0.02537 @K=0.04071 u@K=0.03970 v@K=0.00898 slope=0.839 inst=1.591 deg%=16.50 cV3a=0.05564 spec=0.999 | 11.8s
+2026-05-16 07:15:26,240 - INFO - Epoch [060/60] pl=20 LR=1.00e-03 Ltot=0.0039 (vel=0.0035, acc=0.0006, lin=1.2641, stab=0.0000, bias=0.0000) | val_vel_mean=0.02546 @K=0.04078 u@K=0.03980 v@K=0.00891 slope=0.838 inst=1.588 deg%=16.55 cV3a=0.05563 spec=0.999 | 11.2s
+2026-05-16 07:15:26,273 - INFO - Exported YAML -> checkpoints/koopman_best.yaml
+2026-05-16 07:15:32,037 - INFO - 
+=== QUANTITATIVE VERDICT (test set) ===
+vel_rmse@1=0.0011465  vel_rmse@5=0.00479294  vel_rmse@10=0.00796785  vel_rmse@20=0.0117799
+divergence: ratio20/1=10.2747  slope_loglog=0.757706  lyapunov_like=0.122615
+instability_score=1.38041  monotonic_increasing=True  divergent_sample_pct=95.2192%
+bias: u=+0.000992959  v=+0.000109014  r=+2.24732e-05
+fit_quality: R^2(u,v,r) = 0.9997 / 0.9999 / 0.9996
+========================================
+
+2026-05-16 07:15:32,961 - INFO - 
+### §7 12 条阈值逐条判定 (test set, K=20)
+
+| # | 指标 | v3 实测 | 阈值 | 判定 |
+|---|---|---|---|---|
+| G1 | vel_rmse_step_K | 0.0117799 | ≤ 0.01285 | ✅ |
+| G2 | u_rmse_step_K | 0.0110462 | ≤ 0.01185 | ✅ |
+| G3 | |u_bias_mean| | 0.000992959 | ≤ 0.00153 | ✅ |
+| G4 | slope_loglog | 0.757706 | ≤ 0.6695 | ❌ |
+| G5 | instability_score | 1.38041 | ≤ 1.2363 | ❌ |
+| S1 | per_segment.worst_vel_rmse_K | 0.0150147 | ≤ 0.01569 | ✅ |
+| S2 | per_segment.ratio_worst_over_best | 3.29954 | ≤ 2.78 | ❌ |
+| S3 | per_segment.high_speed_seg_mean | 0.00785954 | ≤ 0.01144 | ✅ |
+| S4 | degraded_pct (vs v1) | 12.5456 | ≤ 20 | ✅ |
+| N1 | vel_rmse_step_1 | 0.0011465 | ≤ 0.0024 | ✅ |
+| N2 | traj_xy_rmse_step_K | 0.0153898 | ≤ 0.02108 | ✅ |
+| N3 | spectral_radius (I+A) | 0.997694 | ≤ 1.005 | ✅ |
+
+**FAIL** — §7 v3 验收。
+
+2026-05-16 07:15:32,961 - INFO - v3 auto-PASS = False
+2026-05-16 07:15:32,961 - INFO - Per-5-epoch summary:
+2026-05-16 07:15:32,961 - INFO - ep | lr | L_total | L_vel | L_acc | L_lin | val_vel_mean | val_vel@K | val_traj_xy@K | slope_ll | inst | spec
+2026-05-16 07:15:32,961 - INFO -   001 | 9.94e-04 | pl=4 | L=0.0283 (v=0.0074 a=0.0266 bu=0.0026) | vK=1.08428 uK=1.05870 vK=0.23408 slope=0.930 inst=0.977 deg%=99.88 cV3a=5.57352 spec=1.008
+2026-05-16 07:15:32,961 - INFO -   005 | 8.54e-04 | pl=6 | L=0.0039 (v=0.0031 a=0.0011 bu=0.0002) | vK=0.52698 uK=0.50757 vK=0.14172 slope=0.733 inst=0.924 deg%=99.29 cV3a=2.15601 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   010 | 5.00e-04 | pl=10 | L=0.0038 (v=0.0032 a=0.0009 bu=0.0002) | vK=0.25654 uK=0.25004 vK=0.05739 slope=0.631 inst=0.939 deg%=99.11 cV3a=0.93092 spec=0.997
+2026-05-16 07:15:32,961 - INFO -   015 | 1.46e-04 | pl=12 | L=0.0037 (v=0.0032 a=0.0008 bu=0.0001) | vK=0.10864 uK=0.10749 vK=0.01572 slope=0.600 inst=0.948 deg%=97.12 cV3a=0.38875 spec=0.999
+2026-05-16 07:15:32,961 - INFO -   020 | 1.00e-03 | pl=16 | L=0.0038 (v=0.0034 a=0.0007 bu=0.0001) | vK=0.05135 uK=0.05062 vK=0.00865 slope=0.586 inst=0.999 deg%=81.68 cV3a=0.15523 spec=0.999
+2026-05-16 07:15:32,961 - INFO -   025 | 9.62e-04 | pl=20 | L=0.0053 (v=0.0043 a=0.0010 bu=0.0004) | vK=0.03542 uK=0.03189 vK=0.01541 slope=0.711 inst=1.257 deg%=68.74 cV3a=0.11318 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   030 | 8.54e-04 | pl=20 | L=0.0050 (v=0.0041 a=0.0009 bu=0.0003) | vK=0.03218 uK=0.02829 vK=0.01533 slope=0.815 inst=1.501 deg%=47.94 cV3a=0.09961 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   035 | 6.91e-04 | pl=20 | L=0.0047 (v=0.0038 a=0.0008 bu=0.0003) | vK=0.03465 uK=0.03187 vK=0.01360 slope=0.869 inst=1.675 deg%=47.74 cV3a=0.12388 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   040 | 5.00e-04 | pl=20 | L=0.0045 (v=0.0037 a=0.0007 bu=0.0003) | vK=0.03607 uK=0.03420 vK=0.01147 slope=0.882 inst=1.724 deg%=16.93 cV3a=0.05411 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   045 | 3.09e-04 | pl=20 | L=0.0043 (v=0.0037 a=0.0007 bu=0.0002) | vK=0.03817 uK=0.03680 vK=0.01014 slope=0.880 inst=1.721 deg%=16.31 cV3a=0.05744 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   050 | 1.46e-04 | pl=20 | L=0.0041 (v=0.0036 a=0.0006 bu=0.0001) | vK=0.03906 uK=0.03792 vK=0.00940 slope=0.864 inst=1.668 deg%=16.13 cV3a=0.05676 spec=0.998
+2026-05-16 07:15:32,961 - INFO -   055 | 3.81e-05 | pl=20 | L=0.0039 (v=0.0035 a=0.0006 bu=0.0001) | vK=0.04012 uK=0.03907 vK=0.00914 slope=0.852 inst=1.630 deg%=16.30 cV3a=0.05659 spec=0.999
+2026-05-16 07:15:32,961 - INFO -   060 | 1.00e-03 | pl=20 | L=0.0039 (v=0.0035 a=0.0006 bu=0.0000) | vK=0.04078 uK=0.03980 vK=0.00891 slope=0.838 inst=1.588 deg%=16.55 cV3a=0.05563 spec=0.999

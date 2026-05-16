@@ -961,7 +961,15 @@ def evaluate_one(
     batch_size: int = 1024,
     max_samples: Optional[int] = None,
     write_files: bool = True,
+    baseline_ckpt: Optional[str] = None,
 ) -> EvalResult:
+    """Evaluate one ckpt.
+
+    ``baseline_ckpt`` (PROMPT_v3a §4.4): 若给出且存在，则额外计算
+    逐样本 ``degraded_pct_vs_v1`` 并写入 ``summary["s4"]``。该字段为
+    *额外* 字段，**不传 baseline_ckpt 时输出与历史 v3 产物逐位一致**
+    （PROMPT_v3a §3 回归保护要求）。
+    """
     os.makedirs(out_dir, exist_ok=True)
     model, stats = load_model_from_ckpt(ckpt_path, device)
     states_full, ctrls_full, seg_starts, seg_lens, t0_global, seg_idx, t0_local = _flatten_segments(
@@ -990,6 +998,29 @@ def evaluate_one(
         states_full, ctrls_full, seg_starts, seg_lens, K=pred_len,
     )
     summary["per_segment"] = build_per_segment_summary(per_seg)
+
+    # PROMPT_v3a §4.4 - 可选 degraded_pct vs baseline ckpt（不传则不输出此字段）
+    if baseline_ckpt is not None and os.path.exists(baseline_ckpt):
+        try:
+            b_model, _ = load_model_from_ckpt(baseline_ckpt, device)
+            b_gt, b_pred, _, _ = rollout_dataset(
+                b_model, states_full, ctrls_full, t0_global, pred_len, stats, device, dt, batch_size,
+            )
+            b_diff = b_pred - b_gt
+            b_vel_err_K = np.sqrt(b_diff[:, -1, 0] ** 2 + b_diff[:, -1, 1] ** 2)
+            cur_vel_err_K = per_sample["vel_err_stepK"]
+            n = min(cur_vel_err_K.shape[0], b_vel_err_K.shape[0])
+            deg = float(np.mean(cur_vel_err_K[:n] > b_vel_err_K[:n]) * 100.0)
+            summary["s4"] = {
+                "baseline_ckpt": baseline_ckpt,
+                "degraded_pct_vs_baseline": deg,
+                "n_samples_compared": int(n),
+            }
+        except Exception as _e:
+            summary["s4"] = {
+                "baseline_ckpt": baseline_ckpt,
+                "error": str(_e),
+            }
 
     diff = pred_dyn - gt_dyn
     vel_horiz_err = np.sqrt(diff[..., 0] ** 2 + diff[..., 1] ** 2)
@@ -1070,8 +1101,10 @@ def write_compare_csv_md(results: List[EvalResult], out_dir: str) -> Tuple[str, 
 
 
 def _compare_verdict_text_with_v3(results: List[EvalResult]) -> str:
-    """若有 v3 结果，则在末尾补 12 阈值 verdict + 3 阶字典归因。"""
+    """若有 v3 结果，则在末尾补 12 阈值 verdict + 3 阶字典归因；
+    若有 v3a 结果，则额外补 14 阈值 verdict + plan-A 归因。"""
     base_text = _compare_verdict_text(results)
+    v3a_res = next((r for r in results if r.tag == "v3a"), None)
     v3_res = next((r for r in results if r.tag == "v3"), None)
     v2_res = next((r for r in results if r.tag == "v2"), None)
     v1_res = next((r for r in results if r.tag == "v1"), None)
@@ -1082,7 +1115,94 @@ def _compare_verdict_text_with_v3(results: List[EvalResult]) -> str:
         attribution = cubic_dictionary_attribution(v3_res, v2_res)
         if attribution:
             extra += "\n" + attribution
+    if v3a_res is not None:
+        v3a_md, _ = v3a_threshold_verdict(v3a_res, v1_res=v1_res, v2_res=v2_res, v3_res=v3_res)
+        extra += "\n" + v3a_md
+        plan_a_md = plan_a_attribution(v3a_res, v3_res, v2_res)
+        if plan_a_md:
+            extra += "\n" + plan_a_md
     return base_text + extra
+
+
+def plan_a_attribution(
+    v3a_res: EvalResult,
+    v3_res: Optional[EvalResult],
+    v2_res: Optional[EvalResult],
+) -> str:
+    """PROMPT_v3a §9 - A1+A2+A3 三件事的数字归因（v3a vs v3 / v2）。"""
+    if v3_res is None:
+        return ""
+    K = v3a_res.summary["pred_len"]
+    a_v3a = v3a_res.summary["aggregate"]
+    a_v3 = v3_res.summary["aggregate"]
+    a_v2 = v2_res.summary["aggregate"] if v2_res is not None else {}
+    b_v3a = v3a_res.summary["channel_bias"]
+    b_v3 = v3_res.summary["channel_bias"]
+    b_v2 = v2_res.summary["channel_bias"] if v2_res is not None else {}
+    d_v3a = v3a_res.summary["divergence"]
+    d_v3 = v3_res.summary["divergence"]
+    ps_v3a = v3a_res.summary.get("per_segment", {}) or {}
+    ps_v3 = v3_res.summary.get("per_segment", {}) or {}
+
+    lines = []
+    lines.append("### PROMPT_v3a A1+A2+A3 三件事归因（v3a vs v3，全部来自 summary.json）")
+    lines.append("")
+    lines.append("| 维度 | v2 | v3 | v3a | v3a/v3 | 说明 |")
+    lines.append("|---|---|---|---|---|---|")
+    # A1: v 通道压住了多少
+    v2v = a_v2.get(f"v_rmse_step_{K}", float("nan"))
+    v3v = a_v3.get(f"v_rmse_step_{K}", float("nan"))
+    v3av = a_v3a.get(f"v_rmse_step_{K}", float("nan"))
+    ratio_v = v3av / v3v if v3v > 0 else float("nan")
+    lines.append(
+        f"| A1: v_rmse@K | {_fmt(v2v)} | {_fmt(v3v)} | {_fmt(v3av)} | "
+        f"{_fmt(ratio_v)} | A1 直接目标，越低越好 |"
+    )
+    v2vb = abs(b_v2.get("v_bias_mean", float("nan"))) if b_v2 else float("nan")
+    v3vb = abs(b_v3.get("v_bias_mean", float("nan")))
+    v3avb = abs(b_v3a.get("v_bias_mean", float("nan")))
+    lines.append(
+        f"| A1: |v_bias| | {_fmt(v2vb)} | {_fmt(v3vb)} | {_fmt(v3avb)} | "
+        f"{_fmt(v3avb / v3vb if v3vb > 0 else float('nan'))} | A1 副指标 |"
+    )
+    # G4 slope
+    s3 = d_v3.get("slope_loglog", float("nan"))
+    s3a = d_v3a.get("slope_loglog", float("nan"))
+    lines.append(
+        f"| A2: slope_loglog (G4) | - | {_fmt(s3)} | {_fmt(s3a)} | "
+        f"{_fmt(s3a / s3 if s3 > 0 else float('nan'))} | "
+        "composite_v3a 显式加罚 |"
+    )
+    # G5 instability
+    i3 = d_v3.get("instability_score", float("nan"))
+    i3a = d_v3a.get("instability_score", float("nan"))
+    lines.append(
+        f"| A2: instability (G5) | - | {_fmt(i3)} | {_fmt(i3a)} | "
+        f"{_fmt(i3a / i3 if i3 > 0 else float('nan'))} | composite 中 max(1, inst) |"
+    )
+    # A3 worst seg & high_speed
+    ws3 = ps_v3.get("worst_vel_rmse_K", float("nan"))
+    ws3a = ps_v3a.get("worst_vel_rmse_K", float("nan"))
+    lines.append(
+        f"| A3: worst_seg vel@K (S1) | - | {_fmt(ws3)} | {_fmt(ws3a)} | "
+        f"{_fmt(ws3a / ws3 if ws3 > 0 else float('nan'))} | seg_resample 直接目标 |"
+    )
+    hs3 = ps_v3.get("high_speed_seg_mean", float("nan"))
+    hs3a = ps_v3a.get("high_speed_seg_mean", float("nan"))
+    lines.append(
+        f"| A3: high_speed_seg_mean (S3) | - | {_fmt(hs3)} | {_fmt(hs3a)} | "
+        f"{_fmt(hs3a / hs3 if hs3 > 0 else float('nan'))} | seg_resample 衍生效果 |"
+    )
+    # Aggregate vel@K
+    vk3 = a_v3.get(f"vel_rmse_step_{K}", float("nan"))
+    vk3a = a_v3a.get(f"vel_rmse_step_{K}", float("nan"))
+    lines.append(
+        f"| 总:vel_rmse@K (G1) | {_fmt(a_v2.get(f'vel_rmse_step_{K}', float('nan')))} | "
+        f"{_fmt(vk3)} | {_fmt(vk3a)} | "
+        f"{_fmt(vk3a / vk3 if vk3 > 0 else float('nan'))} | 总精度指标 |"
+    )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _compare_verdict_text(results: List[EvalResult]) -> str:
@@ -1280,6 +1400,14 @@ V3_THRESHOLDS = {
     "N3_spec_radius":      1.005,
 }
 
+# PROMPT_deep_koopman_v3_planA §5.2 - 2 条新增 v 通道保护阈值。
+# 派生自 v2 baseline：V1 = v2 的 v_rmse@K × 1.2 = 0.00342；
+# V2 = max(|v2 v_bias|, plan-A floor 0.00040) ≈ 0.00040。
+V3A_EXTRA_THRESHOLDS = {
+    "V1_v_rmse_step_K":    0.00342,
+    "V2_abs_v_bias_mean":  0.00040,
+}
+
 V2_BASELINE = {
     "vel_rmse_step_K": 0.016059,
     "u_rmse_step_K": 0.01580,
@@ -1397,6 +1525,101 @@ def v3_threshold_verdict(
         lines.append(f"| {code} | {name} | {_fmt(value)} | {op} {_fmt(threshold)} | {mark} |")
     lines.append("")
     lines.append(f"**{'PASS' if all_pass else 'FAIL'}** — §7 v3 验收。")
+    lines.append("")
+    return "\n".join(lines), all_pass
+
+
+def v3a_threshold_verdict(
+    v3a_res: EvalResult,
+    v1_res: Optional[EvalResult] = None,
+    v2_res: Optional[EvalResult] = None,
+    v3_res: Optional[EvalResult] = None,
+) -> Tuple[str, bool]:
+    """PROMPT_v3a §5 - 14 条阈值逐条 ✅/❌ 判定（原 12 + V1/V2 v 通道保护 2 条）。
+
+    返回 (md_text, all_pass)。展示列：v2 / v3 / v3a / 阈值 / 判定，
+    其中 v2/v3 列允许为空（仅辅助参考）。
+    """
+    K = v3a_res.summary["pred_len"]
+    agg = v3a_res.summary["aggregate"]
+    div = v3a_res.summary["divergence"]
+    bias = v3a_res.summary["channel_bias"]
+    ps = v3a_res.summary.get("per_segment", {}) or {}
+
+    spec = _spectral_radius_from_ckpt(v3a_res.ckpt_path)
+
+    if v1_res is not None and v3a_res.per_sample["vel_err_stepK"].shape == v1_res.per_sample["vel_err_stepK"].shape:
+        degraded_pct = _compute_degraded_pct(v3a_res, v1_res)
+    else:
+        degraded_pct = float("nan")
+
+    th = V3_THRESHOLDS
+    thx = V3A_EXTRA_THRESHOLDS
+
+    def _agg_get(res: Optional[EvalResult], key: str) -> float:
+        if res is None:
+            return float("nan")
+        K_ = res.summary["pred_len"]
+        if key == "vel_rmse_step_K":
+            return res.summary["aggregate"].get(f"vel_rmse_step_{K_}", float("nan"))
+        if key == "u_rmse_step_K":
+            return res.summary["aggregate"].get(f"u_rmse_step_{K_}", float("nan"))
+        if key == "v_rmse_step_K":
+            return res.summary["aggregate"].get(f"v_rmse_step_{K_}", float("nan"))
+        if key == "traj_xy_rmse_step_K":
+            return res.summary["aggregate"].get(f"traj_xy_rmse_step_{K_}", float("nan"))
+        if key == "abs_u_bias_mean":
+            return abs(res.summary["channel_bias"].get("u_bias_mean", float("nan")))
+        if key == "abs_v_bias_mean":
+            return abs(res.summary["channel_bias"].get("v_bias_mean", float("nan")))
+        if key == "slope_loglog":
+            return res.summary["divergence"].get("slope_loglog", float("nan"))
+        if key == "instability_score":
+            return res.summary["divergence"].get("instability_score", float("nan"))
+        if key == "vel_rmse_step_1":
+            return res.summary["aggregate"].get("vel_rmse_step_1", float("nan"))
+        ps_ = res.summary.get("per_segment", {}) or {}
+        return ps_.get(key, float("nan"))
+
+    rows = [
+        # (code, name_md, key_or_value(v3a), threshold)
+        ("G1", "vel_rmse_step_K",             agg.get(f"vel_rmse_step_{K}", float("nan")),  th["G1_vel_rmse_step_K"], "vel_rmse_step_K"),
+        ("G2", "u_rmse_step_K",               agg.get(f"u_rmse_step_{K}",   float("nan")),  th["G2_u_rmse_step_K"],   "u_rmse_step_K"),
+        ("G3", "|u_bias_mean|",               abs(bias.get("u_bias_mean", float("nan"))),    th["G3_abs_u_bias_mean"], "abs_u_bias_mean"),
+        ("G4", "slope_loglog",                div.get("slope_loglog",     float("nan")),    th["G4_slope_loglog"],     "slope_loglog"),
+        ("G5", "instability_score",           div.get("instability_score",float("nan")),    th["G5_instability"],      "instability_score"),
+        ("V1", "v_rmse_step_K (plan-A)",      agg.get(f"v_rmse_step_{K}",  float("nan")),   thx["V1_v_rmse_step_K"],   "v_rmse_step_K"),
+        ("V2", "|v_bias_mean| (plan-A)",      abs(bias.get("v_bias_mean", float("nan"))),    thx["V2_abs_v_bias_mean"], "abs_v_bias_mean"),
+        ("S1", "per_segment.worst_vel_rmse_K", ps.get("worst_vel_rmse_K", float("nan")),    th["S1_worst_vel_rmse_K"], "worst_vel_rmse_K"),
+        ("S2", "per_segment.ratio_worst_over_best", ps.get("ratio_worst_over_best", float("nan")), th["S2_ratio_w_over_b"], "ratio_worst_over_best"),
+        ("S3", "per_segment.high_speed_seg_mean",   ps.get("high_speed_seg_mean", float("nan")),   th["S3_high_speed_mean"], "high_speed_seg_mean"),
+        ("S4", "degraded_pct (vs v1)",        degraded_pct,                                  th["S4_degraded_pct"],     None),
+        ("N1", "vel_rmse_step_1",             agg.get("vel_rmse_step_1", float("nan")),      th["N1_vel_rmse_step_1"],  "vel_rmse_step_1"),
+        ("N2", "traj_xy_rmse_step_K",         agg.get(f"traj_xy_rmse_step_{K}", float("nan")), th["N2_traj_xy_rmse_K"], "traj_xy_rmse_step_K"),
+        ("N3", "spectral_radius (I+A)",       spec,                                          th["N3_spec_radius"],      None),
+    ]
+    all_pass = True
+    lines: List[str] = []
+    lines.append("### §5 PROMPT_v3a 14 条阈值逐条判定 (test set, K=" + str(K) + ")")
+    lines.append("")
+    lines.append("| # | 指标 | v2 | v3 | v3a 实测 | 阈值 | 判定 |")
+    lines.append("|---|---|---|---|---|---|---|")
+    for code, name, value, threshold, lookup_key in rows:
+        v2_val = _agg_get(v2_res, lookup_key) if lookup_key else float("nan")
+        v3_val = _agg_get(v3_res, lookup_key) if lookup_key else float("nan")
+        if isinstance(value, float) and np.isnan(value):
+            ok = False
+        else:
+            ok = value <= threshold
+        if not ok:
+            all_pass = False
+        mark = "✅" if ok else "❌"
+        lines.append(
+            f"| {code} | {name} | {_fmt(v2_val)} | {_fmt(v3_val)} | "
+            f"{_fmt(value)} | ≤ {_fmt(threshold)} | {mark} |"
+        )
+    lines.append("")
+    lines.append(f"**{'PASS' if all_pass else 'FAIL'}** — §5 PROMPT_v3a 14 条阈值。")
     lines.append("")
     return "\n".join(lines), all_pass
 
@@ -1530,6 +1753,9 @@ def main() -> int:
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--compare", type=str, nargs="+", default=None,
                         help="多 ckpt 对比，元素形如 path:tag")
+    parser.add_argument("--baseline_ckpt", type=str, default=None,
+                        help="PROMPT_v3a §4.4 - 若给出，额外计算 degraded_pct_vs_baseline 并"
+                             " 写入 summary['s4']。--compare 模式下默认 v1 列做 baseline。")
     parser.add_argument("--smoketest", action="store_true",
                         help="冒烟模式：仅取 1 段 / pred_len=4 / 跑通全流程并退出 0")
     args = parser.parse_args()
@@ -1575,13 +1801,23 @@ def main() -> int:
         pairs = parse_compare(args.compare)
         os.makedirs(args.out_dir, exist_ok=True)
         results: List[EvalResult] = []
+        # 找 v1 baseline 路径（若 compare 列表中含 v1）做 s4 算用
+        v1_path = None
+        for path, tag in pairs:
+            if tag == "v1":
+                v1_path = path
+                break
         for path, tag in pairs:
             sub_out = os.path.join(args.out_dir, tag)
+            # 给 v3 / v3a 附带 baseline_ckpt（v1）以填 summary["s4"]
+            this_baseline = args.baseline_ckpt
+            if this_baseline is None and tag in ("v3", "v3a") and v1_path is not None and v1_path != path:
+                this_baseline = v1_path
             r = evaluate_one(
                 ckpt_path=path, data_path=args.data, pred_len=args.pred_len,
                 dt=args.dt, tag=tag, out_dir=sub_out, device=device,
                 batch_size=args.batch_size, max_samples=args.max_samples,
-                write_files=True,
+                write_files=True, baseline_ckpt=this_baseline,
             )
             results.append(r)
             print(f"[{tag}] {path}")
@@ -1602,7 +1838,7 @@ def main() -> int:
         ckpt_path=args.ckpt, data_path=args.data, pred_len=args.pred_len,
         dt=args.dt, tag=args.tag, out_dir=args.out_dir, device=device,
         batch_size=args.batch_size, max_samples=args.max_samples,
-        write_files=True,
+        write_files=True, baseline_ckpt=args.baseline_ckpt,
     )
     print(quantitative_verdict_block(res.summary))
     return 0
