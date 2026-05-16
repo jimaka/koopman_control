@@ -1,0 +1,60 @@
+{
+  "tag": "v3_run09",
+  "ckpt": "checkpoints/koopman_best.pth",
+  "n_samples": 35622,
+  "pred_len": 20,
+  "dt": 0.1,
+  "aggregate": {
+    "vel_rmse_mean": 0.013283115811645985,
+    "vel_rmse_step_1": 0.0016609837766736746,
+    "vel_rmse_step_5": 0.006605945993214846,
+    "vel_rmse_step_10": 0.012196739204227924,
+    "vel_rmse_step_20": 0.026012040674686432,
+    "u_rmse_step_20": 0.025778846815228462,
+    "v_rmse_step_20": 0.0034747885074466467,
+    "r_rmse_step_20": 0.000815081933978945,
+    "acc_rmse_mean": 0.01343353190704396,
+    "traj_xy_rmse_step_20": 0.026414718478918076
+  },
+  "divergence": {
+    "ratio_step20_over_step1": 15.66062296332524,
+    "slope_loglog": 0.9116202291754759,
+    "slope_linear": 0.001249319044137864,
+    "lyapunov_like": 0.14479734054293833,
+    "auc_error_curve": 0.012591289420379325,
+    "monotonic_increasing": true,
+    "instability_score": 1.83045331662131,
+    "divergent_sample_pct": 98.32687664926169
+  },
+  "channel_bias": {
+    "u_bias_mean": 0.000780142261646688,
+    "v_bias_mean": -0.00024316464259754866,
+    "r_bias_mean": 6.507990474347025e-05
+  },
+  "tail": {
+    "vel_err_step20_p50": 0.02532516047358513,
+    "vel_err_step20_p90": 0.03661973029375076,
+    "vel_err_step20_p99": 0.0431877039372921,
+    "vel_err_step20_max": 0.046263065189123154
+  },
+  "fit_quality": {
+    "u_r2_mean": 0.9987827835648126,
+    "v_r2_mean": 0.9999500165458779,
+    "r_r2_mean": 0.9995181756449056,
+    "u_corr_mean": 0.9994025684950831,
+    "v_corr_mean": 0.9999765867650654,
+    "r_corr_mean": 0.9998921832598029
+  },
+  "per_segment": {
+    "worst_seg_idx": 3,
+    "worst_vel_rmse_K": 0.031675469130277634,
+    "best_seg_idx": 1,
+    "best_vel_rmse_K": 0.019788581877946854,
+    "ratio_worst_over_best": 1.6006942450776616,
+    "per_seg_vel_rmse_K_std": 0.0032850318884401594,
+    "high_speed_seg_mean": 0.022994995324148074,
+    "low_speed_seg_mean": 0.025328728680809338,
+    "high_speed_seg_count": 9,
+    "low_speed_seg_count": 9
+  }
+}

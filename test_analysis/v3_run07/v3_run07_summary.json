@@ -1,0 +1,60 @@
+{
+  "tag": "v3_run07",
+  "ckpt": "checkpoints/koopman_best.pth",
+  "n_samples": 35622,
+  "pred_len": 20,
+  "dt": 0.1,
+  "aggregate": {
+    "vel_rmse_mean": 0.006247274577617645,
+    "vel_rmse_step_1": 0.0009372580680064857,
+    "vel_rmse_step_5": 0.0037261564284563065,
+    "vel_rmse_step_10": 0.006284140981733799,
+    "vel_rmse_step_20": 0.010553453117609024,
+    "u_rmse_step_20": 0.009507616981863976,
+    "v_rmse_step_20": 0.004580490291118622,
+    "r_rmse_step_20": 0.0007997011998668313,
+    "acc_rmse_mean": 0.005761111963932451,
+    "traj_xy_rmse_step_20": 0.012778345495462418
+  },
+  "divergence": {
+    "ratio_step20_over_step1": 11.259922403288392,
+    "slope_loglog": 0.7878218575757131,
+    "slope_linear": 0.0004846373965519068,
+    "lyapunov_like": 0.12743419638568296,
+    "auc_error_curve": 0.005960006731038447,
+    "monotonic_increasing": true,
+    "instability_score": 1.461329360840032,
+    "divergent_sample_pct": 91.17680085340521
+  },
+  "channel_bias": {
+    "u_bias_mean": 0.0010161930695176125,
+    "v_bias_mean": 9.178545587928966e-05,
+    "r_bias_mean": 4.200750481686555e-05
+  },
+  "tail": {
+    "vel_err_step20_p50": 0.0080310869961977,
+    "vel_err_step20_p90": 0.019276879727840424,
+    "vel_err_step20_p99": 0.024991147220134735,
+    "vel_err_step20_max": 0.03415520861744881
+  },
+  "fit_quality": {
+    "u_r2_mean": 0.9997825637648617,
+    "v_r2_mean": 0.99991793929529,
+    "r_r2_mean": 0.9995391089640133,
+    "u_corr_mean": 0.9998957473941031,
+    "v_corr_mean": 0.9999727367327514,
+    "r_corr_mean": 0.9998965270619508
+  },
+  "per_segment": {
+    "worst_seg_idx": 3,
+    "worst_vel_rmse_K": 0.01464891154319048,
+    "best_seg_idx": 15,
+    "best_vel_rmse_K": 0.004357517696917057,
+    "ratio_worst_over_best": 3.3617560643654025,
+    "per_seg_vel_rmse_K_std": 0.0027382621767094487,
+    "high_speed_seg_mean": 0.007611728687253263,
+    "low_speed_seg_mean": 0.00994255357525415,
+    "high_speed_seg_count": 9,
+    "low_speed_seg_count": 9
+  }
+}

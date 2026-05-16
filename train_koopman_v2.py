@@ -365,6 +365,28 @@ def compute_losses(
     ).view(1, 3)
     L_bias = ((bias_per_step ** 2) * flatten_w * chan_bias_w).mean()
 
+    # 显式 log-log 斜率惩罚（v3 引入）。让 batch 的 vel_rmse-per-step 在 log-log 上
+    # 的最小二乘斜率不超过 ``args.slope_target``。该惩罚仅在 K>=4 时生效，否则
+    # 拟合自由度太低噪声很大。
+    L_slope = torch.zeros((), device=device)
+    if K >= 4 and getattr(args, "w_slope", 0.0) > 0:
+        eps_log = 1e-6
+        # 物理空间逐步水平速度误差 (B, K)
+        vel_err_phys = torch.sqrt(err_vel[..., 0] ** 2 + err_vel[..., 1] ** 2 + 1e-12)
+        # batch RMSE per step (K,)
+        vel_rmse_per_step = torch.sqrt((vel_err_phys ** 2).mean(dim=0) + 1e-12)
+        log_steps = torch.log(torch.arange(1, K + 1, device=device, dtype=torch.float32))
+        log_vel = torch.log(vel_rmse_per_step + eps_log)
+        # 最小二乘斜率（闭式）
+        n = float(K)
+        sx = log_steps.sum()
+        sy = log_vel.sum()
+        sxx = (log_steps * log_steps).sum()
+        sxy = (log_steps * log_vel).sum()
+        denom = n * sxx - sx * sx
+        slope_est = (n * sxy - sx * sy) / (denom + 1e-12)
+        L_slope = torch.relu(slope_est - float(args.slope_target)) ** 2
+
     # 加速度 Huber（带 dt）
     pred_acc = (pred_phys[:, 1:] - pred_phys[:, :-1]) / args.dt
     gt_acc = (target_phys[:, 1:] - target_phys[:, :-1]) / args.dt
@@ -403,6 +425,7 @@ def compute_losses(
         + args.w_stab * ramp * L_stab
         + args.w_l2 * L_l2
         + args.w_bias * L_bias
+        + getattr(args, "w_slope", 0.0) * L_slope
     )
 
     info = {
@@ -412,6 +435,7 @@ def compute_losses(
         "L_lin": float(L_lin.detach().item()),
         "L_stab": float(L_stab.detach().item()),
         "L_bias": float(L_bias.detach().item()),
+        "L_slope": float(L_slope.detach().item()) if isinstance(L_slope, torch.Tensor) else float(L_slope),
         "L_l2": float(L_l2.detach().item()),
         "spec_radius": float(spec.detach().item()),
         "ramp": ramp,
@@ -518,6 +542,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="v3 的物理字典 atom clamp 上限（绝对值），防止极端样本爆炸")
     p.add_argument("--hidden_dim", type=int, default=24,
                    help="v3 encoder 黑盒隐藏维度（与 v2 等同默认 24）")
+    p.add_argument("--w_slope", type=float, default=0.0,
+                   help="batch vel_rmse 在 log-log 上的斜率惩罚权重；当 slope_est > "
+                        "slope_target 时 relu^2 损失激活。v3 调优中用于压平误差增长。")
+    p.add_argument("--slope_target", type=float, default=0.65,
+                   help="期望的 batch log-log 斜率上界；默认 0.65（v2 基线 0.6695 略低）。")
     p.add_argument("--gamma_step", type=float, default=0.97, help="γ^k step weighting")
     p.add_argument("--gamma_bias", type=float, default=1.05,
                    help="L_bias 内的 γ^k step weighting（>1 强调晚期步）")
@@ -738,7 +767,7 @@ def train(args: argparse.Namespace) -> None:
         model.train()
         epoch_acc: Dict[str, float] = {"L_total": 0.0, "L_vel": 0.0, "L_acc": 0.0,
                                        "L_lin": 0.0, "L_stab": 0.0, "L_bias": 0.0,
-                                       "L_l2": 0.0, "spec_radius": 0.0}
+                                       "L_slope": 0.0, "L_l2": 0.0, "spec_radius": 0.0}
         t0 = time.time()
         n_batches = 0
         for x_t_full, x_target_seq, u_seq in train_loader:
