@@ -1,5 +1,2 @@
 build/
-weights/*.pt
-weights/*.npz
-weights/*.txt
-weights/cpp_test_ref.json
+weights/

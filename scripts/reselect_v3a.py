@@ -23,22 +23,25 @@ CLI:
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from koopman.paths import setup_repo
+
+setup_repo()
+
 import argparse
 import glob
 import os
 import shutil
-import sys
 from typing import Optional
 
 import numpy as np
 import torch
 
-# 让本脚本可在 repo 根目录之外直接 python3 -m 调用。
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
-
-import eval_koopman as ek  # noqa: E402
+from koopman import evalkit as ek
+from koopman import paths as P
 
 
 SLOPE_TARGET = 0.65          # PROMPT_v3a 公式
@@ -121,13 +124,13 @@ def main() -> int:
         help="ckpt glob pattern；可重复给出。默认 checkpoints/koopman_v3_run*_best.pth。",
         action="append",
     )
-    parser.add_argument("--data", type=str, default="koopman_val.npz")
+    parser.add_argument("--data", type=str, default=str(P.VAL))
     parser.add_argument("--pred_len", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=1024)
     parser.add_argument("--baseline_ckpt", type=str,
-                        default="checkpoints/koopman_v1_best.pth")
+                        default=str(P.CKPT_V1_BEST))
     parser.add_argument("--out", type=str,
-                        default="checkpoints/koopman_v3a_reselect_best.pth")
+                        default=str(P.CKPT_DIR / "koopman_v3a_reselect_best.pth"))
     parser.add_argument("--out_dir", type=str, default="test_analysis/v3a")
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument(
@@ -137,7 +140,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.ckpt_glob:
-        args.ckpt_glob = ["checkpoints/koopman_v3_run*_best.pth"]
+        args.ckpt_glob = [str(P.CKPT_DIR / "koopman_v3_run*_best.pth")]
 
     device = (
         torch.device("cuda") if args.device == "auto" and torch.cuda.is_available()

@@ -5,4 +5,8 @@ logs/
 eval_out/
 test_analysis/
 dataset_plots/
-test_ds/test_dataset_plots/
+dataset_plots/
+
+# 构建产物
+cpp/koopman_mpc/build/
+cpp/koopman_mpc/weights/

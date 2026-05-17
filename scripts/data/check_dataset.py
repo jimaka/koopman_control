@@ -79,7 +79,15 @@ def plot_single_segment(segments, segment_idx, save_dir='dataset_plots'):
 
 def main():
     parser = argparse.ArgumentParser(description="船舶多段航行数据全变量绘图工具")
-    parser.add_argument('--data', type=str, default='koopman_train_merged.npz', help='NPZ 数据集路径')
+    import sys
+    from pathlib import Path
+
+    _root = Path(__file__).resolve().parents[2]
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+    from koopman import paths as P
+
+    parser.add_argument('--data', type=str, default=str(P.TRAIN_MERGED), help='NPZ 数据集路径')
     parser.add_argument('--seg', type=int, default=-1, 
                         help='要绘制的数据段索引。输入具体数字(如 0, 5)画单段；输入 -1 表示画出所有段 (默认: -1)')
     parser.add_argument('--out', type=str, default='dataset_plots', help='图片保存的文件夹名')

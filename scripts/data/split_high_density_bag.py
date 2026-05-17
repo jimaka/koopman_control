@@ -85,9 +85,17 @@ def process_and_split(bag_path, target_hz=10.0):
     val_segs   = extract_segments(val_bounds)
     test_segs  = extract_segments(test_bounds)
 
-    np.savez_compressed("koopman_train.npz", datas=np.array(train_segs, dtype=object))
-    np.savez_compressed("koopman_val.npz", datas=np.array(val_segs, dtype=object))
-    np.savez_compressed("koopman_test.npz", datas=np.array(test_segs, dtype=object))
+    import sys
+    from pathlib import Path
+
+    _root = Path(__file__).resolve().parents[2]
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+    from koopman import paths as P
+
+    np.savez_compressed(str(P.TRAIN), datas=np.array(train_segs, dtype=object))
+    np.savez_compressed(str(P.VAL), datas=np.array(val_segs, dtype=object))
+    np.savez_compressed(str(P.TEST), datas=np.array(test_segs, dtype=object))
     
     print(f"\n✅ 高密度数据集分离完成！")
     print(f"  - 训练集 (高密网格辨识): {len(train_segs)} 段")

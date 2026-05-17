@@ -17,7 +17,7 @@ from typing import List, Optional
 import torch
 import torch.nn as nn
 
-from koopman import BaseKoopmanModel, res_mlp
+from koopman.model_v1_v2 import BaseKoopmanModel, res_mlp
 
 
 _LOGGER = logging.getLogger(__name__)
