@@ -3,7 +3,7 @@
 实现 PROMPT_deep_koopman_v3.md 第 4 节定义的 ``HorizontalKoopmanModelV3``。
 
 关键约束（详见 PROMPT 第 3 节）：
-* 不修改 ``koopman.py``、``test_and_plot.py``。
+* 不修改 ``koopman.py``。
 * atom 顺序固定，YAML 反序列化必须能逐位对齐。
 * encode / latent_step / reconstruct_state / spectral_radius 四个签名与 v2 等价。
 * 所有字典项闭式公式实现（不引入可学权重）。
