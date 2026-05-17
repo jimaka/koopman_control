@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
-logs/smoketest_v2/
-logs/tensorboard_v2_*/
-logs/metrics_*.jsonl
-test_analysis/smoketest/
 .tmp/
+logs/
+eval_out/
+test_analysis/
+dataset_plots/
+test_ds/test_dataset_plots/
