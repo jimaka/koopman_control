@@ -1,6 +1,6 @@
 # MPC 航迹跟踪使用指南
 
-本文档说明如何在本仓库中使用 **基于 Deep-Koopman 模型的模型预测控制（MPC）** 做船舶平面航迹跟踪，并记录最近一次可行性验证结果。
+本文档说明如何在本仓库中使用 **基于 Deep-Koopman 模型的模型预测控制（MPC）** 做船舶平面航迹跟踪，并记录 Python / C++ 两套实现的求解器差异与验证结果。
 
 相关代码：
 
@@ -8,7 +8,9 @@
 |------|------|
 | Python 控制器 | `koopman/mpc/controller.py` |
 | Python CLI | `scripts/mpc_track.py` |
-| C++ 实现 | `cpp/koopman_mpc/` |
+| 可导出 rollout | `koopman/export/rollout.py` |
+| C++ MPC | `cpp/koopman_mpc/` |
+| ONNX 导出 / 验证 | `cpp/koopman_mpc/scripts/export_onnx.py`、`verify_pipeline.py` |
 | 默认模型 | `checkpoints/koopman_v3a_best.pth` |
 
 ---
@@ -19,12 +21,14 @@
 
 | 测试项 | 命令 / 条件 | 结果 | 结论 |
 |--------|-------------|------|------|
+| PT vs ONNX | `export_onnx.py` | max abs err ≈ **3.3e-6** | 通过 |
+| Python rollout vs ONNX | `rollout_check.npz` | ≈ **2.4e-7** | 通过 |
+| C++ rollout vs Python | `verify_rollout` | ≈ **2.4e-7** | 通过 |
 | Python 冒烟 | `--smoketest`（直线参考，30 步） | xy RMSE **0.042 m** | 通过 |
 | Python 段跟踪 | `data/koopman_test.npz` segment 0，80 步 | xy RMSE **0.11 m**，艏向 **0.14°** | 通过 |
-| Python 圆周 | `--ref circle`，60 步 | xy RMSE **0.37 m**（合成路径较难） | 可运行，需调参 |
-| C++ 冒烟 | `koopman_mpc_cpp --smoketest` | xy RMSE **0.017 m** | 通过 |
+| C++ 冒烟 | `koopman_mpc_cpp --smoketest` | xy RMSE **0.012 m** | 通过 |
 
-**推荐用法**：用 **测试集某段真值航迹** 作为参考（`--ref segment`），与训练数据分布一致，跟踪效果最好。合成直线/圆周可用于快速试验，但可能需要增大 `w_xy` 或 `opt_iters`。
+**推荐用法**：用 **测试集某段真值航迹** 作为参考（`--ref segment`），与训练数据分布一致，跟踪效果最好。
 
 验证时间：2026-05-17；模型：`koopman_v3a_best.pth`；`horizon=20`，`dt=0.1 s`。
 
@@ -53,8 +57,7 @@ flowchart LR
    - 速度误差 `w_vel · ||(u,v,r) - ref||²`
    - 控制幅值 `w_u · ||u||²`
    - 控制变化率 `w_du · ||Δu||²`
-5. **约束**：油门 ∈ [-100, 100]，舵角 ∈ [-35, 35]（与数据集一致）。
-6. **求解器**：对控制序列用 **Adam** 迭代优化（默认 40 次），上一步解移位作为 warm-start。
+5. **约束**：油门 ∈ [-100, 100]，舵角 ∈ [-35, 35]（与数据集一致）；Python 在优化中对 `u` clamp，C++ 每步 Adam 更新后同样 clamp。
 
 位姿积分与评估脚本一致（船体坐标系，固定 `dt=0.1 s`）：
 
@@ -66,7 +69,26 @@ flowchart LR
 
 ---
 
-## 3. 环境与依赖
+## 3. 求解器说明（Python vs C++）
+
+两套实现 **代价函数与滚动时域框架相同**，**优化器与梯度来源不同**：
+
+| 项目 | Python | C++ |
+|------|--------|-----|
+| **类型** | 无约束 NLP + 盒约束投影 | 同左 |
+| **优化器** | `torch.optim.Adam` | 自实现 **Adam**（β₁=0.9, β₂=0.999） |
+| **梯度** | PyTorch **autograd**（可微 rollout） | **前向差分**数值梯度（ε=1e-3） |
+| **动力学前向** | PyTorch 模型 | **ONNX Runtime**（`koopman_rollout.onnx`） |
+| **默认 `opt_iters`** | 40 | 40（冒烟可降至 8） |
+| **专用 NLP 求解器** | 无（非 Ipopt/OSQP） | 无 |
+
+因此 C++ 每步 MPC 需多次 ONNX 前向（约 `80 × opt_iters` 次，H=20 时），通常比 Python 慢，但便于无 PyTorch 环境部署。
+
+> **关于 CppAD + Ipopt**：可与 Ipopt 组成标准 NLP 求解器，但要求目标/动力学在 CppAD 可微代码中表达；**ONNX Runtime 前向无法直接接入 CppAD**。若未来改用 CppAD+Ipopt，需在 C++ 中重写可微 rollout（或导出权重到 CppAD 图），ONNX 仍可作为部署对照。
+
+---
+
+## 4. 环境与依赖
 
 ```bash
 pip install -r requirements.txt
@@ -78,13 +100,21 @@ pip install -r requirements.txt
 - 参考航迹数据（段跟踪时用 `data/koopman_test.npz`）
 - PyTorch（CPU 即可，单段 80 步约 1–2 分钟）
 
-C++ 版额外需要：`g++`、`cmake`、LibTorch（`pip install torch` 自带），见 [cpp/koopman_mpc/README.md](../cpp/koopman_mpc/README.md)。
+**C++ 版额外需要**：
+
+| 依赖 | 说明 |
+|------|------|
+| `g++`、`cmake` | `build.sh` 会通过 `setup_cloud_deps.sh` 在 Debian/Ubuntu 上自动安装 |
+| ONNX Runtime C++ | `build.sh` 下载至 `cpp/koopman_mpc/third_party/onnxruntime` |
+| Python 导出工具 | `onnx`、`onnxruntime`、`onnxscript`（导出 `.onnx` 时用） |
+
+详见 [cpp/koopman_mpc/README.md](../cpp/koopman_mpc/README.md)。
 
 ---
 
-## 4. Python 使用
+## 5. Python 使用
 
-### 4.1 命令行（推荐）
+### 5.1 命令行（推荐）
 
 在**仓库根目录**执行：
 
@@ -109,13 +139,7 @@ python3 scripts/mpc_track.py --ref circle --steps 100 --out_dir eval_out/mpc_cir
 python3 scripts/mpc_track.py --ref line --steps 80 --out_dir eval_out/mpc_line
 ```
 
-根目录兼容入口（等价）：
-
-```bash
-python3 run_mpc_tracking.py --segment 0 --steps 80
-```
-
-### 4.2 命令行参数
+### 5.2 命令行参数
 
 | 参数 | 默认 | 说明 |
 |------|------|------|
@@ -133,7 +157,7 @@ python3 run_mpc_tracking.py --segment 0 --steps 80
 | `--device` | `cpu` | `cpu` 或 `cuda` |
 | `--smoketest` | — | 快速自检后退出 |
 
-### 4.3 输出文件
+### 5.3 输出文件
 
 | 文件 | 内容 |
 |------|------|
@@ -142,114 +166,126 @@ python3 run_mpc_tracking.py --segment 0 --steps 80
 | `mpc_tracking_overview.png` | 轨迹、误差、艏向、控制四宫格 |
 | `mpc_velocities.png` | u/v/r 曲线 |
 
-### 4.4 在 Python 代码中调用
+### 5.4 在 Python 代码中调用
 
 ```python
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(".").resolve()))
 from koopman.paths import setup_repo
 setup_repo()
 
 import numpy as np
 from koopman.mpc import KoopmanMPC, MPCConfig, segment_to_state_ctrl, tracking_metrics
 
-# 加载参考航迹
 raw = np.load("data/koopman_test.npz", allow_pickle=True)["datas"]
 ref_state, ref_ctrl = segment_to_state_ctrl(raw[0])
 
-# 配置并创建控制器
 cfg = MPCConfig(horizon=20, opt_iters=40, w_xy=10.0, w_yaw=5.0)
 mpc = KoopmanMPC.from_checkpoint("checkpoints/koopman_v3a_best.pth", cfg)
 
-# 闭环仿真
-traj = mpc.simulate(
-    ref_state[0],           # 初始状态 [x,y,yaw,u,v,r]
-    ref_state,              # 完整参考 (T,6)
-    ref_ctrl=ref_ctrl,      # 可选：用于 warm-start
-    max_steps=80,
-)
-
-metrics = tracking_metrics(traj)
-print("xy RMSE [m]:", metrics["xy_rmse_m"])
-
-# 单步求解（自定义参考窗口）
-ref_win = [ref_state[i] for i in range(21)]  # horizon+1 个点
-u0, cost = mpc.solveStep(ref_state[0], ref_win)
-# u0: [port_thr, port_ang, stbd_thr, stbd_ang]
+traj = mpc.simulate(ref_state[0], ref_state, ref_ctrl=ref_ctrl, max_steps=80)
+print("xy RMSE [m]:", tracking_metrics(traj)["xy_rmse_m"])
 ```
 
 `MPCConfig` 完整字段见 `koopman/mpc/controller.py`。
 
 ---
 
-## 5. C++ 使用
+## 6. C++ 使用（ONNX）
 
-### 5.1 构建与测试
+### 6.1 导出与构建
 
 ```bash
+# 完整流程：依赖、下载 ORT、导出 ONNX、编译、rollout/MPC 验证
 bash cpp/koopman_mpc/build.sh
+
+# 仅导出 ONNX 并做 PT/ONNX 精度检查
+python3 cpp/koopman_mpc/scripts/export_onnx.py \
+    --ckpt checkpoints/koopman_v3a_best.pth
+
+# 端到端复验（需已 build）
+python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 ```
 
-将自动：导出 TorchScript → 编译 → rollout 数值对照 → MPC 冒烟。
+生成物目录 `cpp/koopman_mpc/weights/`（gitignore）：
 
-### 5.2 运行
+| 文件 | 说明 |
+|------|------|
+| `koopman_rollout.onnx` | C++ MPC 使用的 rollout |
+| `model_meta.json` | 归一化参数、验证误差等 |
+| `cpp_test_ref.json` | C++ 冒烟用参考航迹 |
+| `rollout_check.npz` | Python/C++ rollout 对照 |
+
+可选：`export_torchscript.py` 仍可生成 `koopman_rollout.pt`，但 **C++ MPC 默认读 ONNX**。
+
+### 6.2 运行
 
 ```bash
+export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_PATH
+
 ./cpp/koopman_mpc/build/koopman_mpc_cpp \
     --weights cpp/koopman_mpc/weights \
     --ref cpp/koopman_mpc/weights/cpp_test_ref.json \
     --steps 40 --horizon 20 --opt_iters 25
+
+./cpp/koopman_mpc/build/koopman_mpc_cpp --smoketest \
+    --weights cpp/koopman_mpc/weights \
+    --ref cpp/koopman_mpc/weights/cpp_test_ref.json
 ```
 
-**注意**：C++ 版 TorchScript 导出时 **固定 `horizon=20`**，`--horizon` 必须为 20。
+**注意**：ONNX 导出时 **固定 `horizon=20`**，`--horizon` 必须为 20。
 
 ---
 
-## 6. 调参建议
+## 7. 调参建议
 
 | 现象 | 建议 |
 |------|------|
 | 平面误差偏大 | 增大 `--w_xy`（如 20–50），或增加 `--opt_iters` |
 | 艏向振荡 | 增大 `--w_yaw`，增大 `--w_du` 抑制控制抖动 |
 | 控制饱和频繁 | 检查参考航迹是否超出训练分布；略降 `w_xy` |
-| 优化太慢 | 减少 `--steps` 或 `--opt_iters`；使用 GPU `--device cuda`（需自行验证） |
-| 圆周/直线跟踪差 | 优先用 `--ref segment`；或延长 `opt_iters`、提高 `w_xy` |
+| Python 优化太慢 | 减少 `--steps` 或 `--opt_iters` |
+| C++ 优化太慢 | 减少 `--opt_iters`（冒烟默认 8）；数值梯度代价高 |
+| 圆周/直线跟踪差 | 优先用 `--ref segment` |
 
-`horizon` 建议保持 **20**，与 v3a 训练时的多步预测长度一致；过短会削弱预见性，过长则优化变量增多、耗时增加。
+`horizon` 建议保持 **20**，与 v3a 训练时的多步预测长度一致。
 
 ---
 
-## 7. 与训练 / 评估的关系
+## 8. 与训练 / 评估的关系
 
 | 阶段 | 脚本 | 说明 |
 |------|------|------|
 | 训练 | `scripts/train_v2.py` | 得到 `checkpoints/koopman_v3a_best.pth` |
-| 开环评估 | `scripts/eval.py` | 固定控制序列 rollout，看长期误差是否发散 |
-| 闭环 MPC | `scripts/mpc_track.py` | 在线优化控制，跟踪参考航迹 |
+| 开环评估 | `scripts/eval.py` | 固定控制序列 rollout |
+| 闭环 MPC（Python） | `scripts/mpc_track.py` | Adam + autograd |
+| 闭环 MPC（C++） | `cpp/koopman_mpc/build.sh` | ONNX + 数值梯度 Adam |
 
-MPC **不重新训练模型**；若更换 checkpoint，无需改 MPC 代码，只需 `--ckpt` 指向新文件。重新训练后若需跑 C++，请重新执行 `cpp/koopman_mpc/build.sh` 以更新 `koopman_rollout.pt`。
+MPC **不重新训练模型**。更换 checkpoint 后：
+
+- Python：仅需 `--ckpt` 指向新文件；
+- C++：重新运行 `build.sh` 或 `export_onnx.py` 更新 `koopman_rollout.onnx`。
 
 ---
 
-## 8. 常见问题
+## 9. 常见问题
 
 **Q: 报错找不到 checkpoint？**  
-确认 `checkpoints/koopman_v3a_best.pth` 存在，或用 `--ckpt` 指定 v3 权重。
+确认 `checkpoints/koopman_v3a_best.pth` 存在，或用 `--ckpt` 指定。
 
-**Q: `segment` 索引越界？**  
-`python3 -c "import numpy as np; print(len(np.load('data/koopman_test.npz',allow_pickle=True)['datas']))"` 查看段数。
+**Q: C++ 构建失败 `cannot find -lstdc++`？**  
+运行 `bash cpp/koopman_mpc/scripts/setup_cloud_deps.sh` 或 `build.sh`（内部会调用）；确保使用 `g++` 而非缺库的 `clang` 默认链接。
+
+**Q: C++ 运行找不到 `libonnxruntime.so`？**  
+设置 `LD_LIBRARY_PATH` 包含 `cpp/koopman_mpc/third_party/onnxruntime/lib`。
 
 **Q: MPC 与实船闭环的区别？**  
-本仓库为**仿真闭环**：状态由 Koopman 模型推进。上实船需增加状态估计、通信延时、执行器接口与安全限幅，本 MPC 模块可作为**内环速度/轨迹控制律**的原型。
+本仓库为**仿真闭环**；上实船需状态估计、执行器接口与安全限幅。
 
-**Q: 能否跟踪任意 (x,y) 航点序列？**  
-可以。构造 `ref_state` 数组 `(T,6)`，填入目标 `(x,y,ψ)` 及可选 `(u,v,r)`，调用 `mpc.simulate(state0, ref_state, ...)`。航点间建议插值保证参考连续。
+**Q: 能否用 CppAD/Ipopt 替换 C++ 求解器？**  
+可以，但需可微 C++ rollout，不能仅靠 ONNX 黑盒；见 §3。
 
 ---
 
-## 9. 复现本次验证
+## 10. 复现本次验证
 
 ```bash
 # Python
@@ -257,10 +293,9 @@ python3 scripts/mpc_track.py --smoketest
 python3 scripts/mpc_track.py --segment 0 --steps 80 --opt_iters 30 \
     --out_dir eval_out/mpc_test_seg0
 
-# C++（需已 build）
-./cpp/koopman_mpc/build/koopman_mpc_cpp --smoketest \
-    --weights cpp/koopman_mpc/weights \
-    --ref cpp/koopman_mpc/weights/cpp_test_ref.json
+# C++ 全流程
+bash cpp/koopman_mpc/build.sh
+python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 ```
 
-预期：冒烟通过；segment 0 的 xy RMSE 约 **0.1 m** 量级。
+预期：Python segment 0 的 xy RMSE 约 **0.1 m**；C++ 冒烟 xy RMSE 约 **0.01 m** 量级（步数较少、参考航迹不同，不宜直接数值对比）。

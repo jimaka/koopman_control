@@ -17,8 +17,9 @@
 │   ├── model_v1_v2.py        # v1/v2 模型（5 阶字典）
 │   ├── model_v3.py           # v3 模型（16 阶字典）
 │   ├── evalkit.py            # 评估与 rollout 核心逻辑
+│   ├── export/               # 可导出 rollout（ONNX / TorchScript）
 │   ├── paths.py              # data/、checkpoints/ 等默认路径
-│   └── mpc/                  # MPC 控制器
+│   └── mpc/                  # Python MPC 控制器
 ├── scripts/                  # 命令行入口（推荐从此运行）
 │   ├── train_v2.py
 │   ├── train_v1.py

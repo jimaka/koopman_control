@@ -70,7 +70,8 @@ export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_P
 | 组件 | Python | C++ |
 |------|--------|-----|
 | 动力学 | `KoopmanRollout` | `KoopmanOnnxModel`（ONNX） |
-| 优化 | `torch.optim.Adam` + autograd | Adam + 数值梯度（ONNX 前向） |
-| 导出 | `scripts/export_onnx.py` | `build.sh` 调用 |
+| 优化 | `torch.optim.Adam` + autograd | 自实现 Adam + 前向差分数值梯度 |
+| NLP 求解器 | 无 | 无（非 Ipopt/OSQP） |
+| 导出 | `export_onnx.py` | `build.sh` 调用 |
 
-重新训练后请重新运行 `build.sh` 更新 `koopman_rollout.onnx`。
+重新训练后请重新运行 `build.sh` 更新 `koopman_rollout.onnx`。求解器说明见 [docs/MPC使用指南.md](../../docs/MPC使用指南.md) §3。
