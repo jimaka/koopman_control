@@ -73,4 +73,12 @@ def process_single_bag(bag_path, output_npz, segment_length=200.0, target_hz=10.
     print(f"✅ 提取完成！共提取 {len(segs)} 段 {segment_length}s 的数据，保存至: {output_npz}")
 
 if __name__ == "__main__":
-    process_single_bag("../replay.bag", "koopman_train_left_turn.npz")
+    import sys
+    from pathlib import Path
+
+    _root = Path(__file__).resolve().parents[2]
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+    from koopman import paths as P
+
+    process_single_bag("../replay.bag", str(P.TRAIN_LEFT_TURN))

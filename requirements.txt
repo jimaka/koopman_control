@@ -1,0 +1,9 @@
+# Deep-Koopman 核心依赖（训练 / 评估 / MPC）
+torch>=2.0
+numpy>=1.24
+matplotlib>=3.7
+pyyaml>=6.0
+scipy>=1.10
+
+# 数据处理（rosbag 切分，需 ROS 环境）
+# rosbag

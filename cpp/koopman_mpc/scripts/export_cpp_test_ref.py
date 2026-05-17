@@ -15,8 +15,8 @@ if REPO_ROOT not in sys.path:
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
-from mpc_koopman import segment_to_state_ctrl
-import eval_koopman as ek
+from koopman.mpc import segment_to_state_ctrl
+from koopman import evalkit as ek
 from export_torchscript import KoopmanRollout
 
 
@@ -24,8 +24,10 @@ def main() -> None:
     out_dir = os.path.join(REPO_ROOT, "cpp/koopman_mpc/weights")
     os.makedirs(out_dir, exist_ok=True)
 
-    ckpt = os.path.join(REPO_ROOT, "checkpoints/koopman_v3a_best.pth")
-    data = os.path.join(REPO_ROOT, "koopman_test.npz")
+    from koopman import paths as P
+
+    ckpt = str(P.CKPT_V3A_BEST)
+    data = str(P.TEST)
     segment = 0
     max_len = 120
 

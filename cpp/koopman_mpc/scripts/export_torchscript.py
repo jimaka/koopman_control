@@ -15,8 +15,8 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-import eval_koopman as ek
-from mpc_koopman import KoopmanMPC, MPCConfig, segment_to_state_ctrl
+from koopman import evalkit as ek
+from koopman.mpc import KoopmanMPC, MPCConfig, segment_to_state_ctrl
 
 
 class KoopmanRollout(nn.Module):
@@ -61,9 +61,11 @@ class KoopmanRollout(nn.Module):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ckpt", default="checkpoints/koopman_v3a_best.pth")
-    parser.add_argument("--out_dir", default="cpp/koopman_mpc/weights")
-    parser.add_argument("--data", default="koopman_test.npz")
+    from koopman import paths as P
+
+    parser.add_argument("--ckpt", default=str(P.CKPT_V3A_BEST))
+    parser.add_argument("--out_dir", default=str(P.CPP_MPC_DIR / "weights"))
+    parser.add_argument("--data", default=str(P.TEST))
     parser.add_argument("--segment", type=int, default=0)
     parser.add_argument("--steps", type=int, default=40)
     args = parser.parse_args()

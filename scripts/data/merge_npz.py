@@ -1,4 +1,14 @@
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import numpy as np
+
+from koopman import paths as P
+
 
 def merge_npz_files(original_file, append_file, output_file):
     print(f"正在读取原数据: {original_file}")
@@ -22,8 +32,8 @@ def merge_npz_files(original_file, append_file, output_file):
 
 if __name__ == "__main__":
     # 文件路径配置 (请根据实际情况修改)
-    original_npz = "koopman_train.npz"           # 原来已有的 7小时切出来的训练集
-    append_npz = "koopman_train_left_turn.npz"   # 第一步刚提取出的 左转差速训练集
-    output_merged_npz = "koopman_train_merged.npz" # 最终合并输出的文件名
+    original_npz = str(P.TRAIN)
+    append_npz = str(P.TRAIN_LEFT_TURN)
+    output_merged_npz = str(P.TRAIN_MERGED)
     
     merge_npz_files(original_npz, append_npz, output_merged_npz)
