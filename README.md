@@ -67,6 +67,8 @@ python3 run_mpc_tracking.py --ckpt checkpoints/koopman_v3a_best.pth \
 
 详见 [`项目指南.md`](./项目指南.md) 阶段 D。
 
+**C++ 版**（`cpp/koopman_mpc/`，LibTorch）：`bash cpp/koopman_mpc/build.sh` 后运行 `build/koopman_mpc_cpp`。
+
 ## 数据处理
 
 ```bash
