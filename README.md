@@ -28,7 +28,8 @@
 │   └── data/                 # 数据集处理（rosbag → npz）
 ├── data/                     # 所有 .npz 数据集
 ├── checkpoints/              # 预训练权重
-├── cpp/koopman_mpc/          # C++ MPC（LibTorch）
+├── cpp/koopman_mpc/          # C++ MPC（ONNX Runtime）
+│   └── scripts/              # PT→ONNX 导出与验证
 ├── docs/                     # 项目指南
 ├── logs/                     # 训练日志（gitignore）
 └── eval_out/                 # 评估 / MPC 输出（gitignore）
@@ -56,21 +57,13 @@ python3 scripts/eval.py --ckpt checkpoints/koopman_v3a_best.pth \
 python3 scripts/mpc_track.py --segment 0 --steps 150 --out_dir eval_out/mpc
 ```
 
-## 兼容入口
-
-根目录下列文件会转发到 `scripts/`，旧命令仍可使用：
-
-- `train_koopman_v2.py` → `scripts/train_v2.py`
-- `train_multistep_voyage.py` → `scripts/train_v1.py`
-- `eval_koopman.py` → `scripts/eval.py`
-- `run_mpc_tracking.py` → `scripts/mpc_track.py`
-- `mpc_koopman.py` → 重新导出 `koopman.mpc` 符号
-
-## C++ MPC
+## C++ MPC（ONNX）
 
 ```bash
 bash cpp/koopman_mpc/build.sh
-./cpp/koopman_mpc/build/koopman_mpc_cpp --smoketest
+# 导出 ONNX 并验证 PT/ONNX/C++ 精度
+python3 cpp/koopman_mpc/scripts/export_onnx.py
+python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 ```
 
 见 [cpp/koopman_mpc/README.md](cpp/koopman_mpc/README.md)。

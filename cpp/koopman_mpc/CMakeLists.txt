@@ -4,19 +4,30 @@ project(koopman_mpc_cpp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# LibTorch（pip install torch 后可用）
-find_package(Torch REQUIRED)
+# ONNX Runtime（由 build.sh 下载到 third_party/onnxruntime）
+if(NOT DEFINED ONNXRUNTIME_ROOT)
+    set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/onnxruntime")
+endif()
+
+set(ONNXRUNTIME_INCLUDE "${ONNXRUNTIME_ROOT}/include")
+set(ONNXRUNTIME_LIB "${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so")
+
+if(NOT EXISTS "${ONNXRUNTIME_INCLUDE}/onnxruntime_cxx_api.h")
+    message(FATAL_ERROR
+        "ONNX Runtime not found at ${ONNXRUNTIME_ROOT}. "
+        "Run: bash cpp/koopman_mpc/build.sh")
+endif()
 
 set(KOOPMAN_MPC_SOURCES
-    src/koopman_torch_model.cpp
+    src/koopman_onnx_model.cpp
     src/mpc_controller.cpp
 )
 
 add_library(koopman_mpc_lib ${KOOPMAN_MPC_SOURCES})
-target_include_directories(koopman_mpc_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(koopman_mpc_lib PUBLIC "${TORCH_LIBRARIES}")
-target_compile_definitions(koopman_mpc_lib PUBLIC ${TORCH_CXX_FLAGS})
-set_property(TARGET koopman_mpc_lib PROPERTY CXX_STANDARD 17)
+target_include_directories(koopman_mpc_lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${ONNXRUNTIME_INCLUDE})
+target_link_libraries(koopman_mpc_lib PUBLIC "${ONNXRUNTIME_LIB}")
 
 add_executable(koopman_mpc_cpp src/main.cpp)
 target_link_libraries(koopman_mpc_cpp PRIVATE koopman_mpc_lib)
@@ -26,8 +37,8 @@ add_executable(verify_rollout tools/verify_rollout.cpp)
 target_link_libraries(verify_rollout PRIVATE koopman_mpc_lib)
 set_property(TARGET verify_rollout PROPERTY CXX_STANDARD 17)
 
-# LibTorch 需要与系统 ABI 一致
-if (UNIX AND NOT APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${TORCH_CXX_FLAGS}")
+if(UNIX AND NOT APPLE)
+    set_target_properties(koopman_mpc_cpp verify_rollout PROPERTIES
+        BUILD_RPATH "${ONNXRUNTIME_ROOT}/lib"
+        INSTALL_RPATH "${ONNXRUNTIME_ROOT}/lib")
 endif()

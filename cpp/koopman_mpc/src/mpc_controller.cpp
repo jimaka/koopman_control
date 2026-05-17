@@ -1,122 +1,173 @@
 #include "mpc_controller.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <stdexcept>
 
 namespace koopman_mpc {
 
 namespace {
 
-torch::Tensor array6ToTensor(const std::array<float, 6>& s) {
-    return torch::tensor({s[0], s[1], s[2], s[3], s[4], s[5]},
-                         torch::dtype(torch::kFloat32));
+std::array<float, 6> statesRow(const std::vector<float>& states, int row) {
+    std::array<float, 6> s{};
+    const int off = row * 6;
+    for (int j = 0; j < 6; ++j) {
+        s[j] = states[off + j];
+    }
+    return s;
 }
 
-torch::Tensor refWindowToTensor(const std::vector<std::array<float, 6>>& ref) {
-    const int64_t n = static_cast<int64_t>(ref.size());
-    auto t = torch::zeros({n, 6}, torch::kFloat32);
-    auto acc = t.accessor<float, 2>();
-    for (int64_t i = 0; i < n; ++i) {
-        for (int j = 0; j < 6; ++j) {
-            acc[i][j] = ref[i][j];
-        }
-    }
-    return t;
+float wrapYaw(float a, float b) {
+    const float d = a - b;
+    return std::atan2(std::sin(d), std::cos(d));
 }
 
 }  // namespace
 
-KoopmanMpcController::KoopmanMpcController(KoopmanTorchModel model, MpcConfig cfg)
+KoopmanMpcController::KoopmanMpcController(KoopmanOnnxModel model, MpcConfig cfg)
     : model_(std::move(model)), cfg_(cfg) {
-    if (cfg_.horizon != KoopmanTorchModel::kTracedHorizon) {
+    if (cfg_.horizon != KoopmanOnnxModel::kTracedHorizon) {
         throw std::runtime_error(
-            "MPC horizon must equal TorchScript traced horizon (" +
-            std::to_string(KoopmanTorchModel::kTracedHorizon) + ")");
+            "MPC horizon must equal ONNX traced horizon (" +
+            std::to_string(KoopmanOnnxModel::kTracedHorizon) + ")");
+    }
+    u_warm_.assign(cfg_.horizon * 4, 0.f);
+}
+
+void KoopmanMpcController::clampUFlat(std::vector<float>& u_flat) const {
+    const int H = cfg_.horizon;
+    for (int i = 0; i < H; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            float& v = u_flat[i * 4 + j];
+            v = std::max(cfg_.u_min[j], std::min(cfg_.u_max[j], v));
+        }
     }
 }
 
-torch::Tensor KoopmanMpcController::clampU(torch::Tensor u) const {
-    auto umin = torch::tensor(
-        {cfg_.u_min[0], cfg_.u_min[1], cfg_.u_min[2], cfg_.u_min[3]},
-        torch::dtype(torch::kFloat32));
-    auto umax = torch::tensor(
-        {cfg_.u_max[0], cfg_.u_max[1], cfg_.u_max[2], cfg_.u_max[3]},
-        torch::dtype(torch::kFloat32));
-    return torch::max(torch::min(u, umax), umin);
+float KoopmanMpcController::mpcCost(const std::array<float, 6>& state0,
+                                    const std::vector<std::array<float, 6>>& ref,
+                                    const std::vector<float>& u_flat,
+                                    const std::array<float, 4>& u_prev) const {
+    const int H = cfg_.horizon;
+    auto states = model_.rollout(state0, u_flat, cfg_.dt);
+
+    float c = 0.f;
+    for (int k = 0; k <= H; ++k) {
+        const auto s = statesRow(states, k);
+        const auto& r = ref[k];
+        const float dx = s[0] - r[0];
+        const float dy = s[1] - r[1];
+        c += cfg_.w_xy * (dx * dx + dy * dy);
+        const float dyaw = wrapYaw(s[2], r[2]);
+        c += cfg_.w_yaw * dyaw * dyaw;
+        for (int j = 0; j < 3; ++j) {
+            const float dv = s[3 + j] - r[3 + j];
+            c += cfg_.w_vel * dv * dv;
+        }
+    }
+    for (int i = 0; i < H; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            const float u = u_flat[i * 4 + j];
+            c += cfg_.w_u * u * u;
+        }
+    }
+    for (int i = 0; i < H; ++i) {
+        std::array<float, 4> up = u_prev;
+        if (i > 0) {
+            for (int j = 0; j < 4; ++j) {
+                up[j] = u_flat[(i - 1) * 4 + j];
+            }
+        }
+        for (int j = 0; j < 4; ++j) {
+            const float du = u_flat[i * 4 + j] - up[j];
+            c += cfg_.w_du * du * du;
+        }
+    }
+    return c;
 }
 
-torch::Tensor KoopmanMpcController::mpcCost(const torch::Tensor& state0,
-                                            const torch::Tensor& ref,
-                                            const torch::Tensor& u_flat,
-                                            const torch::Tensor& u_prev) const {
-    const int64_t H = cfg_.horizon;
-    auto u_seq = u_flat.view({H, 4});
-    auto traj = model_.rollout(state0, u_seq, cfg_.dt);
-
-    auto err_xy = traj.index({torch::indexing::Slice(), torch::indexing::Slice(0, 2)}) -
-                  ref.index({torch::indexing::Slice(), torch::indexing::Slice(0, 2)});
-    auto dyaw = traj.index({torch::indexing::Slice(), 2}) -
-                ref.index({torch::indexing::Slice(), 2});
-    dyaw = torch::atan2(torch::sin(dyaw), torch::cos(dyaw));
-    auto err_vel = traj.index({torch::indexing::Slice(), torch::indexing::Slice(3, 6)}) -
-                   ref.index({torch::indexing::Slice(), torch::indexing::Slice(3, 6)});
-
-    auto c = cfg_.w_xy * torch::sum(err_xy * err_xy) +
-             cfg_.w_yaw * torch::sum(dyaw * dyaw) +
-             cfg_.w_vel * torch::sum(err_vel * err_vel) +
-             cfg_.w_u * torch::sum(u_seq * u_seq);
-
-    auto u_shifted = torch::cat({u_prev.unsqueeze(0), u_seq.index({torch::indexing::Slice(0, -1)})}, 0);
-    auto du = u_seq - u_shifted;
-    c = c + cfg_.w_du * torch::sum(du * du);
-    return c;
+std::vector<float> KoopmanMpcController::numericGrad(
+    const std::array<float, 6>& state0,
+    const std::vector<std::array<float, 6>>& ref,
+    std::vector<float> u_flat,
+    const std::array<float, 4>& u_prev) const {
+    clampUFlat(u_flat);
+    const float f0 = mpcCost(state0, ref, u_flat, u_prev);
+    const float eps = 1e-3f;
+    std::vector<float> grad(u_flat.size(), 0.f);
+    for (size_t i = 0; i < u_flat.size(); ++i) {
+        auto up = u_flat;
+        up[i] += eps;
+        clampUFlat(up);
+        const float fp = mpcCost(state0, ref, up, u_prev);
+        grad[i] = (fp - f0) / eps;
+    }
+    return grad;
 }
 
 std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     const std::array<float, 6>& state0,
     const std::vector<std::array<float, 6>>& ref_window) {
-    const int64_t H = cfg_.horizon;
-    auto s0 = array6ToTensor(state0);
-    auto ref = refWindowToTensor(ref_window);
-
-    torch::Tensor u0;
+    const int H = cfg_.horizon;
+    std::vector<float> u(H * 4);
     if (has_warm_) {
-        u0 = torch::cat({u_warm_.index({torch::indexing::Slice(1, torch::indexing::None)}),
-                         u_warm_.index({torch::indexing::Slice(-1, torch::indexing::None)})},
-                        0);
-    } else {
-        u0 = torch::zeros({H, 4}, torch::kFloat32);
+        for (int i = 0; i < H - 1; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                u[i * 4 + j] = u_warm_[(i + 1) * 4 + j];
+            }
+        }
+        for (int j = 0; j < 4; ++j) {
+            u[(H - 1) * 4 + j] = u_warm_[(H - 1) * 4 + j];
+        }
     }
-    u0 = clampU(u0);
-    auto u_prev = u0.index({0}).detach().clone();
+    clampUFlat(u);
 
-    auto u_param = u0.clone().set_requires_grad(true);
-    torch::optim::Adam optimizer({u_param}, torch::optim::AdamOptions(cfg_.opt_lr));
+    std::array<float, 4> u_prev{};
+    for (int j = 0; j < 4; ++j) {
+        u_prev[j] = u[j];
+    }
+
+    std::vector<std::array<float, 6>> ref(H + 1);
+    for (int k = 0; k <= H; ++k) {
+        ref[k] = ref_window[k];
+    }
 
     float best_cost = 1e30f;
-    torch::Tensor best_u = u0.clone();
+    std::vector<float> best_u = u;
+
+    std::vector<float> m(u.size(), 0.f);
+    std::vector<float> v(u.size(), 0.f);
+    const float beta1 = 0.9f;
+    const float beta2 = 0.999f;
+    const float eps_adam = 1e-8f;
 
     for (int it = 0; it < cfg_.opt_iters; ++it) {
-        optimizer.zero_grad();
-        auto u_clamped = clampU(u_param);
-        auto cost = mpcCost(s0, ref, u_clamped.reshape({-1}), u_prev);
-        cost.backward();
-        optimizer.step();
-
-        const float cval = cost.item<float>();
-        if (cval < best_cost) {
-            best_cost = cval;
-            best_u = clampU(u_param).detach().clone();
+        clampUFlat(u);
+        const float cost = mpcCost(state0, ref, u, u_prev);
+        if (cost < best_cost) {
+            best_cost = cost;
+            best_u = u;
+        }
+        auto grad = numericGrad(state0, ref, u, u_prev);
+        const float t = static_cast<float>(it + 1);
+        const float bc1 = 1.f - std::pow(beta1, t);
+        const float bc2 = 1.f - std::pow(beta2, t);
+        for (size_t i = 0; i < u.size(); ++i) {
+            m[i] = beta1 * m[i] + (1.f - beta1) * grad[i];
+            v[i] = beta2 * v[i] + (1.f - beta2) * grad[i] * grad[i];
+            const float m_hat = m[i] / bc1;
+            const float v_hat = v[i] / bc2;
+            u[i] -= cfg_.opt_lr * m_hat / (std::sqrt(v_hat) + eps_adam);
         }
     }
 
-    u_warm_ = best_u.clone();
+    u_warm_ = best_u;
     has_warm_ = true;
 
     std::array<float, 4> u0_out{};
-    auto acc = best_u.accessor<float, 2>();
     for (int j = 0; j < 4; ++j) {
-        u0_out[j] = acc[0][j];
+        u0_out[j] = best_u[j];
     }
     return {u0_out, best_cost};
 }
@@ -140,11 +191,10 @@ MpcTrajectory KoopmanMpcController::simulate(
     traj.t[0] = 0.f;
 
     if (ref_ctrl && static_cast<int>(ref_ctrl->size()) >= H) {
-        u_warm_ = torch::zeros({H, 4}, torch::kFloat32);
-        auto acc = u_warm_.accessor<float, 2>();
+        u_warm_.assign(H * 4, 0.f);
         for (int i = 0; i < H; ++i) {
             for (int j = 0; j < 4; ++j) {
-                acc[i][j] = (*ref_ctrl)[i][j];
+                u_warm_[i * 4 + j] = (*ref_ctrl)[i][j];
             }
         }
         has_warm_ = true;
@@ -157,34 +207,25 @@ MpcTrajectory KoopmanMpcController::simulate(
         std::vector<std::array<float, 6>> ref_win;
         ref_win.reserve(H + 1);
         for (int k = 0; k <= H; ++k) {
-            int idx = t + k;
-            if (idx < T) {
-                ref_win.push_back(ref_traj[idx]);
-            } else {
-                ref_win.push_back(ref_traj[T - 1]);
-            }
+            const int idx = std::min(t + k, T - 1);
+            ref_win.push_back(ref_traj[idx]);
         }
 
         auto [u_opt, c] = solveStep(cur, ref_win);
         traj.control[t] = u_opt;
         traj.cost_history.push_back(c);
 
-        auto s0 = array6ToTensor(cur);
-        auto u_roll = torch::zeros({KoopmanTorchModel::kTracedHorizon, 4}, torch::kFloat32);
-        auto uacc = u_roll.accessor<float, 2>();
+        std::vector<float> u_roll(H * 4, 0.f);
         for (int j = 0; j < 4; ++j) {
-            uacc[0][j] = u_opt[j];
+            u_roll[j] = u_opt[j];
         }
-        for (int i = 1; i < KoopmanTorchModel::kTracedHorizon; ++i) {
+        for (int i = 1; i < H; ++i) {
             for (int j = 0; j < 4; ++j) {
-                uacc[i][j] = uacc[0][j];
+                u_roll[i * 4 + j] = u_opt[j];
             }
         }
-        auto next = model_.rollout(s0, u_roll, cfg_.dt);
-        auto nacc = next.accessor<float, 2>();
-        for (int j = 0; j < 6; ++j) {
-            cur[j] = nacc[1][j];
-        }
+        auto next = model_.rollout(cur, u_roll, cfg_.dt);
+        cur = statesRow(next, 1);
         traj.state[t + 1] = cur;
     }
     return traj;
@@ -205,8 +246,7 @@ TrackingMetrics computeMetrics(const MpcTrajectory& traj) {
         const float xy = std::sqrt(dx * dx + dy * dy);
         sum_xy2 += xy * xy;
         max_xy = std::max(max_xy, static_cast<double>(xy));
-        float dyaw = traj.state[i][2] - traj.ref_state[i][2];
-        dyaw = std::atan2(std::sin(dyaw), std::cos(dyaw));
+        const float dyaw = wrapYaw(traj.state[i][2], traj.ref_state[i][2]);
         sum_yaw2 += dyaw * dyaw;
     }
     m.xy_rmse_m = static_cast<float>(std::sqrt(sum_xy2 / n));

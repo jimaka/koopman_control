@@ -11,4 +11,4 @@
 | `reselect_v3a.py` | v3a 离线 composite 重选 best ckpt |
 | `data/bag_test.py` 等 | 从 rosbag 构建 / 合并 / 检查数据集 |
 
-根目录仍保留同名兼容入口（如 `train_koopman_v2.py` → 本目录脚本）。
+C++ ONNX 导出与验证见 `cpp/koopman_mpc/scripts/`（`export_onnx.py`、`verify_pipeline.py`）。

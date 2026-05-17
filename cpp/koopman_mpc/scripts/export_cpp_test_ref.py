@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""导出 C++ 测试用参考航迹（文本格式）与 rollout 对照张量。"""
+"""导出 C++ 测试用参考航迹与 rollout 对照张量。"""
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 
@@ -9,24 +10,26 @@ import numpy as np
 import torch
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-SCRIPTS_DIR = os.path.dirname(__file__)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
 
-from koopman.mpc import segment_to_state_ctrl
 from koopman import evalkit as ek
-from export_torchscript import KoopmanRollout
+from koopman import paths as P
+from koopman.export import KoopmanRollout, TRACED_HORIZON
+from koopman.mpc import segment_to_state_ctrl
 
 
 def main() -> None:
-    out_dir = os.path.join(REPO_ROOT, "cpp/koopman_mpc/weights")
-    os.makedirs(out_dir, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ckpt", default=str(P.CKPT_V3A_BEST))
+    parser.add_argument(
+        "--out_dir",
+        default=os.environ.get("KOOPMAN_WEIGHTS_DIR", str(P.CPP_MPC_DIR / "weights")),
+    )
+    args = parser.parse_args()
 
-    from koopman import paths as P
-
-    ckpt = str(P.CKPT_V3A_BEST)
+    os.makedirs(args.out_dir, exist_ok=True)
+    ckpt = args.ckpt if os.path.isabs(args.ckpt) else os.path.join(REPO_ROOT, args.ckpt)
     data = str(P.TEST)
     segment = 0
     max_len = 120
@@ -36,7 +39,7 @@ def main() -> None:
     ref_state = ref_state[:max_len]
     ref_ctrl = ref_ctrl[:max_len]
 
-    txt_path = os.path.join(out_dir, "cpp_test_ref.json")
+    txt_path = os.path.join(args.out_dir, "cpp_test_ref.json")
     with open(txt_path, "w", encoding="utf-8") as f:
         for row in ref_state:
             f.write("state " + " ".join(f"{x:.8g}" for x in row) + "\n")
@@ -49,12 +52,11 @@ def main() -> None:
     model.eval()
     rollout = KoopmanRollout(model, stats)
     s0 = torch.tensor(ref_state[0], dtype=torch.float32)
-    H = 20  # 与 TorchScript trace 固定 horizon 一致
-    u_seq = torch.tensor(ref_ctrl[:H], dtype=torch.float32)
+    u_seq = torch.tensor(ref_ctrl[:TRACED_HORIZON], dtype=torch.float32)
     with torch.no_grad():
-        states = rollout(s0, u_seq, 0.1)
+        states = rollout(s0, u_seq, torch.tensor(0.1, dtype=torch.float32))
     np.savez_compressed(
-        os.path.join(out_dir, "rollout_check.npz"),
+        os.path.join(args.out_dir, "rollout_check.npz"),
         state0=ref_state[0],
         u_seq=u_seq.numpy(),
         states=states.numpy(),

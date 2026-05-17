@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "koopman_torch_model.hpp"
+#include "koopman_onnx_model.hpp"
 #include "mpc_config.hpp"
 
 namespace koopman_mpc {
@@ -24,28 +24,33 @@ struct TrackingMetrics {
 
 class KoopmanMpcController {
 public:
-    KoopmanMpcController(KoopmanTorchModel model, MpcConfig cfg);
+    KoopmanMpcController(KoopmanOnnxModel model, MpcConfig cfg);
 
     std::pair<std::array<float, 4>, float> solveStep(
         const std::array<float, 6>& state0,
         const std::vector<std::array<float, 6>>& ref_window);
 
     MpcTrajectory simulate(const std::array<float, 6>& state0,
-                             const std::vector<std::array<float, 6>>& ref_traj,
-                             const std::vector<std::array<float, 4>>* ref_ctrl,
-                             int max_steps);
+                           const std::vector<std::array<float, 6>>& ref_traj,
+                           const std::vector<std::array<float, 4>>* ref_ctrl,
+                           int max_steps);
 
 private:
-    torch::Tensor mpcCost(const torch::Tensor& state0,
-                          const torch::Tensor& ref,
-                          const torch::Tensor& u_flat,
-                          const torch::Tensor& u_prev) const;
+    float mpcCost(const std::array<float, 6>& state0,
+                  const std::vector<std::array<float, 6>>& ref,
+                  const std::vector<float>& u_flat,
+                  const std::array<float, 4>& u_prev) const;
 
-    torch::Tensor clampU(torch::Tensor u) const;
+    std::vector<float> numericGrad(const std::array<float, 6>& state0,
+                                   const std::vector<std::array<float, 6>>& ref,
+                                   std::vector<float> u_flat,
+                                   const std::array<float, 4>& u_prev) const;
 
-    KoopmanTorchModel model_;
+    void clampUFlat(std::vector<float>& u_flat) const;
+
+    KoopmanOnnxModel model_;
     MpcConfig cfg_;
-    torch::Tensor u_warm_;
+    std::vector<float> u_warm_;
     bool has_warm_{false};
 };
 
