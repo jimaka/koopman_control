@@ -11,6 +11,7 @@ Koopman 物理先验模型与训练 / 评估管线。
 | 模型 | `koopman.py`（v1/v2）、`koopman_v3.py`（v3 16 阶字典） |
 | 训练 | `train_multistep_voyage.py`（v1）、`train_koopman_v2.py`（v2/v3/v3a） |
 | 验证 | `eval_koopman.py` |
+| MPC 航迹跟踪 | `mpc_koopman.py`, `run_mpc_tracking.py` |
 | v3a 辅助 | `scripts/reselect_best_v3a.py`（离线 composite_v3a 重选 best ckpt） |
 | 数据处理 | `bag_test.py`、`extract_left_turn.py`、`merge_npz.py`、`split_high_density_bag.py`、`check_dataset.py` |
 | 数据集 | `koopman_train_merged.npz`、`koopman_val.npz`、`koopman_test.npz` 等 `koopman_*.npz`、`sim_10HZ.npz`、`test_ds/koopman_test_dataset.npz` |
@@ -56,6 +57,15 @@ python3 eval_koopman.py --compare \
 
 python3 eval_koopman.py --smoketest
 ```
+
+## MPC 航迹跟踪
+
+```bash
+python3 run_mpc_tracking.py --ckpt checkpoints/koopman_v3a_best.pth \
+    --data koopman_test.npz --segment 0 --steps 150 --out_dir eval_out/mpc
+```
+
+详见 [`项目指南.md`](./项目指南.md) 阶段 D。
 
 ## 数据处理
 
