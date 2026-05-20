@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "koopman_onnx_model.hpp"
+#include "koopman_control/koopman_onnx_model.hpp"
 
 namespace {
 
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        koopman_mpc::KoopmanOnnxModel model(onnx);
+        koopman_control::KoopmanOnnxModel model(onnx);
         auto states = model.rollout(s0, u_flat, 0.1f);
         const int rows = static_cast<int>(states.size() / 6);
         float max_err = 0.f;

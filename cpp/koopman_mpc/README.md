@@ -1,5 +1,8 @@
 # Koopman MPC — C++ 实现（ONNX Runtime）
 
+> **控制库已独立至 [`../koopman_control/`](../koopman_control/README_CN.md)**（含 motion.cpp 对接说明与中文文档）。  
+> 本目录保留 demo 程序、构建脚本与 ONNX 权重。
+
 基于 **ONNX Runtime** 的船舶航迹跟踪 MPC，动力学 rollout 与 Python 版 `koopman/export/rollout.py` 对齐。
 
 ## 目录结构
