@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 
 TRACED_HORIZON = 20
+# v4 20s 训练 / C++ MPC 部署默认 rollout 步数
+TRACED_HORIZON_V4 = 200
 
 
 class KoopmanRollout(nn.Module):

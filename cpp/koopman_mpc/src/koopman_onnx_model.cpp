@@ -16,6 +16,10 @@ KoopmanOnnxModel::KoopmanOnnxModel(const std::string& onnx_path)
     } catch (const Ort::Exception& e) {
         throw std::runtime_error(std::string("ONNX load failed: ") + e.what());
     }
+    horizon_ = readHorizonFromSession();
+    if (horizon_ <= 0) {
+        throw std::runtime_error("Invalid ONNX rollout horizon");
+    }
 }
 
 KoopmanOnnxModel::~KoopmanOnnxModel() = default;
@@ -23,12 +27,33 @@ KoopmanOnnxModel::~KoopmanOnnxModel() = default;
 KoopmanOnnxModel::KoopmanOnnxModel(KoopmanOnnxModel&&) noexcept = default;
 KoopmanOnnxModel& KoopmanOnnxModel::operator=(KoopmanOnnxModel&&) noexcept = default;
 
+int KoopmanOnnxModel::readHorizonFromSession() const {
+    Ort::AllocatorWithDefaultOptions allocator;
+    const size_t n_inputs = session_->GetInputCount();
+    for (size_t i = 0; i < n_inputs; ++i) {
+        auto name = session_->GetInputNameAllocated(i, allocator);
+        if (std::string(name.get()) != "u_seq") {
+            continue;
+        }
+        auto type_info = session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo();
+        const auto shape = type_info.GetShape();
+        if (shape.size() != 2 || shape[1] != 4) {
+            throw std::runtime_error("ONNX u_seq input must have shape [H, 4]");
+        }
+        if (shape[0] <= 0) {
+            throw std::runtime_error("ONNX u_seq horizon must be fixed at export time");
+        }
+        return static_cast<int>(shape[0]);
+    }
+    throw std::runtime_error("ONNX model missing u_seq input");
+}
+
 std::vector<float> KoopmanOnnxModel::rollout(const std::array<float, 6>& state0,
                                              const std::vector<float>& u_seq_flat,
                                              float dt) const {
-    const int64_t H = kTracedHorizon;
+    const int64_t H = horizon_;
     if (static_cast<int64_t>(u_seq_flat.size()) != H * 4) {
-        throw std::runtime_error("u_seq_flat size must be H*4");
+        throw std::runtime_error("u_seq_flat size must be H*4 (H=" + std::to_string(H) + ")");
     }
 
     Ort::MemoryInfo mem_info =

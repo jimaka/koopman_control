@@ -27,22 +27,41 @@ float wrapYaw(float a, float b) {
 
 KoopmanMpcController::KoopmanMpcController(KoopmanOnnxModel model, MpcConfig cfg)
     : model_(std::move(model)), cfg_(cfg) {
-    if (cfg_.horizon != KoopmanOnnxModel::kTracedHorizon) {
+    const int onnx_h = model_.horizon();
+    if (cfg_.horizon != onnx_h) {
         throw std::runtime_error(
-            "MPC horizon must equal ONNX traced horizon (" +
-            std::to_string(KoopmanOnnxModel::kTracedHorizon) + ")");
+            "MPC horizon must equal ONNX traced horizon (" + std::to_string(onnx_h) +
+            "), got " + std::to_string(cfg_.horizon));
+    }
+    if (cfg_.opt_control_steps <= 0 || cfg_.opt_control_steps > cfg_.horizon) {
+        throw std::runtime_error("opt_control_steps must be in [1, horizon]");
     }
     u_warm_.assign(cfg_.horizon * 4, 0.f);
 }
 
-void KoopmanMpcController::clampUFlat(std::vector<float>& u_flat) const {
+void KoopmanMpcController::fillHoldTail(std::vector<float>& u_flat) const {
     const int H = cfg_.horizon;
-    for (int i = 0; i < H; ++i) {
+    const int opt_steps = cfg_.opt_control_steps;
+    if (opt_steps >= H) {
+        return;
+    }
+    const int hold = opt_steps - 1;
+    for (int i = opt_steps; i < H; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            u_flat[i * 4 + j] = u_flat[hold * 4 + j];
+        }
+    }
+}
+
+void KoopmanMpcController::clampUFlat(std::vector<float>& u_flat) const {
+    const int opt_steps = cfg_.opt_control_steps;
+    for (int i = 0; i < opt_steps; ++i) {
         for (int j = 0; j < 4; ++j) {
             float& v = u_flat[i * 4 + j];
             v = std::max(cfg_.u_min[j], std::min(cfg_.u_max[j], v));
         }
     }
+    fillHoldTail(u_flat);
 }
 
 float KoopmanMpcController::mpcCost(const std::array<float, 6>& state0,
@@ -95,8 +114,9 @@ std::vector<float> KoopmanMpcController::numericGrad(
     clampUFlat(u_flat);
     const float f0 = mpcCost(state0, ref, u_flat, u_prev);
     const float eps = 1e-3f;
+    const size_t n_opt = static_cast<size_t>(cfg_.opt_control_steps * 4);
     std::vector<float> grad(u_flat.size(), 0.f);
-    for (size_t i = 0; i < u_flat.size(); ++i) {
+    for (size_t i = 0; i < n_opt; ++i) {
         auto up = u_flat;
         up[i] += eps;
         clampUFlat(up);
@@ -110,6 +130,7 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     const std::array<float, 6>& state0,
     const std::vector<std::array<float, 6>>& ref_window) {
     const int H = cfg_.horizon;
+    const size_t n_opt = static_cast<size_t>(cfg_.opt_control_steps * 4);
     std::vector<float> u(H * 4);
     if (has_warm_) {
         for (int i = 0; i < H - 1; ++i) {
@@ -153,7 +174,7 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
         const float t = static_cast<float>(it + 1);
         const float bc1 = 1.f - std::pow(beta1, t);
         const float bc2 = 1.f - std::pow(beta2, t);
-        for (size_t i = 0; i < u.size(); ++i) {
+        for (size_t i = 0; i < n_opt; ++i) {
             m[i] = beta1 * m[i] + (1.f - beta1) * grad[i];
             v[i] = beta2 * v[i] + (1.f - beta2) * grad[i] * grad[i];
             const float m_hat = m[i] / bc1;
@@ -162,6 +183,7 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
         }
     }
 
+    clampUFlat(best_u);
     u_warm_ = best_u;
     has_warm_ = true;
 
@@ -197,6 +219,7 @@ MpcTrajectory KoopmanMpcController::simulate(
                 u_warm_[i * 4 + j] = (*ref_ctrl)[i][j];
             }
         }
+        fillHoldTail(u_warm_);
         has_warm_ = true;
     }
 
@@ -219,11 +242,7 @@ MpcTrajectory KoopmanMpcController::simulate(
         for (int j = 0; j < 4; ++j) {
             u_roll[j] = u_opt[j];
         }
-        for (int i = 1; i < H; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                u_roll[i * 4 + j] = u_opt[j];
-            }
-        }
+        fillHoldTail(u_roll);
         auto next = model_.rollout(cur, u_roll, cfg_.dt);
         cur = statesRow(next, 1);
         traj.state[t + 1] = cur;

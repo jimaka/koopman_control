@@ -47,6 +47,7 @@ private:
                                    const std::array<float, 4>& u_prev) const;
 
     void clampUFlat(std::vector<float>& u_flat) const;
+    void fillHoldTail(std::vector<float>& u_flat) const;
 
     KoopmanOnnxModel model_;
     MpcConfig cfg_;
