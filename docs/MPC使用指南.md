@@ -9,9 +9,16 @@
 | Python 控制器 | `koopman/mpc/controller.py` |
 | Python CLI | `scripts/mpc_track.py` |
 | 可导出 rollout | `koopman/export/rollout.py` |
-| C++ MPC | `cpp/koopman_mpc/` |
-| ONNX 导出 / 验证 | `cpp/koopman_mpc/scripts/export_onnx.py`、`verify_pipeline.py` |
-| 默认模型 | `checkpoints/koopman_v3a_best.pth` |
+| C++ 控制库（v4 主推） | `cpp/koopman_control/` |
+| C++ demo / 构建 | `cpp/koopman_mpc/` |
+| MPC 默认配置 | `cpp/koopman_control/config/mpc_config.yaml` |
+| v4 ONNX 导出 | `new_v4_dict_input/export_v4_onnx.py` |
+| v3 ONNX 导出 / 验证 | `cpp/koopman_mpc/scripts/export_onnx.py`、`verify_pipeline.py` |
+| 模型 I/O 接口（中文） | `cpp/koopman_control/模型输入输出接口说明.md` |
+| 默认模型（v3 短 horizon） | `checkpoints/koopman_v3a_best.pth` |
+| 默认模型（v4 20s） | `checkpoints/run_v4_20260520_034545/koopman_v4_best.pth` |
+
+> **版本说明**：v3a 常用 `horizon=20`（2 s）；v4 部署为 `horizon=200`（20 s @ dt=0.1）。ONNX 的 H 在导出时固定，MPC 配置须与之完全一致。
 
 ---
 
@@ -48,16 +55,21 @@ flowchart LR
     end
 ```
 
-1. **预测模型**：已训练的 `HorizontalKoopmanModelV3`（与 `scripts/eval.py` 相同 checkpoint）。
-2. **状态**：平面位姿 `(x, y, ψ)` + 船体速度 `(u, v, r)`，共 6 维；控制为 4 维推进器 `[左油门, 左舵角, 右油门, 右舵角]`。
-3. **滚动时域**：每步优化未来 `H`（默认 20）个控制，只执行第一个，再重新优化（receding horizon）。
+1. **预测模型**：v3 为 `HorizontalKoopmanModelV3`；v4 为 `HorizontalKoopmanModelV4DictInput`（见 `new_v4_dict_input/`）。
+2. **状态**：平面位姿 `(x, y, ψ)` + 船体速度 `(u, v, r)`，共 6 维；控制为 4 维 `[左油门, 左舵角, 右油门, 右舵角]`。
+3. **滚动时域**：每步优化未来 `H` 个细步控制（或 `H / control_hold_steps` 个独立控制块），只执行第一个 `u₀`，再重新优化。
 4. **代价函数**（最小化）：
    - 位置误差 `w_xy · ||(x,y) - (x_ref,y_ref)||²`
    - 艏向误差 `w_yaw · (ψ - ψ_ref)²`（角度差归一化到 [-π,π]）
    - 速度误差 `w_vel · ||(u,v,r) - ref||²`
    - 控制幅值 `w_u · ||u||²`
-   - 控制变化率 `w_du · ||Δu||²`
-5. **约束**：油门 ∈ [-100, 100]，舵角 ∈ [-35, 35]（与数据集一致）；Python 在优化中对 `u` clamp，C++ 每步 Adam 更新后同样 clamp。
+   - 控制增量 `w_du · ||Δu||²`（可分组：`w_du_throttle` / `w_du_rudder`）
+5. **约束**：
+   - 盒约束：油门 ∈ [-100, 100]，舵角 ∈ [-35, 35]（与数据集一致）
+   - **变化速率**（可选）：`throttle_du_max` / `rudder_du_max` 限制相邻控制块之间的最大变化；也可用 `du_max[4]` 逐通道覆盖
+   - **控制块零阶保持**（v4 C++ 默认）：`control_hold_steps=10` 表示每 1 s（10×0.1 s）才允许变一次控制，预测仍用 200 步细 rollout
+
+Python 在 **控制块空间**（或逐步空间，hold=1 时等价）优化后展开为完整 `u_seq`，再送入 ONNX / PyTorch rollout。
 
 位姿积分与评估脚本一致（船体坐标系，固定 `dt=0.1 s`）：
 
@@ -79,10 +91,21 @@ flowchart LR
 | **优化器** | `torch.optim.Adam` | 自实现 **Adam**（β₁=0.9, β₂=0.999） |
 | **梯度** | PyTorch **autograd**（可微 rollout） | **前向差分**数值梯度（ε=1e-3） |
 | **动力学前向** | PyTorch 模型 | **ONNX Runtime**（`koopman_rollout.onnx`） |
-| **默认 `opt_iters`** | 40 | 40（冒烟可降至 8） |
+| **默认 `opt_iters`** | 40 | 15（v4 `mpc_config.yaml`）；冒烟可更低 |
 | **专用 NLP 求解器** | 无（非 Ipopt/OSQP） | 无 |
+| **外部连接库** | PyTorch | **ONNX Runtime** + yaml-cpp；Adam **非**独立库，为源码内实现 |
 
-因此 C++ 每步 MPC 需多次 ONNX 前向（约 `80 × opt_iters` 次，H=20 时），通常比 Python 慢，但便于无 PyTorch 环境部署。
+**Adam 不是单独链接的库**：C++ 侧在 `mpc_controller.cpp` 内手写 Adam（β₁=0.9, β₂=0.999）与前向差分梯度；编译时链接的主要是 **ONNX Runtime**（`libonnxruntime.so`）与 **yaml-cpp**。
+
+**单次 ONNX 调用 = 整段 H 步 rollout**（非逐步调用 200 次）。MPC 求解则需在 Adam 迭代中多次调用 ONNX：
+
+| 配置示例 | 优化变量数 | 约 ONNX 前向次数 / 次 `solveStep` |
+|----------|------------|-------------------------------------|
+| v3：H=20，无 blocking | 20×4=80 | ≈ `80 × opt_iters` |
+| v4：H=200，hold=10，opt=40 步 | 4×4=**16** | ≈ `(16+1) × opt_iters` ≈ **240**（opt_iters=15） |
+| v4：H=200，hold=1，opt=40 步 | 40×4=160 | ≈ `(160+1) × opt_iters` |
+
+因此 v4 启用 **control move blocking** 可显著降低 C++ MPC 计算量。详见 `cpp/koopman_control/config/mpc_config.yaml`。
 
 > **关于 CppAD + Ipopt**：可与 Ipopt 组成标准 NLP 求解器，但要求目标/动力学在 CppAD 可微代码中表达；**ONNX Runtime 前向无法直接接入 CppAD**。若未来改用 CppAD+Ipopt，需在 C++ 中重写可微 rollout（或导出权重到 CppAD 图），ONNX 仍可作为部署对照。
 
@@ -178,20 +201,54 @@ from koopman.mpc import KoopmanMPC, MPCConfig, segment_to_state_ctrl, tracking_m
 raw = np.load("data/koopman_test.npz", allow_pickle=True)["datas"]
 ref_state, ref_ctrl = segment_to_state_ctrl(raw[0])
 
-cfg = MPCConfig(horizon=20, opt_iters=40, w_xy=10.0, w_yaw=5.0)
+cfg = MPCConfig(
+    horizon=20,
+    opt_iters=40,
+    control_hold_steps=1,  # v4 长 horizon 可设 10（1 s 变一次）
+    w_xy=10.0,
+    w_yaw=5.0,
+)
 mpc = KoopmanMPC.from_checkpoint("checkpoints/koopman_v3a_best.pth", cfg)
 
 traj = mpc.simulate(ref_state[0], ref_state, ref_ctrl=ref_ctrl, max_steps=80)
 print("xy RMSE [m]:", tracking_metrics(traj)["xy_rmse_m"])
 ```
 
-`MPCConfig` 完整字段见 `koopman/mpc/controller.py`。
+`MPCConfig` 完整字段见 `koopman/mpc/controller.py`。除 CLI 已暴露项外，Python/C++ 还支持：
+
+| 字段 | v4 默认 | 说明 |
+|------|---------|------|
+| `control_hold_steps` | `1`（Py 未配 yaml 时） / `10`（C++ yaml） | 每 N 个细步共用一个控制；`10` @ dt=0.1 → 1 s 变一次 |
+| `control_period` | — | C++ yaml 可选；`round(period/dt)` 换算为 hold_steps |
+| `opt_control_steps` | `horizon`（Py） / `40`（C++） | 仅优化前 N 个**细步**；配合 hold=10 → 优化前 4 块 |
+| `w_du_throttle` / `w_du_rudder` | `-1`（回退 `w_du`） / `0.05` / `0.08` | 油门 (0,2) / 舵角 (1,3) 增量软惩罚 |
+| `throttle_du_max` / `rudder_du_max` | `0` / `15` / `3.5` | 块间最大变化硬约束；≤0 不限制 |
+| `du_max` | 4 元组 | 可选，逐通道覆盖上述分组 |
+
+C++ 配置见 `cpp/koopman_control/config/mpc_config.yaml`，由 `loadMpcConfigFromYaml()` 加载。
 
 ---
 
 ## 6. C++ 使用（ONNX）
 
-### 6.1 导出与构建
+### 6.1 v4 推荐流程（H=200）
+
+```bash
+# 导出 v4 ONNX（20 s / H=200）
+python3 new_v4_dict_input/export_v4_onnx.py \
+  --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
+  --pred_len 200 \
+  --out_dir cpp/koopman_mpc/weights
+
+# 构建控制库 + demo（需 ONNX Runtime）
+bash cpp/koopman_mpc/build_v4.sh
+```
+
+控制参数编辑：`cpp/koopman_control/config/mpc_config.yaml`（horizon、hold、速率限制、Adam 迭代等）。
+
+集成与 motion.cpp 对接见 [`cpp/koopman_control/README_CN.md`](../cpp/koopman_control/README_CN.md) 与 [`模型输入输出接口说明.md`](../cpp/koopman_control/模型输入输出接口说明.md)。
+
+### 6.2 v3 流程（H=20，历史路径）
 
 ```bash
 # 完整流程：依赖、下载 ORT、导出 ONNX、编译、rollout/MPC 验证
@@ -216,7 +273,7 @@ python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 
 可选：`export_torchscript.py` 仍可生成 `koopman_rollout.pt`，但 **C++ MPC 默认读 ONNX**。
 
-### 6.2 运行
+### 6.3 运行 demo
 
 ```bash
 export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_PATH
@@ -231,7 +288,7 @@ export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_P
     --ref cpp/koopman_mpc/weights/cpp_test_ref.json
 ```
 
-**注意**：ONNX 导出时 **固定 `horizon=20`**，`--horizon` 必须为 20。
+**注意**：v3 导出 ONNX 时 **固定 `horizon=20`**，`--horizon` 必须为 20。v4 须与 `--pred_len` 一致（当前 **200**）。
 
 ---
 
@@ -239,14 +296,19 @@ export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_P
 
 | 现象 | 建议 |
 |------|------|
-| 平面误差偏大 | 增大 `--w_xy`（如 20–50），或增加 `--opt_iters` |
-| 艏向振荡 | 增大 `--w_yaw`，增大 `--w_du` 抑制控制抖动 |
+| 平面误差偏大 | 增大 `w_xy`（如 20–50），或增加 `opt_iters` |
+| 艏向振荡 | 增大 `w_yaw`；增大 `w_du_rudder` 或减小 `rudder_du_max` |
+| 油门变化过猛 | 增大 `w_du_throttle` 或减小 `throttle_du_max` |
+| 控制块内仍希望更平滑 | 减小 `control_hold_steps`（更细）或加强 `w_du_*` |
+| 执行器只能 1 s 更新一次 | `control_hold_steps: 10`（@ dt=0.1）；或 yaml 设 `control_period: 1.0` |
 | 控制饱和频繁 | 检查参考航迹是否超出训练分布；略降 `w_xy` |
-| Python 优化太慢 | 减少 `--steps` 或 `--opt_iters` |
-| C++ 优化太慢 | 减少 `--opt_iters`（冒烟默认 8）；数值梯度代价高 |
+| Python 优化太慢 | 减少 `--steps` 或 `--opt_iters`；增大 `control_hold_steps` |
+| C++ 优化太慢 | 减小 `opt_control_steps` / 增大 `control_hold_steps` / 减少 `opt_iters` |
 | 圆周/直线跟踪差 | 优先用 `--ref segment` |
 
-`horizon` 建议保持 **20**，与 v3a 训练时的多步预测长度一致。
+`horizon` 须与 checkpoint / ONNX 导出时的 `pred_len` 一致（v3a：**20**；v4 20 s 模型：**200**）。
+
+实船集成时，建议通过 `MotionSolveInput.has_u_prev` 传入上一拍实际下发控制，使速率约束基于真实执行量（见 `motion_bridge.hpp`）。
 
 ---
 
@@ -257,12 +319,13 @@ export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_P
 | 训练 | `scripts/train_v2.py` | 得到 `checkpoints/koopman_v3a_best.pth` |
 | 开环评估 | `scripts/eval.py` | 固定控制序列 rollout |
 | 闭环 MPC（Python） | `scripts/mpc_track.py` | Adam + autograd |
-| 闭环 MPC（C++） | `cpp/koopman_mpc/build.sh` | ONNX + 数值梯度 Adam |
+| 闭环 MPC（C++） | `cpp/koopman_control/` + `cpp/koopman_mpc/` | ONNX + 数值梯度 Adam |
+| v4 部署配置 | `cpp/koopman_control/config/mpc_config.yaml` | hold、速率、权重 |
 
 MPC **不重新训练模型**。更换 checkpoint 后：
 
 - Python：仅需 `--ckpt` 指向新文件；
-- C++：重新运行 `build.sh` 或 `export_onnx.py` 更新 `koopman_rollout.onnx`。
+- C++：重新运行 `export_v4_onnx.py` / `export_onnx.py` 并更新 `koopman_rollout.onnx`；同步 `mpc_config.yaml` 中 `horizon` 与 `control_hold_steps`。
 
 ---
 
@@ -280,6 +343,12 @@ MPC **不重新训练模型**。更换 checkpoint 后：
 **Q: MPC 与实船闭环的区别？**  
 本仓库为**仿真闭环**；上实船需状态估计、执行器接口与安全限幅。
 
+**Q: Adam 是单独链接的库吗？**  
+否。C++ 侧 Adam 与数值梯度均在 `mpc_controller.cpp` 内实现；链接的是 **ONNX Runtime** 与 **yaml-cpp**。
+
+**Q: 预测 200 步，控制能否 1 s 才变一次？**  
+可以。设 `control_hold_steps: 10`（@ dt=0.1），或 `control_period: 1.0`。ONNX 仍接收 `(200, 4)`，块内行相同。
+
 **Q: 能否用 CppAD/Ipopt 替换 C++ 求解器？**  
 可以，但需可微 C++ rollout，不能仅靠 ONNX 黑盒；见 §3。
 
@@ -293,7 +362,10 @@ python3 scripts/mpc_track.py --smoketest
 python3 scripts/mpc_track.py --segment 0 --steps 80 --opt_iters 30 \
     --out_dir eval_out/mpc_test_seg0
 
-# C++ 全流程
+# v4 C++ 全流程（需先导出 H=200 ONNX）
+bash cpp/koopman_mpc/build_v4.sh
+
+# v3 C++ 全流程
 bash cpp/koopman_mpc/build.sh
 python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 ```

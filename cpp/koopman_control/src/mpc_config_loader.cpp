@@ -1,7 +1,13 @@
+/**
+ * @file mpc_config_loader.cpp
+ * @brief YAML 配置加载与 ONNX horizon 同步
+ */
+
 #include "koopman_control/mpc_config_loader.hpp"
 
 #include <yaml-cpp/yaml.h>
 
+#include <cmath>
 #include <stdexcept>
 
 namespace koopman_control {
@@ -25,6 +31,16 @@ MpcConfig loadMpcConfigFromYaml(const std::string& yaml_path, MpcConfig cfg) {
     if (node["dt"]) {
         cfg.dt = node["dt"].as<float>();
     }
+    if (node["control_hold_steps"]) {
+        cfg.control_hold_steps = node["control_hold_steps"].as<int>();
+    }
+    if (node["control_period"]) {
+        const float period = node["control_period"].as<float>();
+        if (period > 0.f && cfg.dt > 0.f) {
+            cfg.control_hold_steps =
+                std::max(1, static_cast<int>(std::lround(period / cfg.dt)));
+        }
+    }
     if (node["w_xy"]) {
         cfg.w_xy = node["w_xy"].as<float>();
     }
@@ -39,6 +55,23 @@ MpcConfig loadMpcConfigFromYaml(const std::string& yaml_path, MpcConfig cfg) {
     }
     if (node["w_du"]) {
         cfg.w_du = node["w_du"].as<float>();
+    }
+    if (node["w_du_throttle"]) {
+        cfg.w_du_throttle = node["w_du_throttle"].as<float>();
+    }
+    if (node["w_du_rudder"]) {
+        cfg.w_du_rudder = node["w_du_rudder"].as<float>();
+    }
+    if (node["throttle_du_max"]) {
+        cfg.throttle_du_max = node["throttle_du_max"].as<float>();
+    }
+    if (node["rudder_du_max"]) {
+        cfg.rudder_du_max = node["rudder_du_max"].as<float>();
+    }
+    if (node["du_max"] && node["du_max"].IsSequence() && node["du_max"].size() == 4) {
+        for (int j = 0; j < 4; ++j) {
+            cfg.du_max[j] = node["du_max"][j].as<float>();
+        }
     }
     if (node["opt_iters"]) {
         cfg.opt_iters = node["opt_iters"].as<int>();

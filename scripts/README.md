@@ -11,4 +11,4 @@
 | `reselect_v3a.py` | v3a 离线 composite 重选 best ckpt |
 | `data/bag_test.py` 等 | 从 rosbag 构建 / 合并 / 检查数据集 |
 
-C++ ONNX 导出与验证见 `cpp/koopman_mpc/scripts/`（`export_onnx.py`、`verify_pipeline.py`）。
+C++ / v4：见 `new_v4_dict_input/export_v4_onnx.py`（H=200 ONNX）、`cpp/koopman_mpc/build_v4.sh`；MPC 配置见 `cpp/koopman_control/config/mpc_config.yaml`。v3 导出见 `cpp/koopman_mpc/scripts/`。

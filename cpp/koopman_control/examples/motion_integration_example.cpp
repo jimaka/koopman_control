@@ -1,8 +1,10 @@
 /**
  * @file motion_integration_example.cpp
- * @brief 演示如何在 motion.cpp 风格代码中调用 KoopmanMotionMpc（无 ROS 依赖的独立示例）。
+ * @brief motion.cpp 集成示例（无 ROS 依赖）
  *
- * 编译（在 koopman_control/build 目录，且已 cmake）：
+ * 演示：加载 YAML + ONNX → 构造参考点 → 调用 KoopmanMotionMpc::solve
+ *
+ * 编译示例（在 koopman_control/build 目录）：
  *   g++ -std=c++17 ../examples/motion_integration_example.cpp \
  *       -I../include -L. -lkoopman_control \
  *       -I$ONNXRUNTIME_ROOT/include -L$ONNXRUNTIME_ROOT/lib -lonnxruntime \
@@ -19,9 +21,11 @@ int main() {
         const std::string yaml_path = "cpp/koopman_control/config/mpc_config.yaml";
         const std::string onnx_path = "cpp/koopman_mpc/weights/koopman_rollout.onnx";
 
+        // 1. 加载 MPC 参数
         koopman_control::MpcConfig cfg =
             koopman_control::loadMpcConfigFromYaml(yaml_path);
 
+        // 2. 配置 motion 参考时间轴（与 PointChange 中 mpc_during 对齐）
         koopman_control::MotionBridgeConfig bridge;
         bridge.ref_dt = 0.1f;
         bridge.ref_time_offset = 0.5f;
@@ -29,7 +33,7 @@ int main() {
         koopman_control::KoopmanMotionMpc mpc(onnx_path, cfg, bridge);
         std::cout << "ONNX horizon = " << mpc.horizon() << "\n";
 
-        // 模拟 motion.cpp 中 PointChange 生成的 40 个参考点
+        // 3. 构造输入：模拟 PointChange 生成的 40 个船体坐标参考点
         koopman_control::MotionSolveInput in;
         in.u = 1.5f;
         in.v = 0.05f;
@@ -44,6 +48,7 @@ int main() {
             in.ref[i].r = 0.f;
         }
 
+        // 4. 单步 MPC 求解
         koopman_control::MotionSolveOutput out;
         if (!mpc.solve(in, out)) {
             std::cerr << "solve failed\n";

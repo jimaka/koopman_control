@@ -1,3 +1,8 @@
+/**
+ * @file koopman_onnx_model.cpp
+ * @brief Koopman ONNX 模型加载与 rollout 推理实现
+ */
+
 #include "koopman_control/koopman_onnx_model.hpp"
 
 #include <onnxruntime_cxx_api.h>
@@ -28,15 +33,16 @@ KoopmanOnnxModel::KoopmanOnnxModel(KoopmanOnnxModel&&) noexcept = default;
 KoopmanOnnxModel& KoopmanOnnxModel::operator=(KoopmanOnnxModel&&) noexcept = default;
 
 int KoopmanOnnxModel::readHorizonFromSession() const {
+    Ort::Session* session = session_.get();
     Ort::AllocatorWithDefaultOptions allocator;
-    const size_t n_inputs = session_->GetInputCount();
+    const size_t n_inputs = session->GetInputCount();
     for (size_t i = 0; i < n_inputs; ++i) {
-        auto name = session_->GetInputNameAllocated(i, allocator);
+        auto name = session->GetInputNameAllocated(i, allocator);
         if (std::string(name.get()) != "u_seq") {
             continue;
         }
-        auto type_info = session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo();
-        const auto shape = type_info.GetShape();
+        const auto shape =
+            session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
         if (shape.size() != 2 || shape[1] != 4) {
             throw std::runtime_error("ONNX u_seq input must have shape [H, 4]");
         }
@@ -51,6 +57,7 @@ int KoopmanOnnxModel::readHorizonFromSession() const {
 std::vector<float> KoopmanOnnxModel::rollout(const std::array<float, 6>& state0,
                                              const std::vector<float>& u_seq_flat,
                                              float dt) const {
+    Ort::Session* session = session_.get();
     const int64_t H = horizon_;
     if (static_cast<int64_t>(u_seq_flat.size()) != H * 4) {
         throw std::runtime_error("u_seq_flat size must be H*4 (H=" + std::to_string(H) + ")");
@@ -75,8 +82,8 @@ std::vector<float> KoopmanOnnxModel::rollout(const std::array<float, 6>& state0,
     const char* output_names[] = {"states"};
     std::array<Ort::Value, 3> inputs{std::move(s0_tensor), std::move(u_tensor), std::move(dt_tensor)};
 
-    auto outputs = session_->Run(Ort::RunOptions{nullptr}, input_names, inputs.data(), inputs.size(),
-                                 output_names, 1);
+    auto outputs = session->Run(Ort::RunOptions{nullptr}, input_names, inputs.data(), inputs.size(),
+                                output_names, 1);
 
     float* out_data = outputs[0].GetTensorMutableData<float>();
     auto out_info = outputs[0].GetTensorTypeAndShapeInfo();

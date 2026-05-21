@@ -5,7 +5,9 @@
 **文档**：
 
 - [docs/项目指南.md](docs/项目指南.md) — 项目总览与全流程
-- [docs/MPC使用指南.md](docs/MPC使用指南.md) — MPC 航迹跟踪原理、用法与验证
+- [docs/MPC使用指南.md](docs/MPC使用指南.md) — MPC 原理、用法与验证
+- [cpp/koopman_control/模型输入输出接口说明.md](cpp/koopman_control/模型输入输出接口说明.md) — v4 ONNX/MPC 接口（中文）
+- [cpp/koopman_control/README_CN.md](cpp/koopman_control/README_CN.md) — C++ 库与 motion 集成
 
 ## 仓库结构
 
@@ -29,8 +31,9 @@
 │   └── data/                 # 数据集处理（rosbag → npz）
 ├── data/                     # 所有 .npz 数据集
 ├── checkpoints/              # 预训练权重
-├── cpp/koopman_mpc/          # C++ MPC（ONNX Runtime）
-│   └── scripts/              # PT→ONNX 导出与验证
+├── cpp/koopman_control/      # C++ MPC 控制库（v4 主推，motion 桥接）
+├── cpp/koopman_mpc/          # C++ demo / 构建脚本（ONNX Runtime）
+├── new_v4_dict_input/        # v4 训练、导出、ONNX benchmark
 ├── docs/                     # 项目指南
 ├── logs/                     # 训练日志（gitignore）
 └── eval_out/                 # 评估 / MPC 输出（gitignore）
@@ -60,11 +63,20 @@ python3 scripts/mpc_track.py --segment 0 --steps 150 --out_dir eval_out/mpc
 
 ## C++ MPC（ONNX）
 
+**v4（H=200，20 s）**
+
+```bash
+python3 new_v4_dict_input/export_v4_onnx.py \
+  --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
+  --pred_len 200 --out_dir cpp/koopman_mpc/weights
+bash cpp/koopman_mpc/build_v4.sh
+```
+
+**v3（H=20）**
+
 ```bash
 bash cpp/koopman_mpc/build.sh
-# 导出 ONNX 并验证 PT/ONNX/C++ 精度
-python3 cpp/koopman_mpc/scripts/export_onnx.py
 python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 ```
 
-见 [cpp/koopman_mpc/README.md](cpp/koopman_mpc/README.md)。
+见 [cpp/koopman_mpc/README.md](cpp/koopman_mpc/README.md) 与 [cpp/koopman_control/config/mpc_config.yaml](cpp/koopman_control/config/mpc_config.yaml)。

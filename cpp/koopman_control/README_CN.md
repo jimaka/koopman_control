@@ -1,5 +1,7 @@
 # Koopman MPC 控制库 — 中文说明
 
+> **模型 I/O 接口（图文并茂）** → [`模型输入输出接口说明.md`](模型输入输出接口说明.md)
+
 ## 1. 概述
 
 `cpp/koopman_control/` 是将 **Koopman v4 + ONNX Runtime** 的 MPC 控制逻辑独立封装后的 C++ 库，供：
@@ -191,15 +193,37 @@ Koopman 模型输出 **4 维抽象控制** `u[0..3]`（与训练数据集 `ctrl`
 
 ## 6. 参数说明
 
+配置文件：`config/mpc_config.yaml`（由 `loadMpcConfigFromYaml()` 加载）。
+
 | 参数 | 默认 | 说明 |
 |------|------|------|
 | `horizon` | 200 | 与 ONNX 一致，20s @ dt=0.1 |
-| `opt_control_steps` | 40 | 仅优化前 4s 控制，降低计算量 |
-| `opt_iters` | 15 | Adam 迭代次数 |
+| `opt_control_steps` | 40 | 仅优化前 N 个**细步**；hold=10 时 → 4 个控制块 |
+| `control_hold_steps` | 10 | 每 N 细步共用一个控制；10 → **1 s 变一次** |
+| `control_period` | — | 可选；`round(period/dt)` 换算 hold_steps |
 | `dt` | 0.1 | 与训练/ONNX 一致 |
+| `w_xy` / `w_yaw` / `w_vel` | 10 / 5 / 0.5 | 跟踪权重 |
+| `w_u` | 0.0001 | 控制幅值惩罚 |
+| `w_du` | 0.05 | 增量惩罚（全局默认） |
+| `w_du_throttle` / `w_du_rudder` | 0.05 / 0.08 | 油门 (0,2) / 舵角 (1,3) 分组惩罚 |
+| `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | **控制块间**最大变化；≤0 不限制 |
+| `du_max` | — | 可选 `[4]` 逐通道覆盖 |
+| `opt_iters` / `opt_lr` | 15 / 0.05 | Adam 迭代与学习率（源码内实现，非外部库） |
+| `u_min` / `u_max` | ±100 / ±35 | 4 维控制盒约束 |
 | `motion_ref_dt` | 0.1 | motion `PointChange` 参考点时间间隔 |
 
-单步 ONNX rollout（H=200）在 CPU 上约 **数毫秒～数十毫秒**；完整 MPC 求解取决于 `opt_control_steps × opt_iters`，建议实船控制周期 **≥ 0.5s** 或减小 `opt_control_steps`。
+**控制块示意**（`control_hold_steps=10`，`horizon=200`）：
+
+```
+u_blocks[0] → u_seq[0:9]   相同
+u_blocks[1] → u_seq[10:19] 相同
+…
+u_blocks[19] → u_seq[190:199] 相同
+```
+
+**依赖库**：编译链接 **ONNX Runtime**、**yaml-cpp**；Adam 优化器在 `mpc_controller.cpp` 内，**不**单独链接。
+
+单步 ONNX rollout（H=200）在 CPU 上约 **数毫秒～数十毫秒**；完整 MPC 求解约 **`opt_control_blocks × 4 × opt_iters`** 次 rollout（默认 4×4×15=240），建议实船控制周期 **≥ 0.5 s**。
 
 ---
 

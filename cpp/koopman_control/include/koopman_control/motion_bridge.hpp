@@ -2,10 +2,12 @@
 
 /**
  * @file motion_bridge.hpp
- * @brief 供 motion.cpp（Elane ship_control 节点）调用的 Koopman MPC 桥接层。
+ * @brief 供 motion.cpp（Elane ship_control 节点）调用的 Koopman MPC 桥接层
  *
- * 不依赖 ROS；仅使用标准库与 koopman_control 库本身。
- * motion.cpp 将 PointChange() 生成的船体坐标参考点传入本接口即可。
+ * 设计原则：
+ * - 不依赖 ROS，仅标准库 + koopman_control
+ * - 输入 motion 侧 PointChange() 生成的船体坐标参考点
+ * - 内部重采样到 ONNX horizon 并调用 KoopmanMpcController
  */
 
 #include <array>
@@ -17,41 +19,45 @@
 
 namespace koopman_control {
 
-/** 与 motion.cpp / ship_control::mpc_state 对齐的单点参考（船体坐标系） */
+/** 单点参考状态（船体坐标系，与 ship_control::mpc_state 字段对应） */
 struct MotionRefPoint {
-    float x = 0.f;
-    float y = 0.f;
-    float psi = 0.f;  /** 航向 yaw，rad */
-    float u = 0.f;    /** 纵向速度 */
-    float v = 0.f;    /** 横向速度 */
-    float r = 0.f;    /** 艏摇角速度，缺省可填 0 */
+    float x = 0.f;    ///< 纵向位置 (m)
+    float y = 0.f;    ///< 横向位置 (m)
+    float psi = 0.f;  ///< 航向 yaw (rad)
+    float u = 0.f;    ///< 纵向速度 (m/s)
+    float v = 0.f;    ///< 横向速度 (m/s)
+    float r = 0.f;    ///< 艏摇角速度 (rad/s)，缺省可填 0
 };
 
-/** motion 侧参考点时间轴参数（对应 PointChange 中 mpc_during） */
+/** motion 参考轨迹时间轴参数（对应 PointChange 中 mpc_during） */
 struct MotionBridgeConfig {
-    /** motion 参考点之间的时间间隔，秒；通常等于 mpc_during */
-    float ref_dt = 0.1f;
-    /** PointChange 采样时间偏置，秒；原代码为 i*mpc_during+0.5 中的 0.5 */
-    float ref_time_offset = 0.5f;
+    float ref_dt = 0.1f;           ///< 相邻参考点间隔 (s)，通常 = mpc_during
+    float ref_time_offset = 0.5f;  ///< 首点采样偏置 (s)，对应 i*mpc_during+0.5
 };
 
+/** 单步 MPC 求解输入 */
 struct MotionSolveInput {
-    /** 船体坐标系下当前状态：位置取原点，即 motion 中 ini_state 前 3 维为 0 */
-    float u = 0.f;
-    float v = 0.f;
-    float r = 0.f;
+    float u = 0.f;  ///< 当前纵向速度
+    float v = 0.f;  ///< 当前横向速度
+    float r = 0.f;  ///< 当前艏摇角速度
+    /** 上一步实际下发的 4 维控制；has_u_prev=true 时用于变化速率约束 */
+    std::array<float, 4> u_prev{};
+    bool has_u_prev = false;
     /** PointChange / mpc_states_gl.targets 填写的参考序列（长度 >= 1） */
     std::vector<MotionRefPoint> ref;
 };
 
+/** 单步 MPC 求解输出 */
 struct MotionSolveOutput {
-    std::array<float, 4> control{};
-    float cost = 0.f;
-    int horizon = 0;
+    std::array<float, 4> control{};  ///< 4 维 Koopman 控制量 u0
+    float cost = 0.f;                ///< 优化代价
+    int horizon = 0;                 ///< 当前 ONNX horizon
 };
 
 /**
- * @brief 面向 motion.cpp 的单步 MPC 求解器（加载 ONNX + 内部 KoopmanMpcController）。
+ * @brief 面向 motion.cpp 的单步 MPC 求解器
+ *
+ * 构造时加载 ONNX 并创建内部 KoopmanMpcController。
  */
 class KoopmanMotionMpc {
 public:
@@ -62,6 +68,7 @@ public:
     KoopmanMotionMpc(const KoopmanMotionMpc&) = delete;
     KoopmanMotionMpc& operator=(const KoopmanMotionMpc&) = delete;
 
+    /** 单步求解；成功返回 true 并写入 out */
     bool solve(const MotionSolveInput& in, MotionSolveOutput& out);
 
     int horizon() const;
@@ -75,7 +82,11 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-/** 将 MotionRefPoint 序列重采样为 Koopman MPC 所需的 H+1 个 6 维参考状态 */
+/**
+ * @brief 将 motion 稀疏参考重采样为 H+1 个 6 维状态
+ * @param mpc_dt   MPC/ONNX 时间步（cfg.dt）
+ * @param ref_dt   motion 参考点间隔（bridge.ref_dt）
+ */
 std::vector<std::array<float, 6>> resampleMotionRefToHorizon(
     const std::vector<MotionRefPoint>& ref,
     int horizon,

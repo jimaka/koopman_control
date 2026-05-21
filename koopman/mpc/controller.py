@@ -26,12 +26,19 @@ class MPCConfig:
 
     horizon: int = 20
     dt: float = 0.1
+    control_hold_steps: int = 1
+    opt_control_steps: int = 0  # 0 表示等于 horizon
     # 代价权重
     w_xy: float = 10.0
     w_yaw: float = 5.0
     w_vel: float = 0.5
     w_u: float = 1e-4
     w_du: float = 0.05
+    w_du_throttle: float = -1.0
+    w_du_rudder: float = -1.0
+    throttle_du_max: float = 0.0
+    rudder_du_max: float = 0.0
+    du_max: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
     # 求解
     opt_iters: int = 40
     opt_lr: float = 0.08
@@ -134,6 +141,7 @@ class KoopmanMPC:
         self.u_max = torch.tensor(self.cfg.u_max, device=self.device, dtype=torch.float32)
 
         self._u_warm: Optional[torch.Tensor] = None  # (H,4) 上一步解，用于 warm-start
+        self._u_applied: Optional[torch.Tensor] = None  # (4,) 上一步实际下发 u0
 
     @classmethod
     def from_checkpoint(cls, ckpt_path: str, cfg: Optional[MPCConfig] = None) -> "KoopmanMPC":
@@ -144,8 +152,83 @@ class KoopmanMPC:
     def _normalize_u(self, u_phys: torch.Tensor) -> torch.Tensor:
         return (u_phys - self.ctrl_mean) / self.ctrl_std
 
+    def _control_hold_steps(self) -> int:
+        return max(1, self.cfg.control_hold_steps)
+
+    def _num_control_blocks(self) -> int:
+        hold = self._control_hold_steps()
+        if self.cfg.horizon % hold != 0:
+            raise ValueError("horizon must be divisible by control_hold_steps")
+        return self.cfg.horizon // hold
+
+    def _opt_control_blocks(self) -> int:
+        hold = self._control_hold_steps()
+        opt_steps = self.cfg.opt_control_steps or self.cfg.horizon
+        opt_steps = max(1, min(self.cfg.horizon, opt_steps))
+        opt_blk = (opt_steps + hold - 1) // hold
+        return max(1, min(self._num_control_blocks(), opt_blk))
+
+    def _expand_blocks_to_seq(self, u_blocks: torch.Tensor) -> torch.Tensor:
+        hold = self._control_hold_steps()
+        H = self.cfg.horizon
+        expanded = u_blocks.repeat_interleave(hold, dim=0)
+        return expanded[:H]
+
+    def _extract_blocks_from_seq(self, u_seq: torch.Tensor) -> torch.Tensor:
+        hold = self._control_hold_steps()
+        idx = torch.arange(0, self.cfg.horizon, hold, device=u_seq.device)
+        return u_seq.index_select(0, idx)
+
+    def _enforce_blocking_on_seq(self, u_seq: torch.Tensor) -> torch.Tensor:
+        hold = self._control_hold_steps()
+        if hold <= 1:
+            return u_seq
+        return self._expand_blocks_to_seq(self._extract_blocks_from_seq(u_seq))
+
+    def _fill_hold_blocks(self, u_blocks: torch.Tensor) -> torch.Tensor:
+        u = u_blocks.clone()
+        opt_blk = self._opt_control_blocks()
+        n_blk = self._num_control_blocks()
+        if opt_blk >= n_blk:
+            return u
+        u[opt_blk:] = u[opt_blk - 1]
+        return u
+
+    def _clamp_blocks(self, u_blocks: torch.Tensor, u_prev: torch.Tensor) -> torch.Tensor:
+        u = self._clamp_u(u_blocks.clone())
+        opt_blk = self._opt_control_blocks()
+        for b in range(opt_blk):
+            prev = u_prev if b == 0 else u[b - 1]
+            for j in range(4):
+                dm = self._effective_du_max(j)
+                if dm is not None and dm > 0.0:
+                    u[b, j] = torch.clamp(u[b, j], prev[j] - dm, prev[j] + dm)
+        return u
+
+    def _finalize_blocks(self, u_blocks: torch.Tensor, u_prev: torch.Tensor) -> torch.Tensor:
+        u = self._clamp_blocks(u_blocks, u_prev)
+        u = self._fill_hold_blocks(u)
+        return self._expand_blocks_to_seq(u)
+
     def _clamp_u(self, u: torch.Tensor) -> torch.Tensor:
         return torch.max(torch.min(u, self.u_max), self.u_min)
+
+    def _effective_du_max(self, channel: int) -> Optional[float]:
+        dm = self.cfg.du_max[channel]
+        if dm > 0.0:
+            return dm
+        if channel in (0, 2):
+            return self.cfg.throttle_du_max if self.cfg.throttle_du_max > 0.0 else None
+        return self.cfg.rudder_du_max if self.cfg.rudder_du_max > 0.0 else None
+
+    def _du_weight(self, channel: int) -> float:
+        if channel in (0, 2):
+            return self.cfg.w_du_throttle if self.cfg.w_du_throttle >= 0.0 else self.cfg.w_du
+        return self.cfg.w_du_rudder if self.cfg.w_du_rudder >= 0.0 else self.cfg.w_du
+
+    def _clamp_u_seq(self, u_seq: torch.Tensor, u_prev: torch.Tensor) -> torch.Tensor:
+        blocks = self._extract_blocks_from_seq(u_seq)
+        return self._finalize_blocks(blocks, u_prev)
 
     def rollout(
         self,
@@ -207,7 +290,10 @@ class KoopmanMPC:
             + self.cfg.w_u * (u_seq ** 2).sum()
         )
         du = u_seq - torch.cat([u_prev.unsqueeze(0), u_seq[:-1]], dim=0)
-        c = c + self.cfg.w_du * (du ** 2).sum()
+        du_cost = 0.0
+        for j in range(4):
+            du_cost = du_cost + self._du_weight(j) * (du[:, j] ** 2).sum()
+        c = c + du_cost
         return c
 
     def solve(
@@ -215,6 +301,7 @@ class KoopmanMPC:
         state0: np.ndarray,
         ref_window: np.ndarray,
         u_init: Optional[np.ndarray] = None,
+        u_prev: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, float]:
         """求解长度为 horizon 的控制序列，返回 (u_opt, cost)。
 
@@ -225,36 +312,48 @@ class KoopmanMPC:
         """
         cfg = self.cfg
         H = cfg.horizon
+        n_blk = self._num_control_blocks()
         s0 = torch.tensor(state0, device=self.device, dtype=torch.float32)
         ref = torch.tensor(ref_window, device=self.device, dtype=torch.float32)
 
         if u_init is not None:
-            u0 = torch.tensor(u_init, device=self.device, dtype=torch.float32)
+            u0_blocks = self._extract_blocks_from_seq(
+                self._enforce_blocking_on_seq(
+                    torch.tensor(u_init, device=self.device, dtype=torch.float32)
+                )
+            )
         elif self._u_warm is not None:
-            # 移位 warm-start
-            w = self._u_warm.detach().clone()
-            u0 = torch.cat([w[1:], w[-1:]], dim=0)
+            w = self._enforce_blocking_on_seq(self._u_warm.detach().clone())
+            shifted = torch.cat([w[1:], w[-1:]], dim=0)
+            u0_blocks = self._extract_blocks_from_seq(shifted)
         else:
-            u0 = torch.zeros(H, 4, device=self.device)
+            u0_blocks = torch.zeros(n_blk, 4, device=self.device)
 
-        u0 = self._clamp_u(u0)
-        u_prev = u0[0].detach().clone()
-        u_param = u0.clone().requires_grad_(True)
+        if u_prev is not None:
+            u_prev_t = torch.tensor(u_prev, device=self.device, dtype=torch.float32)
+        elif self._u_applied is not None:
+            u_prev_t = self._u_applied.detach().clone()
+        else:
+            u_prev_t = torch.zeros(4, device=self.device)
+
+        u0_seq = self._finalize_blocks(u0_blocks, u_prev_t)
+        u_param = self._extract_blocks_from_seq(u0_seq).clone().requires_grad_(True)
         opt = torch.optim.Adam([u_param], lr=cfg.opt_lr)
 
-        best_u, best_cost = u0.clone(), float("inf")
+        best_u, best_cost = u0_seq.clone(), float("inf")
         for _ in range(cfg.opt_iters):
             opt.zero_grad()
-            u_clamped = self._clamp_u(u_param)
-            cost = self._mpc_cost(u_clamped.reshape(-1), s0, ref, u_prev)
+            u_clamped = self._finalize_blocks(u_param, u_prev_t)
+            cost = self._mpc_cost(u_clamped.reshape(-1), s0, ref, u_prev_t)
             cost.backward()
             opt.step()
             cval = float(cost.detach().cpu())
             if cval < best_cost:
                 best_cost = cval
-                best_u = self._clamp_u(u_param).detach().clone()
+                best_u = self._finalize_blocks(u_param, u_prev_t).detach().clone()
 
         self._u_warm = best_u.clone()
+        self._u_applied = best_u[0].clone()
         return best_u.cpu().numpy(), best_cost
 
     def simulate(
@@ -283,7 +382,8 @@ class KoopmanMPC:
         costs: List[float] = []
 
         if ref_ctrl is not None and len(ref_ctrl) >= H:
-            self._u_warm = torch.tensor(ref_ctrl[:H], dtype=torch.float32)
+            warm = torch.tensor(ref_ctrl[:H], dtype=torch.float32)
+            self._u_warm = self._enforce_blocking_on_seq(warm)
 
         for t in range(n_sim):
             end = min(t + H + 1, T)

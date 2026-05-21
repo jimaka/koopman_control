@@ -1,3 +1,11 @@
+/**
+ * @file motion_bridge.cpp
+ * @brief motion.cpp 桥接层：参考轨迹重采样 + 单步 MPC 求解
+ *
+ * motion 侧 PointChange() 通常只生成 mpc_steps 个参考点（如 20~40），
+ * 而 Koopman ONNX 需要 H+1 个参考（H=200）。本文件按时间轴线性插值对齐。
+ */
+
 #include "koopman_control/motion_bridge.hpp"
 
 #include <algorithm>
@@ -12,6 +20,7 @@ namespace koopman_control {
 
 namespace {
 
+/** 在 motion 参考序列上按时间 t_query 线性插值 */
 MotionRefPoint interpolateRef(const std::vector<MotionRefPoint>& ref, float t_query,
                               float ref_dt, float ref_time_offset) {
     if (ref.empty()) {
@@ -71,6 +80,7 @@ std::vector<std::array<float, 6>> resampleMotionRefToHorizon(
     return out;
 }
 
+/** KoopmanMotionMpc 内部实现（隐藏 ONNX 与 Controller 细节） */
 class KoopmanMotionMpc::Impl {
 public:
     Impl(const std::string& onnx_path, MpcConfig mpc_cfg, MotionBridgeConfig bridge_cfg)
@@ -99,8 +109,10 @@ bool KoopmanMotionMpc::solve(const MotionSolveInput& in, MotionSolveOutput& out)
     }
 
     const auto ref_window = buildRefWindow(in);
+    // motion 约定：船体坐标系原点为当前位置，故 x=y=yaw=0
     std::array<float, 6> state0{0.f, 0.f, 0.f, in.u, in.v, in.r};
-    auto [u_opt, cost] = impl_->controller_->solveStep(state0, ref_window);
+    const std::array<float, 4>* u_prev_ptr = in.has_u_prev ? &in.u_prev : nullptr;
+    auto [u_opt, cost] = impl_->controller_->solveStep(state0, ref_window, u_prev_ptr);
     out.control = u_opt;
     out.cost = cost;
     out.horizon = impl_->controller_->horizon();

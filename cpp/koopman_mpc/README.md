@@ -1,6 +1,6 @@
 # Koopman MPC — C++ 实现（ONNX Runtime）
 
-> **控制库已独立至 [`../koopman_control/`](../koopman_control/README_CN.md)**（含 motion.cpp 对接说明与中文文档）。  
+> **控制库已独立至 [`../koopman_control/`](../koopman_control/README_CN.md)**（含 motion.cpp 对接、YAML 配置与 [`模型输入输出接口说明.md`](../koopman_control/模型输入输出接口说明.md)）。  
 > 本目录保留 demo 程序、构建脚本与 ONNX 权重。
 
 基于 **ONNX Runtime** 的船舶航迹跟踪 MPC，动力学 rollout 与 Python 版 `koopman/export/rollout.py` 对齐。
@@ -9,72 +9,93 @@
 
 ```
 cpp/koopman_mpc/
-├── CMakeLists.txt
-├── build.sh                 # 下载 ORT、导出 ONNX、编译、全流程验证
-├── include/                 # ONNX 模型 + MPC
+├── CMakeLists.txt           # 链接 koopman_control 库
+├── build.sh                 # v3：下载 ORT、导出 H=20 ONNX、编译、验证
+├── build_v4.sh              # v4：H=200 ONNX + 编译（推荐）
+├── include/                 # 兼容头文件（转发至 koopman_control）
 ├── src/
-├── tools/verify_rollout.cpp # rollout 数值对照
+│   ├── main.cpp             # demo：koopman_mpc_cpp
+│   └── mpc_config.yaml      # demo 用配置副本
+├── tools/verify_rollout.cpp
 ├── scripts/
-│   ├── export_onnx.py       # .pth → .onnx + PT/ONNX 精度验证
-│   ├── export_cpp_test_ref.py
-│   └── verify_pipeline.py   # 端到端复验
+│   ├── export_onnx.py       # v3 .pth → .onnx
+│   └── verify_pipeline.py
 ├── third_party/onnxruntime/ # build.sh 自动下载（gitignore）
-└── weights/                 # 生成物（gitignore）
-    ├── koopman_rollout.onnx
-    └── ...
+└── weights/                 # koopman_rollout.onnx 等（gitignore）
 ```
 
 ## 依赖
 
 - C++17（g++）、CMake ≥ 3.18
+- **ONNX Runtime** C++、**yaml-cpp**（MPC 配置）
 - Python 3 + `torch`、`onnx`、`onnxruntime`、`onnxscript`（导出与验证）
 
-## 构建与验证
+> **Adam 优化器**在 `koopman_control` 源码内实现，**不**单独链接；编译产物主要依赖 `libonnxruntime.so`。
+
+## v4 构建与验证（H=200，推荐）
 
 在仓库根目录：
 
 ```bash
-bash cpp/koopman_mpc/build.sh
+# 1. 导出 v4 ONNX（20 s）
+python3 new_v4_dict_input/export_v4_onnx.py \
+  --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
+  --pred_len 200 \
+  --out_dir cpp/koopman_mpc/weights
+
+# 2. 下载 ORT、编译 demo
+bash cpp/koopman_mpc/build_v4.sh
 ```
 
-脚本将依次：
+MPC 参数（控制块、速率限制、权重）：[`../koopman_control/config/mpc_config.yaml`](../koopman_control/config/mpc_config.yaml)
 
-1. 下载 ONNX Runtime C++ 1.26
-2. 从 checkpoint 导出 `weights/koopman_rollout.onnx`（PT vs ONNX 误差 &lt; 1e-4）
-3. 编译 `koopman_mpc_cpp`、`verify_rollout`
-4. C++ rollout 与 Python 对照（&lt; 1e-3）
-5. MPC 冒烟测试
+| 关键参数 | v4 默认 | 含义 |
+|----------|---------|------|
+| `horizon` | 200 | 与 ONNX H 一致 |
+| `control_hold_steps` | 10 | 控制每 1 s 变一次 |
+| `opt_control_steps` | 40 | 优化前 4 s（4 块） |
+| `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | 块间变化速率 |
 
-仅复验 Python + 已编译 C++：
+## v3 构建（H=20，历史）
 
 ```bash
+bash cpp/koopman_mpc/build.sh
 python3 cpp/koopman_mpc/scripts/verify_pipeline.py
 ```
 
-## 运行
+## 运行 demo
 
 ```bash
 export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_PATH
+
+# v3（H=20）
 ./cpp/koopman_mpc/build/koopman_mpc_cpp \
     --weights cpp/koopman_mpc/weights \
     --ref cpp/koopman_mpc/weights/cpp_test_ref.json \
     --steps 40 --horizon 20 --opt_iters 25
+
+# 冒烟
+./cpp/koopman_mpc/build/koopman_mpc_cpp --smoketest \
+    --weights cpp/koopman_mpc/weights \
+    --ref cpp/koopman_mpc/weights/cpp_test_ref.json
 ```
 
 | 参数 | 说明 |
 |------|------|
 | `--weights` | 含 `koopman_rollout.onnx` 的目录 |
-| `--ref` | `export_cpp_test_ref.py` 生成的文本航迹 |
-| `--horizon` | 须为 20（与 ONNX 导出一致） |
+| `--ref` | 参考航迹 JSON |
+| `--horizon` | **须与 ONNX 导出 H 一致**（v3=20，v4=200） |
+| `--opt_control_steps` | 可选，覆盖 yaml |
 | `--smoketest` | 快速自检 |
 
 ## 与 Python 版关系
 
 | 组件 | Python | C++ |
 |------|--------|-----|
-| 动力学 | `KoopmanRollout` | `KoopmanOnnxModel`（ONNX） |
-| 优化 | `torch.optim.Adam` + autograd | 自实现 Adam + 前向差分数值梯度 |
+| 动力学 | `KoopmanRollout` / PyTorch | `KoopmanOnnxModel`（ONNX，一次 Run = H 步） |
+| 优化 | `torch.optim.Adam` + autograd | 源码内 Adam + 前向差分 |
+| 控制 blocking | `MPCConfig.control_hold_steps` | `mpc_config.yaml` |
+| 速率约束 | `throttle_du_max` 等 | 同左（块间 transition） |
 | NLP 求解器 | 无 | 无（非 Ipopt/OSQP） |
-| 导出 | `export_onnx.py` | `build.sh` 调用 |
 
-重新训练后请重新运行 `build.sh` 更新 `koopman_rollout.onnx`。求解器说明见 [docs/MPC使用指南.md](../../docs/MPC使用指南.md) §3。
+重新训练后请重新导出 ONNX 并同步 yaml 中 `horizon`。详见 [docs/MPC使用指南.md](../../docs/MPC使用指南.md)。
