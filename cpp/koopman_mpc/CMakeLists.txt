@@ -15,9 +15,13 @@ add_executable(verify_rollout tools/verify_rollout.cpp)
 target_link_libraries(verify_rollout PRIVATE koopman_control)
 set_property(TARGET verify_rollout PROPERTY CXX_STANDARD 17)
 
+add_executable(benchmark_inference tools/benchmark_inference.cpp)
+target_link_libraries(benchmark_inference PRIVATE koopman_control)
+set_property(TARGET benchmark_inference PROPERTY CXX_STANDARD 17)
+
 if(UNIX AND NOT APPLE)
     set(ORT_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/onnxruntime/lib")
-    set_target_properties(koopman_mpc_cpp verify_rollout PROPERTIES
+    set_target_properties(koopman_mpc_cpp verify_rollout benchmark_inference PROPERTIES
         BUILD_RPATH "${ORT_LIB_DIR}"
         INSTALL_RPATH "${ORT_LIB_DIR}")
 endif()

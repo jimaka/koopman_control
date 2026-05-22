@@ -26,6 +26,15 @@ struct MpcTrajectory {
     std::vector<float> cost_history;               ///< 每步 MPC 最优代价
 };
 
+/** solveStep 内部耗时与迭代统计 */
+struct MpcSolveTiming {
+    double inference_ms = 0.;   ///< ONNX rollout 累计 (ms)
+    double opt_ms = 0.;         ///< 代价/梯度/Adam（不含 rollout）(ms)
+    int opt_iters_cfg = 0;      ///< 配置的最大 Adam 迭代次数
+    int opt_iters_done = 0;     ///< 本步实际执行的 Adam 迭代次数
+    int rollout_count = 0;      ///< 本步 ONNX rollout 调用次数
+};
+
 /** 航迹跟踪误差统计 */
 struct TrackingMetrics {
     float xy_rmse_m = 0.f;      ///< 平面位置 RMSE (m)
@@ -48,7 +57,8 @@ public:
     std::pair<std::array<float, 4>, float> solveStep(
         const std::array<float, 6>& state0,
         const std::vector<std::array<float, 6>>& ref_window,
-        const std::array<float, 4>* u_prev_applied = nullptr);
+        const std::array<float, 4>* u_prev_applied = nullptr,
+        MpcSolveTiming* timing = nullptr);
 
     /**
      * @brief 沿参考航迹闭环仿真
@@ -103,6 +113,10 @@ private:
     bool has_warm_{false};
     std::array<float, 4> u_applied_{};  ///< 上一步实际下发的 u0
     bool has_applied_{false};
+    /** solveStep 内累计 ONNX 推理耗时（mpcCost 中 rollout） */
+    mutable double step_inference_ms_{0.};
+    /** solveStep 内 rollout 调用次数 */
+    mutable int step_rollout_count_{0};
 };
 
 /** 由仿真轨迹计算跟踪指标 */

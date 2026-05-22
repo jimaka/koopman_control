@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
 
     try {
         koopman_control::KoopmanOnnxModel model(onnx);
-        auto states = model.rollout(s0, u_flat, 0.1f);
+        auto states = model.rollout(s0, u_flat, 1.0f);
         const int rows = static_cast<int>(states.size() / 6);
         float max_err = 0.f;
         for (int i = 0; i < rows; ++i) {

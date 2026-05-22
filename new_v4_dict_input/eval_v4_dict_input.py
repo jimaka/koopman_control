@@ -234,9 +234,13 @@ def evaluate(
     batch_size: int,
     device: torch.device,
     max_samples: Optional[int],
+    model_stride: int = 1,
+    data_dt: float = 0.1,
 ) -> tuple[Dict[str, np.ndarray], Dict[str, float], Dict, np.ndarray, np.ndarray]:
     model, stats = load_v4_model(ckpt_path, device)
-    states_full, ctrls_full, _, _, t0g, _, _ = ek._flatten_segments(data_path, pred_len=pred_len, stride=1)
+    states_full, ctrls_full, _, _, t0g, _, _ = ek._flatten_segments(
+        data_path, pred_len=pred_len, stride=1, model_stride=model_stride
+    )
     if max_samples is not None and t0g.shape[0] > max_samples:
         sel = np.linspace(0, t0g.shape[0] - 1, max_samples).astype(int)
         t0g = t0g[sel]
@@ -251,6 +255,7 @@ def evaluate(
         device,
         dt,
         batch_size=batch_size,
+        model_stride=model_stride,
     )
     per_step = ek.compute_per_step_metrics(gt_dyn, pred_dyn, gt_xy, pred_xy, dt)
     div = ek.compute_divergence_metrics(per_step)
@@ -263,8 +268,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("--ckpt", type=str, default=str(P.CKPT_DIR / "koopman_v4_best.pth"))
     p.add_argument("--data", type=str, default=str(P.TEST))
-    p.add_argument("--pred_len", type=int, default=20)
-    p.add_argument("--dt", type=float, default=0.1)
+    p.add_argument("--pred_len", type=int, default=20, help="模型 rollout 步数（20 步 @ dt=1s = 20s）")
+    p.add_argument("--dt", type=float, default=1.0, help="模型离散步长 [s]")
+    p.add_argument("--data_dt", type=float, default=0.1, help="原始数据集采样间隔 [s]")
     p.add_argument("--batch_size", type=int, default=1024)
     p.add_argument("--max_samples", type=int, default=None)
     p.add_argument("--device", type=str, default="auto")
@@ -283,6 +289,7 @@ def main() -> int:
         raise FileNotFoundError(f"dataset not found: {args.data}")
 
     os.makedirs(args.out_dir, exist_ok=True)
+    model_stride = ek.model_stride_from_dt(args.dt, args.data_dt)
     per_step, _, summary, gt_dyn, pred_dyn = evaluate(
         ckpt_path=args.ckpt,
         data_path=args.data,
@@ -291,6 +298,8 @@ def main() -> int:
         batch_size=args.batch_size,
         device=device,
         max_samples=args.max_samples,
+        model_stride=model_stride,
+        data_dt=args.data_dt,
     )
 
     per_step_csv = os.path.join(args.out_dir, f"{args.tag}_per_step_metrics.csv")

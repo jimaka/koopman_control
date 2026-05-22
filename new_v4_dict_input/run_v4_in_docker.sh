@@ -17,12 +17,14 @@ Usage:
 Modes:
   --smoketest      Run smoketest
   --help-train     Show train script help
-  --train          Run normal training (default)
+  --train          Run normal training (default, single GPU)
+  --ddp            Multi-GPU DDP via torchrun (pass --nproc N before --)
 
 Examples:
   bash new_v4_dict_input/run_v4_in_docker.sh --smoketest
   bash new_v4_dict_input/run_v4_in_docker.sh --help-train
   bash new_v4_dict_input/run_v4_in_docker.sh --train -- --epochs 60 --run_tag v4_dict_input
+  bash new_v4_dict_input/run_v4_in_docker.sh --ddp --nproc 4 -- --epochs 120 --batch_size 512
 
 Env:
   CONTAINER_NAME   Docker container name (default: koopman_latest_sm120_martin)
@@ -30,6 +32,7 @@ EOF
 }
 
 mode="train"
+nproc=""
 extra_args=()
 while (($#)); do
   case "$1" in
@@ -44,6 +47,14 @@ while (($#)); do
     --train)
       mode="train"
       shift
+      ;;
+    --ddp)
+      mode="ddp"
+      shift
+      ;;
+    --nproc)
+      nproc="$2"
+      shift 2
       ;;
     --)
       shift
@@ -118,6 +129,15 @@ case "${mode}" in
   smoketest) run_cmd+=(--smoketest) ;;
   help) run_cmd+=(--help) ;;
   train) ;;
+  ddp)
+    if [[ -z "${nproc}" ]]; then
+      nproc="$(docker exec "${CONTAINER_NAME}" bash -lc 'nvidia-smi -L 2>/dev/null | wc -l' || echo 2)"
+    fi
+    run_cmd=(
+      torchrun --standalone --nproc_per_node="${nproc}" --master_port="${MASTER_PORT:-29500}"
+      new_v4_dict_input/train_v4_dict_input.py
+    )
+    ;;
 esac
 if ((${#extra_args[@]})); then
   run_cmd+=("${extra_args[@]}")

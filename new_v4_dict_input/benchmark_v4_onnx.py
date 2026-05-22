@@ -18,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from koopman import evalkit as ek  # noqa: E402
 from koopman import paths as P  # noqa: E402
-from koopman.export import TRACED_HORIZON  # noqa: E402
+from koopman.export import TRACED_HORIZON, TRACED_HORIZON_V4  # noqa: E402
 from koopman.paths import setup_repo  # noqa: E402
 
 setup_repo()
@@ -47,8 +47,10 @@ def _load_inputs(
     data_path: str | None,
     pred_len: int,
     seed: int,
+    dt: float = 1.0,
+    data_dt: float = 0.1,
 ) -> Tuple[np.ndarray, np.ndarray, float]:
-    dt = 0.1
+    model_stride = ek.model_stride_from_dt(dt, data_dt)
     if data_path is None:
         rng = np.random.default_rng(seed)
         state0 = rng.standard_normal(6, dtype=np.float32)
@@ -56,13 +58,15 @@ def _load_inputs(
         return state0, u_seq, dt
 
     states_full, ctrls_full, _, _, t0g, _, _ = ek._flatten_segments(
-        data_path, pred_len=pred_len, stride=1
+        data_path, pred_len=pred_len, stride=1, model_stride=model_stride
     )
     if t0g.shape[0] == 0:
-        raise RuntimeError(f"数据集 {data_path} 无有效样本（pred_len={pred_len}）")
+        raise RuntimeError(
+            f"数据集 {data_path} 无有效样本（pred_len={pred_len}, model_stride={model_stride}）"
+        )
     t0 = int(t0g[0])
     state0 = states_full[t0].astype(np.float32)
-    u_seq = ctrls_full[t0 : t0 + pred_len].astype(np.float32)
+    u_seq = ctrls_full[t0 : t0 + pred_len * model_stride : model_stride].astype(np.float32)
     return state0, u_seq, dt
 
 
@@ -120,7 +124,9 @@ def main() -> None:
         help="ONNX 模型路径",
     )
     p.add_argument("--data", type=str, default=str(P.TEST), help="输入样本来源；设 none 则用随机输入")
-    p.add_argument("--pred_len", type=int, default=TRACED_HORIZON)
+    p.add_argument("--pred_len", type=int, default=TRACED_HORIZON_V4)
+    p.add_argument("--dt", type=float, default=1.0)
+    p.add_argument("--data_dt", type=float, default=0.1)
     p.add_argument("--provider", choices=["auto", "cpu", "cuda"], default="auto")
     p.add_argument("--warmup", type=int, default=50, help="预热次数（不计入统计）")
     p.add_argument("--iters", type=int, default=1000, help="计时次数")
@@ -141,7 +147,7 @@ def main() -> None:
     sess = ort.InferenceSession(str(onnx_path), sess_options=sess_opts, providers=providers)
 
     data_path = None if str(args.data).lower() == "none" else args.data
-    state0, u_seq, dt = _load_inputs(data_path, args.pred_len, args.seed)
+    state0, u_seq, dt = _load_inputs(data_path, args.pred_len, args.seed, args.dt, args.data_dt)
     feed = _make_feed(state0, u_seq, dt)
 
     lat_ms, out = benchmark_session(sess, feed, warmup=args.warmup, iters=args.iters)

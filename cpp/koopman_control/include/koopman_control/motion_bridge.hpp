@@ -31,7 +31,7 @@ struct MotionRefPoint {
 
 /** motion 参考轨迹时间轴参数（对应 PointChange 中 mpc_during） */
 struct MotionBridgeConfig {
-    float ref_dt = 0.1f;           ///< 相邻参考点间隔 (s)，通常 = mpc_during
+    float ref_dt = 1.0f;           ///< 相邻参考点间隔 (s)，运行时通常 = mpc_during
     float ref_time_offset = 0.5f;  ///< 首点采样偏置 (s)，对应 i*mpc_during+0.5
 };
 
@@ -47,11 +47,23 @@ struct MotionSolveInput {
     std::vector<MotionRefPoint> ref;
 };
 
+/** 单步 MPC 求解耗时（毫秒）与迭代统计 */
+struct MotionSolveTiming {
+    double ref_resample_ms = 0.;  ///< 参考轨迹重采样
+    double inference_ms = 0.;     ///< ONNX rollout 累计
+    double mpc_opt_ms = 0.;       ///< Adam 优化 + 数值梯度（不含推理）
+    double solve_step_ms = 0.;    ///< ref_resample + inference + mpc_opt
+    int mpc_opt_iters_cfg = 0;    ///< 配置的最大 Adam 迭代次数
+    int mpc_opt_iters_done = 0;   ///< 本步实际执行的 Adam 迭代次数
+    int mpc_rollout_count = 0;    ///< 本步 ONNX rollout 调用次数
+};
+
 /** 单步 MPC 求解输出 */
 struct MotionSolveOutput {
     std::array<float, 4> control{};  ///< 4 维 Koopman 控制量 u0
     float cost = 0.f;                ///< 优化代价
     int horizon = 0;                 ///< 当前 ONNX horizon
+    MotionSolveTiming timing;        ///< 本步求解各阶段耗时
 };
 
 /**
@@ -59,9 +71,14 @@ struct MotionSolveOutput {
  *
  * 构造时加载 ONNX 并创建内部 KoopmanMpcController。
  */
+class KoopmanOnnxModel;
+
 class KoopmanMotionMpc {
 public:
     KoopmanMotionMpc(const std::string& onnx_path, MpcConfig mpc_cfg = {},
+                     MotionBridgeConfig bridge_cfg = {});
+    /** 使用已加载的 ONNX 模型（避免在 ROS 初始化后重复加载） */
+    KoopmanMotionMpc(KoopmanOnnxModel model, MpcConfig mpc_cfg,
                      MotionBridgeConfig bridge_cfg = {});
     ~KoopmanMotionMpc();
 

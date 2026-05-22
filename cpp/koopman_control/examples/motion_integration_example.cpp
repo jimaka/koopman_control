@@ -27,7 +27,7 @@ int main() {
 
         // 2. 配置 motion 参考时间轴（与 PointChange 中 mpc_during 对齐）
         koopman_control::MotionBridgeConfig bridge;
-        bridge.ref_dt = 0.1f;
+        bridge.ref_dt = 1.0f;
         bridge.ref_time_offset = 0.5f;
 
         koopman_control::KoopmanMotionMpc mpc(onnx_path, cfg, bridge);

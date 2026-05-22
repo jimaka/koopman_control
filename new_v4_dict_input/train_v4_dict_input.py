@@ -22,9 +22,12 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import yaml
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +52,45 @@ from new_v4_dict_input.eval_v4_dict_input import (  # noqa: E402
 setup_repo()
 
 
+@dataclass
+class DistInfo:
+    enabled: bool = False
+    rank: int = 0
+    local_rank: int = 0
+    world_size: int = 1
+    backend: str = "nccl"
+
+
+def unwrap_model(model: nn.Module) -> nn.Module:
+    return model.module if isinstance(model, DDP) else model
+
+
+def init_distributed(backend: str = "nccl") -> DistInfo:
+    """由 torchrun / torch.distributed.launch 注入的环境变量初始化 DDP。"""
+    if "LOCAL_RANK" not in os.environ:
+        return DistInfo()
+    local_rank = int(os.environ["LOCAL_RANK"])
+    rank = int(os.environ.get("RANK", local_rank))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    if world_size <= 1:
+        return DistInfo()
+    if not torch.cuda.is_available():
+        raise RuntimeError("多卡 DDP 需要 CUDA；请检查 GPU 与驱动。")
+    torch.cuda.set_device(local_rank)
+    dist.init_process_group(backend=backend, init_method="env://")
+    return DistInfo(enabled=True, rank=rank, local_rank=local_rank, world_size=world_size, backend=backend)
+
+
+def cleanup_distributed(dinfo: DistInfo) -> None:
+    if dinfo.enabled and dist.is_initialized():
+        dist.barrier()
+        dist.destroy_process_group()
+
+
+def is_main_process(dinfo: DistInfo) -> bool:
+    return dinfo.rank == 0
+
+
 def steps_from_seconds(seconds: float, dt: float) -> int:
     return max(1, int(round(float(seconds) / float(dt))))
 
@@ -67,20 +109,32 @@ def resolve_prediction_horizon(args: argparse.Namespace) -> argparse.Namespace:
     return args
 
 
-def setup_logger(log_dir: str) -> Tuple[logging.Logger, str]:
+def setup_logger(log_dir: str, dinfo: DistInfo, ts: Optional[str] = None) -> Tuple[logging.Logger, str]:
     os.makedirs(log_dir, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = ts or datetime.now().strftime("%Y%m%d_%H%M%S")
     logger = logging.getLogger(f"KoopmanV4_{ts}")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
-    fh = logging.FileHandler(os.path.join(log_dir, f"train_v4_{ts}.log"), encoding="utf-8")
-    ch = logging.StreamHandler()
+    logger.propagate = False
     fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    fh.setFormatter(fmt)
-    ch.setFormatter(fmt)
-    logger.addHandler(fh)
-    logger.addHandler(ch)
+    if is_main_process(dinfo):
+        fh = logging.FileHandler(os.path.join(log_dir, f"train_v4_{ts}.log"), encoding="utf-8")
+        ch = logging.StreamHandler()
+        fh.setFormatter(fmt)
+        ch.setFormatter(fmt)
+        logger.addHandler(fh)
+        logger.addHandler(ch)
+    else:
+        logger.addHandler(logging.NullHandler())
     return logger, ts
+
+
+def broadcast_run_id(dinfo: DistInfo, ts: str) -> str:
+    if not dinfo.enabled:
+        return ts
+    payload = [ts]
+    dist.broadcast_object_list(payload, src=0)
+    return payload[0]
 
 
 def seed_everything(seed: int) -> None:
@@ -92,7 +146,11 @@ def seed_everything(seed: int) -> None:
 
 
 class KoopmanVoyageDataset(Dataset):
-    """与 train_v2 同口径的数据集：返回规范化后的 x_t/x_seq/u_seq。"""
+    """与 train_v2 同口径的数据集：返回规范化后的 x_t/x_seq/u_seq。
+
+    原始数据集采样间隔为 data_dt（默认 0.1s）；模型步长 dt（默认 1.0s）通过
+    model_stride=dt/data_dt 对序列做下采样，pred_len 步仍覆盖 pred_len*dt 秒。
+    """
 
     def __init__(
         self,
@@ -100,10 +158,14 @@ class KoopmanVoyageDataset(Dataset):
         pred_len: int,
         stride: int = 1,
         stats: Optional[Dict[str, np.ndarray]] = None,
+        model_stride: int = 1,
+        data_dt: float = 0.1,
     ) -> None:
         super().__init__()
         self.pred_len = int(pred_len)
         self.stride = int(stride)
+        self.model_stride = max(int(model_stride), 1)
+        self.data_dt = float(data_dt)
         (
             self.states_full,
             self.ctrls_full,
@@ -112,7 +174,12 @@ class KoopmanVoyageDataset(Dataset):
             self.t0_global,
             self.seg_idx,
             self.t0_local,
-        ) = ek._flatten_segments(npz_path, pred_len=self.pred_len, stride=self.stride)
+        ) = ek._flatten_segments(
+            npz_path,
+            pred_len=self.pred_len,
+            stride=self.stride,
+            model_stride=self.model_stride,
+        )
         self.stats = stats if stats is not None else self._compute_stats()
         self._sm = self.stats["state_mean"].astype(np.float32)
         self._ss = self.stats["state_std"].astype(np.float32)
@@ -133,9 +200,11 @@ class KoopmanVoyageDataset(Dataset):
     def __getitem__(self, index: int):
         t0 = int(self.t0_global[index])
         k = self.pred_len
+        ms = self.model_stride
         x_t = self.states_full[t0]
-        x_seq = self.states_full[t0 + 1 : t0 + 1 + k]
-        u_seq = self.ctrls_full[t0 : t0 + k]
+        # 模型步 k 对应原始数据 t0+(k+1)*ms 的状态；控制取每 1s 块起点
+        x_seq = self.states_full[t0 + ms : t0 + 1 + k * ms : ms]
+        u_seq = self.ctrls_full[t0 : t0 + k * ms : ms]
         x_t_n = (x_t - self._sm) / self._ss
         x_seq_n = (x_seq - self._sm) / self._ss
         u_seq_n = (u_seq - self._cm) / self._cs
@@ -176,6 +245,50 @@ def make_step_weights(k: int, gamma: float, device: torch.device) -> torch.Tenso
     return w / w.mean()
 
 
+def wrap_yaw_diff(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """航向误差 wrap 到 [-pi, pi]。"""
+    d = a - b
+    return torch.atan2(torch.sin(d), torch.cos(d))
+
+
+def integrate_pose_from_vel(
+    pose0_phys: torch.Tensor,
+    vel_phys: torch.Tensor,
+    dt: float,
+) -> torch.Tensor:
+    """由初始位姿与逐步预测速度 (u,v,r) 做船体坐标系欧拉积分。
+
+    Args:
+        pose0_phys: (B, 3) 初始 [x, y, yaw]
+        vel_phys: (B, K, 3) 每步预测 [u, v, r]
+        dt: 模型离散步长 [s]
+
+    Returns:
+        (B, K, 3) 各预测步末位姿，与 x_target_seq 逐步对齐
+    """
+    x = pose0_phys[:, 0]
+    y = pose0_phys[:, 1]
+    yaw = pose0_phys[:, 2]
+    dt_t = vel_phys.new_tensor(float(dt))
+    poses: List[torch.Tensor] = []
+    for i in range(vel_phys.size(1)):
+        u = vel_phys[:, i, 0]
+        v = vel_phys[:, i, 1]
+        r = vel_phys[:, i, 2]
+        x = x + (u * torch.cos(yaw) - v * torch.sin(yaw)) * dt_t
+        y = y + (u * torch.sin(yaw) + v * torch.cos(yaw)) * dt_t
+        yaw = yaw + r * dt_t
+        poses.append(torch.stack([x, y, yaw], dim=-1))
+    return torch.stack(poses, dim=1)
+
+
+def denorm_pose(pose_n: torch.Tensor, pose_mean: torch.Tensor, pose_std: torch.Tensor) -> torch.Tensor:
+    """反归一化位姿 [x,y,yaw]；pose_n 可为 (B,3) 或 (B,K,3)。"""
+    if pose_n.dim() == 2:
+        return pose_n * pose_std + pose_mean
+    return pose_n * pose_std.view(1, 1, 3) + pose_mean.view(1, 1, 3)
+
+
 def rollout_train(
     model: nn.Module,
     x_t_dyn_n: torch.Tensor,
@@ -199,6 +312,8 @@ def compute_losses(
     u_seq_n: torch.Tensor,
     dyn_mean: torch.Tensor,
     dyn_std: torch.Tensor,
+    pose_mean: torch.Tensor,
+    pose_std: torch.Tensor,
     args: argparse.Namespace,
     epoch: int,
 ) -> Tuple[torch.Tensor, Dict[str, float]]:
@@ -211,6 +326,7 @@ def compute_losses(
     target_phys = dyn_target_n * dyn_std + dyn_mean
 
     step_w = make_step_weights(k, args.gamma_step, x_t_full_n.device).view(1, k, 1)
+    step_w_pose = step_w.squeeze(-1)
     chan_scale = 1.0 / dyn_std.view(1, 1, 3)
     err_vel = pred_phys - target_phys
     l_vel = (huber(err_vel * chan_scale, beta=args.huber_beta) * step_w).mean()
@@ -226,10 +342,26 @@ def compute_losses(
     x_recon = model.reconstruct_state(model.encode(dyn_t_n))
     l_recon = ((x_recon - dyn_t_n) ** 2).mean()
 
+    # 位姿损失：速度预测经欧拉积分后与 GT 位姿对齐（与 MPC / ONNX rollout 一致）
+    l_xy = torch.zeros((), device=x_t_full_n.device)
+    l_yaw = torch.zeros((), device=x_t_full_n.device)
+    if args.w_xy > 0.0 or args.w_yaw > 0.0:
+        pose0 = denorm_pose(x_t_full_n[:, :3], pose_mean, pose_std)
+        target_pose = denorm_pose(x_target_seq_n[:, :, :3], pose_mean, pose_std)
+        pred_pose = integrate_pose_from_vel(pose0, pred_phys, args.dt)
+        if args.w_xy > 0.0:
+            err_x = pred_pose[..., 0] - target_pose[..., 0]
+            err_y = pred_pose[..., 1] - target_pose[..., 1]
+            l_xy = ((err_x * err_x + err_y * err_y) * step_w_pose).mean()
+        if args.w_yaw > 0.0:
+            err_yaw = wrap_yaw_diff(pred_pose[..., 2], target_pose[..., 2])
+            l_yaw = (huber(err_yaw, beta=args.huber_beta) * step_w_pose).mean()
+
     spec = model.spectral_radius()
     l_stab = torch.relu(spec - args.rho_max) ** 2
     l_l2 = (model.A.weight ** 2).sum() + (model.B.weight ** 2).sum()
     ramp = min(1.0, (epoch + 1) / max(args.ramp_epochs, 1))
+    pose_ramp = min(1.0, (epoch + 1) / max(args.pose_ramp_epochs, 1))
 
     total = (
         args.w_vel * l_vel
@@ -238,22 +370,26 @@ def compute_losses(
         + args.w_recon * l_recon
         + args.w_stab * ramp * l_stab
         + args.w_l2 * l_l2
+        + args.w_xy * pose_ramp * l_xy
+        + args.w_yaw * pose_ramp * l_yaw
     )
     return total, {
-        "L_total": float(total.detach().item()),     # 总加权损失
-        "L_vel": float(l_vel.detach().item()),       # 速度预测损失 (物理空间上速度的Huber误差)
-        "L_acc": float(l_acc.detach().item()),       # 加速度预测损失 (相邻两步速度差分的误差)
-        "L_lin": float(l_lin.detach().item()),       # 隐空间线性一致性损失 (递推隐变量与GT真实序列编码的误差)
-        "L_recon": float(l_recon.detach().item()),   # 状态重构损失 (单步自编码器对输入的重构误差)
-        "L_stab": float(l_stab.detach().item()),     # 稳定性惩罚损失 (惩罚Koopman矩阵A谱半径越限的部分)
-        "spec_radius": float(spec.detach().item()),  # 系统矩阵A当前的谱半径 (监控指标)
+        "L_total": float(total.detach().item()),
+        "L_vel": float(l_vel.detach().item()),
+        "L_acc": float(l_acc.detach().item()),
+        "L_lin": float(l_lin.detach().item()),
+        "L_recon": float(l_recon.detach().item()),
+        "L_xy": float(l_xy.detach().item()),
+        "L_yaw": float(l_yaw.detach().item()),
+        "L_stab": float(l_stab.detach().item()),
+        "spec_radius": float(spec.detach().item()),
     }
 
 
 @torch.no_grad()
 def quick_validation(
     model: nn.Module,
-    val_dataset: KoopmanVoyageDataset,
+    eval_dataset: KoopmanVoyageDataset,
     pred_len: int,
     device: torch.device,
     dt: float,
@@ -263,50 +399,66 @@ def quick_validation(
     epoch: int,
     dyn_mean: torch.Tensor,
     dyn_std: torch.Tensor,
+    pose_mean: torch.Tensor,
+    pose_std: torch.Tensor,
 ) -> Dict[str, float]:
+    """在 hold-out 测试集上评估 rollout 指标与训练同款 loss。"""
     model.eval()
 
     # 1. Rollout-based metrics (RMSE, instability, etc.)
-    states_full = val_dataset.states_full
-    ctrls_full = val_dataset.ctrls_full
-    t0g = val_dataset.t0_global
+    states_full = eval_dataset.states_full
+    ctrls_full = eval_dataset.ctrls_full
+    t0g = eval_dataset.t0_global
     if max_samples is not None and t0g.shape[0] > max_samples:
         sel = np.linspace(0, t0g.shape[0] - 1, max_samples).astype(int)
         t0g = t0g[sel]
     gt_dyn, pred_dyn, gt_xy, pred_xy = ek.rollout_dataset(
-        model, states_full, ctrls_full, t0g, pred_len, val_dataset.stats, device, dt, batch_size
+        model,
+        states_full,
+        ctrls_full,
+        t0g,
+        pred_len,
+        eval_dataset.stats,
+        device,
+        dt,
+        batch_size,
+        model_stride=getattr(eval_dataset, "model_stride", 1),
     )
     per_step = ek.compute_per_step_metrics(gt_dyn, pred_dyn, gt_xy, pred_xy, dt)
     div = ek.compute_divergence_metrics(per_step)
 
     results = {
-        "val/vel_rmse_mean": float(np.mean(per_step["vel_rmse"])),
-        "val/slope_loglog": float(div["slope_loglog"]),
-        "val/instability_score": float(div["instability_score"]),
-        f"val/vel_rmse_step{pred_len}": float(per_step["vel_rmse"][-1]),
-        f"val/u_rmse_step{pred_len}": float(per_step["u_rmse"][-1]),
-        f"val/v_rmse_step{pred_len}": float(per_step["v_rmse"][-1]),
-        f"val/r_rmse_step{pred_len}": float(per_step["r_rmse"][-1]),
+        "test/vel_rmse_mean": float(np.mean(per_step["vel_rmse"])),
+        "test/slope_loglog": float(div["slope_loglog"]),
+        "test/instability_score": float(div["instability_score"]),
+        f"test/vel_rmse_step{pred_len}": float(per_step["vel_rmse"][-1]),
+        f"test/u_rmse_step{pred_len}": float(per_step["u_rmse"][-1]),
+        f"test/v_rmse_step{pred_len}": float(per_step["v_rmse"][-1]),
+        f"test/r_rmse_step{pred_len}": float(per_step["r_rmse"][-1]),
+        f"test/traj_xy_rmse_step{pred_len}": float(per_step["traj_xy_err"][-1]),
     }
 
     # 2. Loss-based metrics (same as training losses)
-    val_loader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=torch.cuda.is_available()
+    eval_loader = DataLoader(
+        eval_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=torch.cuda.is_available()
     )
-    loss_keys = ["L_total", "L_vel", "L_acc", "L_lin", "L_recon", "L_stab", "spec_radius"]
-    val_losses = {k: 0.0 for k in loss_keys}
+    loss_keys = ["L_total", "L_vel", "L_acc", "L_lin", "L_recon", "L_xy", "L_yaw", "L_stab", "spec_radius"]
+    eval_losses = {k: 0.0 for k in loss_keys}
     n_batches = 0
-    for x_t_full, x_target_seq, u_seq in val_loader:
+    for x_t_full, x_target_seq, u_seq in eval_loader:
         x_t_full = x_t_full.to(device, non_blocking=True)
         x_target_seq = x_target_seq.to(device, non_blocking=True)
         u_seq = u_seq.to(device, non_blocking=True)
-        _, info = compute_losses(model, x_t_full, x_target_seq, u_seq, dyn_mean, dyn_std, args, epoch)
-        for k in val_losses:
-            val_losses[k] += info[k]
+        _, info = compute_losses(
+            model, x_t_full, x_target_seq, u_seq,
+            dyn_mean, dyn_std, pose_mean, pose_std, args, epoch,
+        )
+        for k in eval_losses:
+            eval_losses[k] += info[k]
         n_batches += 1
 
-    for k, v in val_losses.items():
-        results[f"val/{k}"] = v / max(n_batches, 1)
+    for k, v in eval_losses.items():
+        results[f"test/{k}"] = v / max(n_batches, 1)
 
     return results
 
@@ -314,12 +466,28 @@ def quick_validation(
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("--train_data", type=str, default=str(P.TRAIN_MERGED))
-    p.add_argument("--val_data", type=str, default=str(P.VAL))
+    p.add_argument(
+        "--test_data",
+        type=str,
+        default=str(P.TEST),
+        help="每 epoch 验证、best 选择与训练结束评估使用的测试集",
+    )
+    p.add_argument(
+        "--val_data",
+        type=str,
+        default=None,
+        help="已弃用；若指定则覆盖 --test_data（兼容旧配置）",
+    )
     p.add_argument("--ckpt_dir", type=str, default=str(P.CKPT_DIR))
     p.add_argument("--log_dir", type=str, default=str(P.LOG_DIR))
     p.add_argument("--run_tag", type=str, default="v4_dict_input")
     p.add_argument("--epochs", type=int, default=120)
-    p.add_argument("--batch_size", type=int, default=512, help="单步 micro-batch；8GB 显存 + 20s 预测建议 384~512")
+    p.add_argument(
+        "--batch_size",
+        type=int,
+        default=512,
+        help="每张 GPU 的 micro-batch；DDP 全局 batch = batch_size × world_size × grad_accum_steps",
+    )
     p.add_argument("--grad_accum_steps", type=int, default=2, help="梯度累积步数，等效 batch = batch_size × 本值")
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight_decay", type=float, default=1e-4)
@@ -328,36 +496,47 @@ def build_parser() -> argparse.ArgumentParser:
         "--pred_time_sec",
         type=float,
         default=20.0,
-        help="目标预测时长 [s]；与 dt 共同决定 pred_len_max（默认 20s -> 200 步）",
+        help="目标预测时长 [s]；与 dt 共同决定 pred_len_max（默认 20s @ dt=1.0 -> 20 步）",
     )
     p.add_argument(
         "--pred_time_start_sec",
         type=float,
         default=2.0,
-        help="curriculum 起始预测时长 [s]（默认 2s -> 20 步）",
+        help="curriculum 起始预测时长 [s]（默认 2s @ dt=1.0 -> 2 步）",
     )
     p.add_argument("--pred_len_start", type=int, default=None, help="覆盖 pred_time_start_sec 的步数")
     p.add_argument("--pred_len_max", type=int, default=None, help="覆盖 pred_time_sec 的步数")
-    p.add_argument("--pred_len_step", type=int, default=10, help="curriculum 每阶段增加的预测步数")
+    p.add_argument("--pred_len_step", type=int, default=2, help="curriculum 每阶段增加的预测步数（模型步，1 步=dt 秒）")
     p.add_argument("--pred_len_grow_every", type=int, default=5, help="每 N 个 epoch 增加一次 pred_len")
-    p.add_argument("--stride", type=int, default=1)
-    p.add_argument("--dt", type=float, default=0.1)
+    p.add_argument("--stride", type=int, default=1, help="窗口起点在原始数据上的步进（非模型下采样）")
+    p.add_argument("--dt", type=float, default=1.0, help="模型离散步长 [s]（默认 1.0，预测 20 步=20s）")
+    p.add_argument("--data_dt", type=float, default=0.1, help="原始数据集采样间隔 [s]，保持不变")
     p.add_argument("--w_vel", type=float, default=1.0)
     p.add_argument("--w_acc", type=float, default=0.2)
     p.add_argument("--w_lin", type=float, default=1.0)
     p.add_argument("--w_recon", type=float, default=0.5)
+    p.add_argument("--w_xy", type=float, default=2.0, help="位姿平面跟踪损失权重（欧拉积分后 x,y MSE）")
+    p.add_argument("--w_yaw", type=float, default=1.0, help="位姿航向损失权重（wrap 后 Huber）")
     p.add_argument("--w_stab", type=float, default=0.1)
     p.add_argument("--w_l2", type=float, default=1e-4)
     p.add_argument("--gamma_step", type=float, default=0.97)
     p.add_argument("--huber_beta", type=float, default=0.1)
     p.add_argument("--rho_max", type=float, default=1.005)
     p.add_argument("--ramp_epochs", type=int, default=5)
+    p.add_argument("--pose_ramp_epochs", type=int, default=10, help="位姿损失权重线性 ramp 的 epoch 数")
     p.add_argument("--ema_decay", type=float, default=0.999)
     p.add_argument("--no_ema", action="store_true", default=False)
     p.add_argument("--hidden_dim", type=int, default=32)
     p.add_argument("--clamp_pif", type=float, default=5.0)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", type=str, default="auto")
+    p.add_argument(
+        "--dist_backend",
+        type=str,
+        default="nccl",
+        choices=("nccl", "gloo"),
+        help="DDP 通信后端；多 GPU 训练推荐 nccl",
+    )
     p.add_argument("--val_max_samples", type=int, default=512)
     p.add_argument("--val_batch_size", type=int, default=128, help="验证 rollout 的 batch（无梯度，可小于训练 batch）")
     p.add_argument("--smoketest", action="store_true")
@@ -409,90 +588,165 @@ class TrainState:
     best_metric: float = float("inf")
 
 
+def resolve_model_timing(args: argparse.Namespace) -> argparse.Namespace:
+    args.model_stride = ek.model_stride_from_dt(args.dt, args.data_dt)
+    return args
+
+
 def make_dataloaders(
     args: argparse.Namespace,
     pred_len: int,
     train_stats: Optional[Dict[str, np.ndarray]],
-) -> Tuple[KoopmanVoyageDataset, KoopmanVoyageDataset, DataLoader, Dict[str, np.ndarray]]:
-    train_ds = KoopmanVoyageDataset(args.train_data, pred_len=pred_len, stride=args.stride, stats=train_stats)
+    dinfo: DistInfo,
+) -> Tuple[KoopmanVoyageDataset, KoopmanVoyageDataset, DataLoader, Optional[DistributedSampler], Dict[str, np.ndarray]]:
+    train_ds = KoopmanVoyageDataset(
+        args.train_data,
+        pred_len=pred_len,
+        stride=args.stride,
+        stats=train_stats,
+        model_stride=args.model_stride,
+        data_dt=args.data_dt,
+    )
     stats = train_ds.stats
-    val_ds = KoopmanVoyageDataset(args.val_data, pred_len=pred_len, stride=args.stride, stats=stats)
+    test_ds = KoopmanVoyageDataset(
+        args.test_data,
+        pred_len=pred_len,
+        stride=args.stride,
+        stats=stats,
+        model_stride=args.model_stride,
+        data_dt=args.data_dt,
+    )
+    train_sampler: Optional[DistributedSampler] = None
+    if dinfo.enabled:
+        train_sampler = DistributedSampler(
+            train_ds,
+            num_replicas=dinfo.world_size,
+            rank=dinfo.rank,
+            shuffle=True,
+            drop_last=True,
+        )
     train_loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=(train_sampler is None),
+        sampler=train_sampler,
         num_workers=args.num_workers,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=(args.num_workers > 0),
+        drop_last=dinfo.enabled,
     )
-    return train_ds, val_ds, train_loader, stats
+    return train_ds, test_ds, train_loader, train_sampler, stats
 
 
-def train(args: argparse.Namespace) -> None:
-    logger, ts = setup_logger(args.log_dir)
-    seed_everything(args.seed)
-    device = torch.device("cuda" if args.device == "auto" and torch.cuda.is_available() else (args.device if args.device != "auto" else "cpu"))
-    tb = SummaryWriter(log_dir=os.path.join(args.log_dir, f"tb_v4_{ts}"))
-    
-    # 将本次训练的所有模型单独保存在一个以时间戳命名的子文件夹中
+def resolve_device(args: argparse.Namespace, dinfo: DistInfo) -> torch.device:
+    if dinfo.enabled:
+        return torch.device(f"cuda:{dinfo.local_rank}")
+    if args.device == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device(args.device)
+
+
+def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
+    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S") if is_main_process(dinfo) else ""
+    run_ts = broadcast_run_id(dinfo, run_ts)
+    logger, ts = setup_logger(args.log_dir, dinfo, ts=run_ts)
+    seed_everything(args.seed + dinfo.rank)
+    device = resolve_device(args, dinfo)
+    tb = None
+    if is_main_process(dinfo):
+        tb = SummaryWriter(log_dir=os.path.join(args.log_dir, f"tb_v4_{ts}"))
+
     args.ckpt_dir = os.path.join(args.ckpt_dir, f"run_v4_{ts}")
-    os.makedirs(args.ckpt_dir, exist_ok=True)
+    if is_main_process(dinfo):
+        os.makedirs(args.ckpt_dir, exist_ok=True)
+    if dinfo.enabled:
+        dist.barrier()
     metrics_jsonl = os.path.join(args.log_dir, f"metrics_v4_{ts}.jsonl")
 
     pred_len = curriculum_pred_len(0, args)
-    train_ds, val_ds, train_loader, stats = make_dataloaders(args, pred_len, None)
+    train_ds, test_ds, train_loader, train_sampler, stats = make_dataloaders(args, pred_len, None, dinfo)
     min_seg = int(train_ds.seg_lens.min()) if train_ds.seg_lens.size else 0
-    if min_seg <= args.pred_len_max:
+    if min_seg <= ek.data_span_for_pred_len(args.pred_len_max, args.model_stride):
         logger.warning(
-            "最短航段长度=%d <= pred_len_max=%d（%.1fs）；部分段将被跳过，请检查数据或降低 pred_time_sec",
+            "最短航段长度=%d <= data_span=%d（pred_len=%d, model_stride=%d, %.1fs）；"
+            "部分段将被跳过，请检查数据或降低 pred_time_sec",
             min_seg,
+            ek.data_span_for_pred_len(args.pred_len_max, args.model_stride),
             args.pred_len_max,
+            args.model_stride,
             args.pred_len_max * args.dt,
         )
     model = HorizontalKoopmanModelV4DictInput(hidden_dim=args.hidden_dim, clamp_pif=args.clamp_pif).to(device)
-    model._self_check_dict()
+    unwrap_model(model)._self_check_dict()
+    if dinfo.enabled:
+        model = DDP(
+            model,
+            device_ids=[dinfo.local_rank],
+            output_device=dinfo.local_rank,
+            find_unused_parameters=False,
+        )
+    base_model = unwrap_model(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1000, T_mult=1)
-    ema = None if args.no_ema else ModelEMA(model, decay=args.ema_decay)
+    ema = None if args.no_ema else ModelEMA(base_model, decay=args.ema_decay)
     state = TrainState()
 
     dyn_mean_t = torch.tensor(stats["state_mean"][3:6], device=device, dtype=torch.float32)
     dyn_std_t = torch.tensor(stats["state_std"][3:6], device=device, dtype=torch.float32)
+    pose_mean_t = torch.tensor(stats["state_mean"][:3], device=device, dtype=torch.float32)
+    pose_std_t = torch.tensor(stats["state_std"][:3], device=device, dtype=torch.float32)
+    eff_batch = args.batch_size * max(int(args.grad_accum_steps), 1)
+    global_batch = eff_batch * dinfo.world_size
     logger.info(
-        "Start v4 dict-input training | device=%s | latent=%d | hidden=%d | atoms=%d | "
-        "pred_time %.1fs->%.1fs (%d->%d steps, dt=%.3f) curriculum step=%d every=%d epoch | "
-        "batch=%d accum=%d (effective=%d) val_batch=%d",
+        "Start v4 dict-input training | device=%s | ddp=%s rank=%d/%d | latent=%d | hidden=%d | atoms=%d | "
+        "pred_time %.1fs->%.1fs (%d->%d steps, dt=%.3f, data_dt=%.3f, model_stride=%d) curriculum step=%d every=%d epoch | "
+        "batch=%d accum=%d (per_gpu=%d global=%d) eval_batch=%d | w_xy=%.2f w_yaw=%.2f pose_ramp=%d | "
+        "train=%s test=%s",
         device,
-        model.latent_dim,
-        model.hidden_dim,
+        dinfo.enabled,
+        dinfo.rank,
+        dinfo.world_size,
+        base_model.latent_dim,
+        base_model.hidden_dim,
         len(FEATURE_DICT_ATOMS_16),
         args.pred_len_start * args.dt,
         args.pred_len_max * args.dt,
         args.pred_len_start,
         args.pred_len_max,
         args.dt,
+        args.data_dt,
+        args.model_stride,
         args.pred_len_step,
         args.pred_len_grow_every,
         args.batch_size,
         args.grad_accum_steps,
-        args.batch_size * max(int(args.grad_accum_steps), 1),
+        eff_batch,
+        global_batch,
         args.val_batch_size,
+        args.w_xy,
+        args.w_yaw,
+        args.pose_ramp_epochs,
+        args.train_data,
+        args.test_data,
     )
 
     for epoch in range(state.epoch, args.epochs):
         target_pl = curriculum_pred_len(epoch, args)
         if target_pl != pred_len:
             pred_len = target_pl
-            train_ds, val_ds, train_loader, _ = make_dataloaders(args, pred_len, stats)
+            train_ds, test_ds, train_loader, train_sampler, _ = make_dataloaders(args, pred_len, stats, dinfo)
             logger.info(
                 "[Curriculum] pred_len -> %d (%.1fs)",
                 pred_len,
                 pred_len * args.dt,
             )
 
+        if train_sampler is not None:
+            train_sampler.set_epoch(epoch)
+
         model.train()
         t0 = time.time()
-        ep = {"L_total": 0.0, "L_vel": 0.0, "L_acc": 0.0, "L_lin": 0.0, "L_recon": 0.0, "L_stab": 0.0, "spec_radius": 0.0}
+        ep = {"L_total": 0.0, "L_vel": 0.0, "L_acc": 0.0, "L_lin": 0.0, "L_recon": 0.0, "L_xy": 0.0, "L_yaw": 0.0, "L_stab": 0.0, "spec_radius": 0.0}
         n_batches = 0
         accum = max(int(args.grad_accum_steps), 1)
         optimizer.zero_grad(set_to_none=True)
@@ -501,14 +755,17 @@ def train(args: argparse.Namespace) -> None:
             x_t_full = x_t_full.to(device, non_blocking=True)
             x_target_seq = x_target_seq.to(device, non_blocking=True)
             u_seq = u_seq.to(device, non_blocking=True)
-            loss, info = compute_losses(model, x_t_full, x_target_seq, u_seq, dyn_mean_t, dyn_std_t, args, epoch)
+            loss, info = compute_losses(
+                model, x_t_full, x_target_seq, u_seq,
+                dyn_mean_t, dyn_std_t, pose_mean_t, pose_std_t, args, epoch,
+            )
             (loss / accum).backward()
             step_now = ((batch_idx + 1) % accum == 0) or (batch_idx + 1 == len(train_loader))
             if step_now:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
                 if ema is not None:
-                    ema.update(model)
+                    ema.update(base_model)
                 optimizer.zero_grad(set_to_none=True)
             for k in ep:
                 ep[k] += info[k]
@@ -518,75 +775,95 @@ def train(args: argparse.Namespace) -> None:
         for k in ep:
             ep[k] /= max(n_batches, 1)
 
-        eval_model = ema.module if ema is not None else model
-        vm = quick_validation(
-            eval_model,
-            val_ds,
-            pred_len,
-            device,
-            args.dt,
-            batch_size=args.val_batch_size,
-            max_samples=args.val_max_samples,
-            args=args,
-            epoch=epoch,
-            dyn_mean=dyn_mean_t,
-            dyn_std=dyn_std_t,
+        eval_model = ema.module if ema is not None else base_model
+        vm: Dict[str, float] = {}
+        if is_main_process(dinfo):
+            vm = quick_validation(
+                eval_model,
+                test_ds,
+                pred_len,
+                device,
+                args.dt,
+                batch_size=args.val_batch_size,
+                max_samples=args.val_max_samples,
+                args=args,
+                epoch=epoch,
+                dyn_mean=dyn_mean_t,
+                dyn_std=dyn_std_t,
+                pose_mean=pose_mean_t,
+                pose_std=pose_std_t,
+            )
+        if dinfo.enabled:
+            dist.barrier()
+
+        cur_metric = vm.get("test/vel_rmse_mean", float("inf")) * max(
+            1.0, vm.get("test/instability_score", 1.0)
         )
-        cur_metric = vm["val/vel_rmse_mean"] * max(1.0, vm["val/instability_score"])
         elapsed = time.time() - t0
 
-        for k, v in ep.items():
-            tb.add_scalar(f"Train/{k}", v, epoch)
-        for k, v in vm.items():
-            tb.add_scalar(k, v, epoch)
-        tb.add_scalar("Train/pred_len", pred_len, epoch)
-        tb.add_scalar("Train/lr", optimizer.param_groups[0]["lr"], epoch)
+        if is_main_process(dinfo):
+            for k, v in ep.items():
+                tb.add_scalar(f"Train/{k}", v, epoch)
+            for k, v in vm.items():
+                tb.add_scalar(k, v, epoch)
+            tb.add_scalar("Train/pred_len", pred_len, epoch)
+            tb.add_scalar("Train/lr", optimizer.param_groups[0]["lr"], epoch)
 
-        rec = {"epoch": epoch + 1, "pred_len": pred_len, "elapsed_sec": elapsed, **ep, **vm}
-        with open(metrics_jsonl, "a", encoding="utf-8") as f:
-            f.write(json.dumps(rec) + "\n")
+            rec = {"epoch": epoch + 1, "pred_len": pred_len, "elapsed_sec": elapsed, **ep, **vm}
+            with open(metrics_jsonl, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec) + "\n")
 
-        logger.info(
-            "Epoch [%03d/%d] pl=%d Ltot=%.4f Lvel=%.4f Lrecon=%.4f | val_vel_mean=%.5f val_vel@K=%.5f slope=%.3f inst=%.3f | %.1fs",
-            epoch + 1,                           # 当前训练轮次
-            args.epochs,                         # 总训练轮次
-            pred_len,                            # 当前预测步长 (Prediction length)
-            ep["L_total"],                       # 总损失 (Total loss)
-            ep["L_vel"],                         # 速度预测损失 (Velocity prediction loss)
-            ep["L_recon"],                       # 状态重构损失 (State reconstruction loss)
-            vm["val/vel_rmse_mean"],             # 验证集平均速度均方根误差
-            vm[f"val/vel_rmse_step{pred_len}"],  # 验证集预测最后一步的速度均方根误差
-            vm["val/slope_loglog"],              # 验证集误差发散斜率 (衡量随步长误差增长速度)
-            vm["val/instability_score"],         # 验证集不稳定性得分 (衡量发散和轨迹抖动情况)
-            elapsed,                             # 当前轮次耗时（秒）
-        )
+            logger.info(
+                "Epoch [%03d/%d] pl=%d Ltot=%.4f Lvel=%.4f Lxy=%.4f Lyaw=%.4f Lrecon=%.4f | "
+                "test_vel_mean=%.5f test_xy@K=%.5f test_vel@K=%.5f slope=%.3f inst=%.3f | %.1fs",
+                epoch + 1,
+                args.epochs,
+                pred_len,
+                ep["L_total"],
+                ep["L_vel"],
+                ep["L_xy"],
+                ep["L_yaw"],
+                ep["L_recon"],
+                vm.get("test/vel_rmse_mean", float("nan")),
+                vm.get(f"test/traj_xy_rmse_step{pred_len}", float("nan")),
+                vm.get(f"test/vel_rmse_step{pred_len}", float("nan")),
+                vm.get("test/slope_loglog", float("nan")),
+                vm.get("test/instability_score", float("nan")),
+                elapsed,
+            )
 
-        ckpt = {
-            "epoch": epoch + 1,
-            "model_state_dict": model.state_dict(),
-            "stats": stats,
-            "best_metric": state.best_metric,
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scheduler_state_dict": scheduler.state_dict(),
-            "ema_state_dict": ema.state_dict() if ema is not None else None,
-            "args": vars(args),
-            "model_class": model.__class__.__name__,
-            "feature_dict_atoms": list(FEATURE_DICT_ATOMS_16),
-            "latent_dim": int(model.latent_dim),
-        }
-        torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_v4_latest.pth"))
+            ckpt = {
+                "epoch": epoch + 1,
+                "model_state_dict": base_model.state_dict(),
+                "stats": stats,
+                "best_metric": state.best_metric,
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "ema_state_dict": ema.state_dict() if ema is not None else None,
+                "args": vars(args),
+                "model_class": base_model.__class__.__name__,
+                "feature_dict_atoms": list(FEATURE_DICT_ATOMS_16),
+                "latent_dim": int(base_model.latent_dim),
+            }
+            torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_v4_latest.pth"))
 
-        # 最后30步迭代，每5步保存一次模型
-        if epoch >= args.epochs - 30 and (epoch + 1) % 5 == 0:
-            epoch_ckpt_path = os.path.join(args.ckpt_dir, f"koopman_v4_epoch{epoch+1}.pth")
-            torch.save(ckpt, epoch_ckpt_path)
-            logger.info("Saved periodic checkpoint: %s", epoch_ckpt_path)
+            # 最后30步迭代，每5步保存一次模型
+            if epoch >= args.epochs - 30 and (epoch + 1) % 5 == 0:
+                epoch_ckpt_path = os.path.join(args.ckpt_dir, f"koopman_v4_epoch{epoch+1}.pth")
+                torch.save(ckpt, epoch_ckpt_path)
+                logger.info("Saved periodic checkpoint: %s", epoch_ckpt_path)
 
-        if cur_metric < state.best_metric:
-            state.best_metric = cur_metric
-            ckpt["best_metric"] = state.best_metric
-            torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_v4_best.pth"))
-            logger.info("  ↳ new best composite=%.6g @ epoch %d", cur_metric, epoch + 1)
+            if vm and cur_metric < state.best_metric:
+                state.best_metric = cur_metric
+                ckpt["best_metric"] = state.best_metric
+                torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_v4_best.pth"))
+                logger.info("  ↳ new best composite=%.6g @ epoch %d", cur_metric, epoch + 1)
+
+    if dinfo.enabled:
+        dist.barrier()
+
+    if not is_main_process(dinfo):
+        return
 
     best_path = os.path.join(args.ckpt_dir, "koopman_v4_best.pth")
     if os.path.exists(best_path):
@@ -605,12 +882,14 @@ def train(args: argparse.Namespace) -> None:
             
             per_step, div, summary, gt_dyn, pred_dyn = evaluate(
                 ckpt_path=best_path,
-                data_path=str(P.TEST),
+                data_path=str(args.test_data),
                 pred_len=args.pred_len_max,
                 dt=args.dt,
                 batch_size=args.batch_size,
                 device=device,
                 max_samples=None,
+                model_stride=args.model_stride,
+                data_dt=args.data_dt,
             )
             
             tag = args.run_tag
@@ -651,29 +930,38 @@ def train(args: argparse.Namespace) -> None:
                 cmd = [
                     sys.executable,
                     os.path.join(os.path.dirname(__file__), "compare_mpc_tracking.py"),
-                    "--models"
+                    "--models",
                 ] + compare_models + [
-                    "--data", str(P.TEST),
-                    "--out_dir", os.path.join(eval_out_dir, "mpc_compare")
+                    "--data", str(args.test_data),
+                    "--out_dir", os.path.join(eval_out_dir, "mpc_compare"),
+                    "--horizon", str(args.pred_len_max),
+                    "--dt", str(args.dt),
+                    "--data_dt", str(args.data_dt),
+                    "--opt_iters", "8",
+                    "--opt_control_steps", "2",
+                    "--steps", str(min(args.pred_len_max * 4, 80)),
                 ]
                 subprocess.run(cmd, check=True)
                 logger.info("MPC tracking comparison plot saved to %s", os.path.join(eval_out_dir, "mpc_compare"))
         except Exception as e:
             logger.error("Test evaluation or MPC tracking failed: %s", e)
 
+    if tb is not None:
+        tb.close()
 
-def run_smoketest(args: argparse.Namespace) -> int:
+
+def run_smoketest(args: argparse.Namespace, dinfo: DistInfo) -> int:
     raw = np.load(args.train_data, allow_pickle=True)["datas"]
-    raw_v = np.load(args.val_data, allow_pickle=True)["datas"]
+    raw_t = np.load(args.test_data, allow_pickle=True)["datas"]
     out_dir = Path("logs/smoketest_v4_dict_input")
     out_dir.mkdir(parents=True, exist_ok=True)
     mini_train = out_dir / "mini_train.npz"
-    mini_val = out_dir / "mini_val.npz"
+    mini_test = out_dir / "mini_test.npz"
     np.savez(mini_train, datas=np.array([raw[0], raw[1]], dtype=object))
-    np.savez(mini_val, datas=np.array([raw_v[0]], dtype=object))
+    np.savez(mini_test, datas=np.array([raw_t[0]], dtype=object))
 
     args.train_data = str(mini_train)
-    args.val_data = str(mini_val)
+    args.test_data = str(mini_test)
     args.epochs = 2
     args.batch_size = 16
     args.pred_len_start = 4
@@ -685,7 +973,9 @@ def run_smoketest(args: argparse.Namespace) -> int:
     Path(args.ckpt_dir).mkdir(parents=True, exist_ok=True)
     Path(args.log_dir).mkdir(parents=True, exist_ok=True)
 
-    train(args)
+    train(args, dinfo)
+    if not is_main_process(dinfo):
+        return 0
     for fn in ("koopman_v4_latest.pth", "koopman_v4_best.pth", "koopman_v4_best.yaml"):
         p = Path(args.ckpt_dir) / fn
         if not p.exists():
@@ -703,10 +993,18 @@ def main() -> int:
     if args.pred_len_start is None:
         args.pred_len_start = steps_from_seconds(args.pred_time_start_sec, args.dt)
     args = resolve_prediction_horizon(args)
-    if args.smoketest:
-        return run_smoketest(args)
-    train(args)
-    return 0
+    args = resolve_model_timing(args)
+    if args.val_data is not None:
+        args.test_data = args.val_data
+
+    dinfo = init_distributed(backend=args.dist_backend)
+    try:
+        if args.smoketest:
+            return run_smoketest(args, dinfo)
+        train(args, dinfo)
+        return 0
+    finally:
+        cleanup_distributed(dinfo)
 
 
 if __name__ == "__main__":

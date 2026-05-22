@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""导出 v4 C++ MPC 测试用参考航迹与 rollout 对照张量（H=200）。"""
+"""导出 v4 C++ MPC 测试用参考航迹与 rollout 对照张量（dt=1s, H=20）。"""
 from __future__ import annotations
 
 import argparse
@@ -13,6 +13,7 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+from koopman import evalkit as ek  # noqa: E402
 from koopman import paths as P  # noqa: E402
 from koopman.export import KoopmanRollout, TRACED_HORIZON_V4  # noqa: E402
 from koopman.mpc import segment_to_state_ctrl  # noqa: E402
@@ -30,8 +31,12 @@ def main() -> None:
         default=os.environ.get("KOOPMAN_WEIGHTS_DIR", str(P.CPP_MPC_DIR / "weights")),
     )
     parser.add_argument("--horizon", type=int, default=TRACED_HORIZON_V4)
+    parser.add_argument("--dt", type=float, default=1.0)
+    parser.add_argument("--data_dt", type=float, default=0.1)
     parser.add_argument("--max_len", type=int, default=450, help="参考航迹长度（需 >= horizon + steps）")
     args = parser.parse_args()
+
+    model_stride = ek.model_stride_from_dt(args.dt, args.data_dt)
 
     os.makedirs(args.out_dir, exist_ok=True)
     ckpt = args.ckpt if os.path.isabs(args.ckpt) else os.path.join(REPO_ROOT, args.ckpt)
@@ -56,9 +61,9 @@ def main() -> None:
     model.eval()
     rollout = KoopmanRollout(model, stats)
     s0 = torch.tensor(ref_state[0], dtype=torch.float32)
-    u_seq = torch.tensor(ref_ctrl[: args.horizon], dtype=torch.float32)
+    u_seq = torch.tensor(ref_ctrl[: args.horizon * model_stride : model_stride], dtype=torch.float32)
     with torch.no_grad():
-        states = rollout(s0, u_seq, torch.tensor(0.1, dtype=torch.float32))
+        states = rollout(s0, u_seq, torch.tensor(float(args.dt), dtype=torch.float32))
     np.savez_compressed(
         os.path.join(args.out_dir, "rollout_check.npz"),
         state0=ref_state[0],

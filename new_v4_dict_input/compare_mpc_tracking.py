@@ -53,18 +53,35 @@ def parse_models(items: List[str]) -> List[Tuple[str, str]]:
     return out
 
 
+def subsample_traj_for_dt(
+    state: np.ndarray,
+    ctrl: np.ndarray | None,
+    data_dt: float,
+    model_dt: float,
+) -> Tuple[np.ndarray, np.ndarray | None]:
+    """将原始 data_dt 轨迹下采样到 model_dt 步长（与 v4 训练一致）。"""
+    stride = max(1, int(round(float(model_dt) / float(data_dt))))
+    if stride <= 1:
+        return state, ctrl
+    state_s = state[::stride].copy()
+    ctrl_s = ctrl[::stride].copy() if ctrl is not None else None
+    return state_s, ctrl_s
+
+
 def ensure_reference(
     ref_type: str,
     data_path: str,
     segment: int,
     dt: float,
+    data_dt: float = 0.1,
 ) -> Tuple[np.ndarray, np.ndarray | None, str]:
     if ref_type == "segment":
         raw = np.load(data_path, allow_pickle=True)["datas"]
         if segment < 0 or segment >= len(raw):
             raise ValueError(f"segment index out of range: {segment}, valid [0, {len(raw)-1}]")
         ref_state, ref_ctrl = segment_to_state_ctrl(raw[segment])
-        title = f"segment {segment}"
+        ref_state, ref_ctrl = subsample_traj_for_dt(ref_state, ref_ctrl, data_dt, dt)
+        title = f"segment {segment} (@ dt={dt}s)"
         return ref_state, ref_ctrl, title
     if ref_type == "line":
         ref_state = make_line_reference(0.0, 0.0, 0.0, u_ref=2.0, length_m=100.0, dt=dt)
@@ -151,10 +168,12 @@ def main() -> int:
     parser.add_argument("--data", type=str, default=str(P.TEST))
     parser.add_argument("--ref", choices=["segment", "line", "circle"], default="segment")
     parser.add_argument("--segment", type=int, default=0)
-    parser.add_argument("--steps", type=int, default=150)
+    parser.add_argument("--steps", type=int, default=80, help="闭环仿真步数（model_dt 步）")
     parser.add_argument("--horizon", type=int, default=20)
-    parser.add_argument("--dt", type=float, default=0.1)
-    parser.add_argument("--opt_iters", type=int, default=40)
+    parser.add_argument("--dt", type=float, default=1.0, help="MPC/模型离散步长 [s]")
+    parser.add_argument("--data_dt", type=float, default=0.1, help="数据集原始采样间隔 [s]")
+    parser.add_argument("--opt_iters", type=int, default=8)
+    parser.add_argument("--opt_control_steps", type=int, default=2)
     parser.add_argument("--w_xy", type=float, default=10.0)
     parser.add_argument("--w_yaw", type=float, default=5.0)
     parser.add_argument("--w_vel", type=float, default=0.5)
@@ -167,10 +186,13 @@ def main() -> int:
         if not os.path.isfile(ckpt):
             raise FileNotFoundError(f"checkpoint not found: {ckpt}")
 
-    ref_state, ref_ctrl, ref_title = ensure_reference(args.ref, args.data, args.segment, args.dt)
+    ref_state, ref_ctrl, ref_title = ensure_reference(
+        args.ref, args.data, args.segment, args.dt, args.data_dt,
+    )
     cfg = MPCConfig(
         horizon=args.horizon,
         dt=args.dt,
+        opt_control_steps=args.opt_control_steps,
         w_xy=args.w_xy,
         w_yaw=args.w_yaw,
         w_vel=args.w_vel,
@@ -222,7 +244,9 @@ def main() -> int:
             "steps": args.steps,
             "horizon": args.horizon,
             "dt": args.dt,
+            "data_dt": args.data_dt,
             "opt_iters": args.opt_iters,
+            "opt_control_steps": args.opt_control_steps,
             "w_xy": args.w_xy,
             "w_yaw": args.w_yaw,
             "w_vel": args.w_vel,

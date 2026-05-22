@@ -61,8 +61,28 @@ except Exception:  # 容错：v3 模块缺失时仍能用 v1/v2
 # ---------------------------------------------------------------------------
 
 
-def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1):
+def model_stride_from_dt(model_dt: float, data_dt: float = 0.1) -> int:
+    """模型步长相对原始数据集采样间隔的整数倍（例如 dt=1.0, data_dt=0.1 -> 10）。"""
+    stride = int(round(float(model_dt) / float(data_dt)))
+    if stride < 1:
+        raise ValueError(f"model_dt={model_dt} must be >= data_dt={data_dt}")
+    if abs(stride * float(data_dt) - float(model_dt)) > 1e-5:
+        raise ValueError(
+            f"model_dt={model_dt} must be an integer multiple of data_dt={data_dt}, got stride={stride}"
+        )
+    return stride
+
+
+def data_span_for_pred_len(pred_len: int, model_stride: int = 1) -> int:
+    """pred_len 个模型步在原始 0.1s 数据集上占用的行数。"""
+    return int(pred_len) * int(model_stride)
+
+
+def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1, model_stride: int = 1):
     """把所有段拼成 (N_total, 6) 状态张量与 (N_total, 4) 控制张量。
+
+    当 model_stride>1 时，pred_len 表示**模型步数**，段内至少需要
+    pred_len * model_stride 行原始 0.1s 数据。
 
     返回:
         states_full: (N, 6) float32 —— [x, y, yaw, u, v, r]
@@ -70,9 +90,9 @@ def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1):
         seg_starts:  (S,) int  —— 每段在 states_full 中的起点
         seg_lens:    (S,) int  —— 每段长度
         sample_index: (M, 2) int —— 每个样本的 (global_t0, seg_idx)
-                      满足 t0 + pred_len < seg_len（注意是严格小于，
-                      因为我们要取 t0..t0+pred_len 共 pred_len+1 个状态）
+                      满足 t0 + data_span <= seg_len
     """
+    data_span = data_span_for_pred_len(pred_len, model_stride)
     raw = np.load(npz_path, allow_pickle=True)["datas"]
     state_chunks: List[np.ndarray] = []
     ctrl_chunks: List[np.ndarray] = []
@@ -105,15 +125,18 @@ def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1):
     sample_seg_idx = []
     sample_local_t0 = []
     for sidx, (start, T) in enumerate(zip(seg_starts, seg_lens)):
-        if T <= pred_len:
+        if T <= data_span:
             continue
-        # t_local 取值 0..T-pred_len-1（保证 t_local + pred_len <= T-1）
-        local = np.arange(0, T - pred_len, stride, dtype=np.int64)
+        # t_local 取值 0..T-data_span-1（保证 t_local + data_span <= T-1）
+        local = np.arange(0, T - data_span, stride, dtype=np.int64)
         sample_global_t0.append(local + start)
         sample_seg_idx.append(np.full_like(local, sidx))
         sample_local_t0.append(local)
     if not sample_global_t0:
-        raise ValueError(f"No valid samples in {npz_path} with pred_len={pred_len}")
+        raise ValueError(
+            f"No valid samples in {npz_path} with pred_len={pred_len}, model_stride={model_stride} "
+            f"(data_span={data_span})"
+        )
     sample_global_t0 = np.concatenate(sample_global_t0)
     sample_seg_idx = np.concatenate(sample_seg_idx)
     sample_local_t0 = np.concatenate(sample_local_t0)
@@ -144,6 +167,7 @@ def rollout_dataset(
     device: torch.device,
     dt: float,
     batch_size: int = 1024,
+    model_stride: int = 1,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """对所有样本做无 teacher-force 的多步 rollout，得到物理量预测/真值。
 
@@ -181,9 +205,11 @@ def rollout_dataset(
         # 取未来 K 步控制（CPU numpy 切片，再一次性转 GPU）
         u_future = np.empty((b, K, 4), dtype=np.float32)
         gt_dyn_future = np.empty((b, K, 3), dtype=np.float32)
+        ms = int(model_stride)
         for j, t0 in enumerate(idx):
-            u_future[j] = ctrls_full[t0 : t0 + K]
-            gt_dyn_future[j] = states_full[t0 + 1 : t0 + 1 + K, 3:6]
+            for k in range(K):
+                u_future[j, k] = ctrls_full[t0 + k * ms]
+                gt_dyn_future[j, k] = states_full[t0 + (k + 1) * ms, 3:6]
 
         x0_t = torch.from_numpy(x0).to(device)
         u_future_t = torch.from_numpy(u_future).to(device)
@@ -750,13 +776,20 @@ class EvalResult:
 
 
 def load_model_from_ckpt(ckpt_path: str, device: torch.device) -> Tuple[nn.Module, Dict]:
-    """根据 ckpt['model_class'] 自动 dispatch v1/v2/v3。"""
+    """根据 ckpt['model_class'] 自动 dispatch v1/v2/v3/v4。"""
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     stats = ckpt["stats"]
     sd = ckpt.get("ema_state_dict") or ckpt["model_state_dict"]
     model_class = ckpt.get("model_class", "HorizontalKoopmanModel")
     args_d = ckpt.get("args", {}) or {}
-    if model_class == "HorizontalKoopmanModelV3":
+    if model_class == "HorizontalKoopmanModelV4DictInput":
+        from new_v4_dict_input.model_v4_dict_input import HorizontalKoopmanModelV4DictInput
+
+        model = HorizontalKoopmanModelV4DictInput(
+            hidden_dim=int(args_d.get("hidden_dim", 32)),
+            clamp_pif=float(args_d.get("clamp_pif", 5.0)),
+        )
+    elif model_class == "HorizontalKoopmanModelV3":
         if HorizontalKoopmanModelV3 is None:
             raise RuntimeError(
                 "ckpt 是 v3 模型但当前进程无 koopman_v3 模块，无法加载。"

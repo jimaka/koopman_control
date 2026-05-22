@@ -3,12 +3,13 @@
  * @brief motion.cpp 桥接层：参考轨迹重采样 + 单步 MPC 求解
  *
  * motion 侧 PointChange() 通常只生成 mpc_steps 个参考点（如 20~40），
- * 而 Koopman ONNX 需要 H+1 个参考（H=200）。本文件按时间轴线性插值对齐。
+ * 而 Koopman ONNX 需要 H+1 个参考（v4 默认 H=20 @ dt=1.0s）。本文件按时间轴线性插值对齐。
  */
 
 #include "koopman_control/motion_bridge.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <stdexcept>
@@ -83,9 +84,8 @@ std::vector<std::array<float, 6>> resampleMotionRefToHorizon(
 /** KoopmanMotionMpc 内部实现（隐藏 ONNX 与 Controller 细节） */
 class KoopmanMotionMpc::Impl {
 public:
-    Impl(const std::string& onnx_path, MpcConfig mpc_cfg, MotionBridgeConfig bridge_cfg)
+    Impl(KoopmanOnnxModel model, MpcConfig mpc_cfg, MotionBridgeConfig bridge_cfg)
         : bridge_(bridge_cfg) {
-        KoopmanOnnxModel model(onnx_path);
         mpc_cfg = syncHorizonWithOnnx(mpc_cfg, model.horizon());
         controller_ = std::make_unique<KoopmanMpcController>(std::move(model), mpc_cfg);
     }
@@ -96,7 +96,12 @@ public:
 
 KoopmanMotionMpc::KoopmanMotionMpc(const std::string& onnx_path, MpcConfig mpc_cfg,
                                    MotionBridgeConfig bridge_cfg)
-    : bridge_(bridge_cfg), impl_(std::make_unique<Impl>(onnx_path, mpc_cfg, bridge_cfg)) {}
+    : bridge_(bridge_cfg),
+      impl_(std::make_unique<Impl>(KoopmanOnnxModel(onnx_path), mpc_cfg, bridge_cfg)) {}
+
+KoopmanMotionMpc::KoopmanMotionMpc(KoopmanOnnxModel model, MpcConfig mpc_cfg,
+                                   MotionBridgeConfig bridge_cfg)
+    : bridge_(bridge_cfg), impl_(std::make_unique<Impl>(std::move(model), mpc_cfg, bridge_cfg)) {}
 
 KoopmanMotionMpc::~KoopmanMotionMpc() = default;
 
@@ -108,14 +113,40 @@ bool KoopmanMotionMpc::solve(const MotionSolveInput& in, MotionSolveOutput& out)
         return false;
     }
 
+    const auto t0 = std::chrono::high_resolution_clock::now();
     const auto ref_window = buildRefWindow(in);
+    const auto t1 = std::chrono::high_resolution_clock::now();
+
     // motion 约定：船体坐标系原点为当前位置，故 x=y=yaw=0
     std::array<float, 6> state0{0.f, 0.f, 0.f, in.u, in.v, in.r};
     const std::array<float, 4>* u_prev_ptr = in.has_u_prev ? &in.u_prev : nullptr;
-    auto [u_opt, cost] = impl_->controller_->solveStep(state0, ref_window, u_prev_ptr);
+    MpcSolveTiming mpc_timing;
+    auto [u_opt, cost] =
+        impl_->controller_->solveStep(state0, ref_window, u_prev_ptr, &mpc_timing);
+    const auto t2 = std::chrono::high_resolution_clock::now();
+
+    const double ref_ms =
+        std::chrono::duration<double, std::milli>(t1 - t0).count();
+    const double solve_step_ms =
+        std::chrono::duration<double, std::milli>(t2 - t1).count();
+    const double total_ms =
+        std::chrono::duration<double, std::milli>(t2 - t0).count();
+    printf("Koopman MPC solve: total=%.3f ms | ref_resample=%.3f | solve_step=%.3f "
+           "(inference=%.3f mpc_opt=%.3f) | mpc_iters=%d/%d rollouts=%d | cost=%.4f\n",
+           total_ms, ref_ms, solve_step_ms, mpc_timing.inference_ms, mpc_timing.opt_ms,
+           mpc_timing.opt_iters_done, mpc_timing.opt_iters_cfg, mpc_timing.rollout_count,
+           cost);
+
     out.control = u_opt;
     out.cost = cost;
     out.horizon = impl_->controller_->horizon();
+    out.timing.ref_resample_ms = ref_ms;
+    out.timing.inference_ms = mpc_timing.inference_ms;
+    out.timing.mpc_opt_ms = mpc_timing.opt_ms;
+    out.timing.solve_step_ms = solve_step_ms;
+    out.timing.mpc_opt_iters_cfg = mpc_timing.opt_iters_cfg;
+    out.timing.mpc_opt_iters_done = mpc_timing.opt_iters_done;
+    out.timing.mpc_rollout_count = mpc_timing.rollout_count;
     return true;
 }
 

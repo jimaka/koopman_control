@@ -1,8 +1,8 @@
-# MPC Controller Configuration (v4 20s / H=200)
-horizon: 200
-opt_control_steps: 20
-dt: 0.1
-control_hold_steps: 10
+# MPC Controller Configuration (v4 20s @ dt=1.0s, H=20)
+horizon: 20
+opt_control_steps: 2
+dt: 1.0
+control_hold_steps: 1
 w_xy: 10.0
 w_yaw: 5.0
 w_vel: 0.5

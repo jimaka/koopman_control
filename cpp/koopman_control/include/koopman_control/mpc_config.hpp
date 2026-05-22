@@ -14,16 +14,15 @@ namespace koopman_control {
 
 /** MPC 代价权重、优化器与约束配置 */
 struct MpcConfig {
-    /** 预测步数 H，须与 ONNX 导出 pred_len 一致（v4 20s 模型为 200） */
-    int horizon = 200;
+    /** 预测步数 H，须与 ONNX 导出 pred_len 一致（v4 20s @ dt=1.0 为 20） */
+    int horizon = 20;
     /** 仅优化前 N 步控制；后续步零阶保持，降低长 horizon 下数值梯度开销 */
-    int opt_control_steps = 40;
+    int opt_control_steps = 2;
     /** 离散时间步长（秒），须与训练/ONNX 一致 */
-    float dt = 0.1f;
+    float dt = 1.0f;
     /**
      * 控制块长度（细步数）：每 hold 步共用一个控制量。
-     * 例如 dt=0.1、control_hold_steps=10 → 控制每 1s 变一次。
-     * 1 表示每步均可变化（无 blocking）。
+     * dt=1.0 时通常设为 1。
      */
     int control_hold_steps = 1;
     /** 位置跟踪权重 (x,y) */
@@ -50,9 +49,9 @@ struct MpcConfig {
     /** 舵角通道 (1,3) 每步最大变化；<=0 表示不限制 */
     float rudder_du_max = 0.f;
     /** Adam 优化迭代次数 */
-    int opt_iters = 15;
+    int opt_iters = 8;
     /** Adam 学习率 */
-    float opt_lr = 0.05f;
+    float opt_lr = 0.08f;
     /** 4 维控制下界 */
     std::array<float, 4> u_min{-100.f, -35.f, -100.f, -35.f};
     /** 4 维控制上界 */

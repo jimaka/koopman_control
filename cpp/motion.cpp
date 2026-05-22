@@ -1,5 +1,7 @@
 #include "motion.h"
 
+#include <chrono>
+
 #include "../mpc/glo_data.hpp"
 #include "../mpc/mpc_AD.h"
 #include "force.hpp"
@@ -62,8 +64,8 @@ void ControlNode::Init() {
   xicheng_azimuthing_MpcTaRudderSlove_.init();
 #ifdef USE_KOOPMAN_MPC
   koopman_mpc_helper_.init(
-      "/opt/elane/ros/share/ship_control/config/koopman_mpc.yaml",
-      "/opt/elane/ros/share/ship_control/weights/koopman_rollout.onnx",
+      "/opt/elane/ros/share/ship_control/config/mpc_config.yaml",
+      "/opt/elane/ros/share/ship_control/config/weights/koopman_rollout.onnx",
       static_cast<float>(mpc_during));
   printf("[KoopmanMPC] horizon=%d\n", koopman_mpc_helper_.horizon());
 #endif
@@ -431,6 +433,9 @@ void ControlNode::MpcTaRunKoopman() {
     return;
   }
 
+  using clock = std::chrono::steady_clock;
+  const auto t_loop_start = clock::now();
+
   PointChange();
 
   std::vector<MotionMpcTargetView> targets;
@@ -445,30 +450,54 @@ void ControlNode::MpcTaRunKoopman() {
     targets.push_back(v);
   }
 
+  const auto t_prep_end = clock::now();
+
   koopman_control::MotionSolveOutput out;
   const bool ok = koopman_mpc_helper_.solveStep(
       static_cast<float>(FusionPoseStamped_->velocity.x),
       static_cast<float>(FusionPoseStamped_->velocity.y),
       static_cast<float>(yaw_rate_), targets, out);
 
+  const auto t_solve_end = clock::now();
+
   if (!ok) {
-    printf("[KoopmanMPC] solve failed\n");
+    const double prep_ms =
+        std::chrono::duration<double, std::milli>(t_prep_end - t_loop_start).count();
+    const double solve_ms =
+        std::chrono::duration<double, std::milli>(t_solve_end - t_prep_end).count();
+    printf("[KoopmanMPC] solve failed | prep=%.2fms solve=%.2fms "
+           "(infer=%.2f mpc_opt=%.2f ref=%.2f)\n",
+           prep_ms, solve_ms, out.timing.inference_ms, out.timing.mpc_opt_ms,
+           out.timing.ref_resample_ms);
     Stop();
     return;
   }
 
   // TODO: 将 4 维 Koopman 控制量映射到双推进器 thrust_command_send
-  // 以下为占位：联调时可替换为真实控制分配
   thrust_command_send.t1_force = out.control[0];
   thrust_command_send.t2_force = out.control[1];
   thrust_command_send.t1_angle = out.control[2];
   thrust_command_send.t2_angle = out.control[3];
 
-  printf("[KoopmanMPC] cost=%f u=[%f %f %f %f]\n", out.cost, out.control[0],
-         out.control[1], out.control[2], out.control[3]);
-
   PublishControlCommand();
   PublishDebugInfo();
+
+  const auto t_loop_end = clock::now();
+  const double prep_ms =
+      std::chrono::duration<double, std::milli>(t_prep_end - t_loop_start).count();
+  const double solve_ms =
+      std::chrono::duration<double, std::milli>(t_solve_end - t_prep_end).count();
+  const double pub_ms =
+      std::chrono::duration<double, std::milli>(t_loop_end - t_solve_end).count();
+  const double total_ms =
+      std::chrono::duration<double, std::milli>(t_loop_end - t_loop_start).count();
+  printf("[KoopmanMPC] cost=%.3f u=[%.3f %.3f %.3f %.3f] | "
+         "prep=%.2fms solve=%.2fms (ref=%.2f infer=%.2f mpc_opt=%.2f) "
+         "pub=%.2fms total=%.2fms (H=%d, refs=%zu)\n",
+         out.cost, out.control[0], out.control[1], out.control[2], out.control[3],
+         prep_ms, solve_ms, out.timing.ref_resample_ms, out.timing.inference_ms,
+         out.timing.mpc_opt_ms, pub_ms, total_ms, koopman_mpc_helper_.horizon(),
+         targets.size());
 }
 #endif
 

@@ -7,24 +7,65 @@
 
 #include <onnxruntime_cxx_api.h>
 
+#include <cstdio>
+#include <fstream>
 #include <stdexcept>
+#include <vector>
 
 namespace koopman_control {
 
-KoopmanOnnxModel::KoopmanOnnxModel(const std::string& onnx_path)
-    : env_(std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "koopman_control")),
-      options_(std::make_unique<Ort::SessionOptions>()) {
+namespace {
+
+Ort::Env& ortEnv() {
+    static Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "koopman_control");
+    return env;
+}
+
+}  // namespace
+
+void KoopmanOnnxModel::loadFromMemory(const void* data, size_t size) {
+    options_ = std::make_unique<Ort::SessionOptions>();
     options_->SetIntraOpNumThreads(1);
+    options_->SetInterOpNumThreads(1);
     options_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     try {
-        session_ = std::make_unique<Ort::Session>(*env_, onnx_path.c_str(), *options_);
+        session_ = std::make_unique<Ort::Session>(ortEnv(), data, size, *options_);
     } catch (const Ort::Exception& e) {
         throw std::runtime_error(std::string("ONNX load failed: ") + e.what());
+    } catch (const std::bad_alloc&) {
+        throw std::runtime_error("ONNX load bad_alloc (insufficient contiguous memory)");
     }
     horizon_ = readHorizonFromSession();
-    if (horizon_ <= 0) {
-        throw std::runtime_error("Invalid ONNX rollout horizon");
+    if (horizon_ <= 0 || horizon_ > 512) {
+        throw std::runtime_error("Invalid ONNX rollout horizon: " +
+                                 std::to_string(horizon_));
     }
+}
+
+KoopmanOnnxModel::KoopmanOnnxModel(const std::string& onnx_path) {
+    printf("KoopmanOnnxModel: read file %s\n", onnx_path.c_str());
+    fflush(stdout);
+    std::ifstream file(onnx_path, std::ios::binary | std::ios::ate);
+    if (!file) {
+        throw std::runtime_error("ONNX file open failed: " + onnx_path);
+    }
+    const auto file_size = static_cast<size_t>(file.tellg());
+    file.seekg(0, std::ios::beg);
+    std::vector<char> buffer(file_size);
+    if (!file.read(buffer.data(), static_cast<std::streamsize>(file_size))) {
+        throw std::runtime_error("ONNX file read failed: " + onnx_path);
+    }
+    printf("KoopmanOnnxModel: create session (%.2f MB)...\n",
+           file_size / (1024.0 * 1024.0));
+    fflush(stdout);
+    loadFromMemory(buffer.data(), buffer.size());
+    printf("KoopmanOnnxModel: ready horizon=%d\n", horizon_);
+}
+
+std::unique_ptr<KoopmanOnnxModel> KoopmanOnnxModel::FromBuffer(std::vector<char> bytes) {
+    auto model = std::unique_ptr<KoopmanOnnxModel>(new KoopmanOnnxModel());
+    model->loadFromMemory(bytes.data(), bytes.size());
+    return model;
 }
 
 KoopmanOnnxModel::~KoopmanOnnxModel() = default;
@@ -33,16 +74,16 @@ KoopmanOnnxModel::KoopmanOnnxModel(KoopmanOnnxModel&&) noexcept = default;
 KoopmanOnnxModel& KoopmanOnnxModel::operator=(KoopmanOnnxModel&&) noexcept = default;
 
 int KoopmanOnnxModel::readHorizonFromSession() const {
-    Ort::Session* session = session_.get();
     Ort::AllocatorWithDefaultOptions allocator;
-    const size_t n_inputs = session->GetInputCount();
+    const size_t n_inputs = session_->GetInputCount();
     for (size_t i = 0; i < n_inputs; ++i) {
-        auto name = session->GetInputNameAllocated(i, allocator);
+        auto name = session_->GetInputNameAllocated(i, allocator);
         if (std::string(name.get()) != "u_seq") {
             continue;
         }
+        // NOTE: 链式调用，避免 Ort::TypeInfo temporary 提前析构导致 GetShape() 悬空。
         const auto shape =
-            session->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
+            session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
         if (shape.size() != 2 || shape[1] != 4) {
             throw std::runtime_error("ONNX u_seq input must have shape [H, 4]");
         }
@@ -57,7 +98,6 @@ int KoopmanOnnxModel::readHorizonFromSession() const {
 std::vector<float> KoopmanOnnxModel::rollout(const std::array<float, 6>& state0,
                                              const std::vector<float>& u_seq_flat,
                                              float dt) const {
-    Ort::Session* session = session_.get();
     const int64_t H = horizon_;
     if (static_cast<int64_t>(u_seq_flat.size()) != H * 4) {
         throw std::runtime_error("u_seq_flat size must be H*4 (H=" + std::to_string(H) + ")");
@@ -82,8 +122,8 @@ std::vector<float> KoopmanOnnxModel::rollout(const std::array<float, 6>& state0,
     const char* output_names[] = {"states"};
     std::array<Ort::Value, 3> inputs{std::move(s0_tensor), std::move(u_tensor), std::move(dt_tensor)};
 
-    auto outputs = session->Run(Ort::RunOptions{nullptr}, input_names, inputs.data(), inputs.size(),
-                                output_names, 1);
+    auto outputs = session_->Run(Ort::RunOptions{nullptr}, input_names, inputs.data(), inputs.size(),
+                                 output_names, 1);
 
     float* out_data = outputs[0].GetTensorMutableData<float>();
     auto out_info = outputs[0].GetTensorTypeAndShapeInfo();

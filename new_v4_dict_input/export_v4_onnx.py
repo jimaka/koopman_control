@@ -59,14 +59,14 @@ def load_v4_model(ckpt_path: str, device: torch.device) -> Tuple[nn.Module, Dict
     return model, stats
 
 
-def export_onnx(rollout: nn.Module, out_path: str, pred_len: int, opset: int = 18) -> None:
+def export_onnx(rollout: nn.Module, out_path: str, pred_len: int, dt: float, opset: int = 18) -> None:
     rollout.eval()
     s0 = torch.zeros(6, dtype=torch.float32)
     u = torch.zeros(pred_len, 4, dtype=torch.float32)
-    dt = torch.tensor(0.1, dtype=torch.float32)
+    dt_t = torch.tensor(float(dt), dtype=torch.float32)
     torch.onnx.export(
         rollout,
-        (s0, u, dt),
+        (s0, u, dt_t),
         out_path,
         input_names=["state0", "u_seq", "dt"],
         output_names=["states"],
@@ -118,16 +118,21 @@ def collect_test_cases(
     data_path: str,
     pred_len: int,
     max_samples: int | None,
+    model_stride: int = 1,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     states_full, ctrls_full, _, _, t0g, _, _ = ek._flatten_segments(
-        data_path, pred_len=pred_len, stride=1
+        data_path, pred_len=pred_len, stride=1, model_stride=model_stride
     )
     if max_samples is not None and t0g.shape[0] > max_samples:
         sel = np.linspace(0, t0g.shape[0] - 1, max_samples).astype(int)
         t0g = t0g[sel]
 
     state0_batch = states_full[t0g]
-    u_seq_batch = np.stack([ctrls_full[t0 : t0 + pred_len] for t0 in t0g], axis=0)
+    ms = int(model_stride)
+    u_seq_batch = np.stack(
+        [ctrls_full[t0 : t0 + pred_len * ms : ms] for t0 in t0g],
+        axis=0,
+    )
     return state0_batch, u_seq_batch, t0g
 
 
@@ -139,11 +144,14 @@ def compare_pt_vs_onnx_on_test(
     pred_len: int,
     max_samples: int | None,
     compare_atol: float,
+    model_stride: int = 1,
 ) -> Tuple[Dict[str, np.ndarray], Dict[str, float], float, np.ndarray, np.ndarray, np.ndarray]:
     import onnxruntime as ort
 
     sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
-    state0_batch, u_seq_batch, t0g = collect_test_cases(data_path, pred_len, max_samples)
+    state0_batch, u_seq_batch, t0g = collect_test_cases(
+        data_path, pred_len, max_samples, model_stride=model_stride
+    )
     m = state0_batch.shape[0]
     k = pred_len
 
@@ -438,6 +446,7 @@ def verify_onnx_vs_pytorch_random(
     onnx_path: str,
     *,
     pred_len: int,
+    dt: float,
     atol: float = 1e-4,
     rtol: float = 1e-4,
     n_random: int = 8,
@@ -458,9 +467,9 @@ def verify_onnx_vs_pytorch_random(
 
     with torch.no_grad():
         for s0, u in cases:
-            dt = torch.tensor(0.1, dtype=torch.float32)
+            dt = torch.tensor(float(dt), dtype=torch.float32)
             pt_out = rollout(s0, u, dt).numpy()
-            ort_out = rollout_onnx_batch(sess, s0.numpy(), u.numpy(), 0.1)
+            ort_out = rollout_onnx_batch(sess, s0.numpy(), u.numpy(), float(dt))
             err = float(np.max(np.abs(pt_out - ort_out)))
             max_err = max(max_err, err)
 
@@ -486,8 +495,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--onnx_name", type=str, default="koopman_rollout.onnx")
     p.add_argument("--report_dir", type=str, default=None, help="PT/ONNX 对比报告与图片输出目录")
     p.add_argument("--data", type=str, default=str(P.TEST), help="精度对比使用的数据集")
-    p.add_argument("--pred_len", type=int, default=TRACED_HORIZON_V4, help="ONNX rollout 步数（v4 20s 默认 200）")
-    p.add_argument("--dt", type=float, default=0.1)
+    p.add_argument("--pred_len", type=int, default=TRACED_HORIZON_V4, help="ONNX rollout 步数（v4 20s @ dt=1s 默认 20）")
+    p.add_argument("--dt", type=float, default=1.0, help="模型离散步长 [s]")
+    p.add_argument("--data_dt", type=float, default=0.1, help="原始数据集采样间隔 [s]")
     p.add_argument("--max_samples", type=int, default=512, help="test 集对比样本数上限")
     p.add_argument("--tag", type=str, default="v4")
     p.add_argument("--opset", type=int, default=18)
@@ -515,12 +525,14 @@ def main() -> int:
     model, stats = load_v4_model(ckpt_path, device)
     rollout = KoopmanRollout(model, stats).cpu().eval()
 
+    model_stride = ek.model_stride_from_dt(args.dt, args.data_dt)
+
     onnx_path = os.path.join(args.out_dir, args.onnx_name)
-    export_onnx(rollout, onnx_path, pred_len=args.pred_len, opset=args.opset)
-    print(f"[OK] Saved ONNX -> {onnx_path} (pred_len={args.pred_len})")
+    export_onnx(rollout, onnx_path, pred_len=args.pred_len, dt=args.dt, opset=args.opset)
+    print(f"[OK] Saved ONNX -> {onnx_path} (pred_len={args.pred_len}, dt={args.dt})")
 
     random_max_err = verify_onnx_vs_pytorch_random(
-        rollout, onnx_path, pred_len=args.pred_len, atol=args.atol
+        rollout, onnx_path, pred_len=args.pred_len, dt=args.dt, atol=args.atol
     )
     print(f"[OK] random-case ONNX vs PyTorch max_abs_err={random_max_err:.6e}")
 
@@ -537,6 +549,7 @@ def main() -> int:
             pred_len=args.pred_len,
             max_samples=args.max_samples,
             compare_atol=args.compare_atol,
+            model_stride=model_stride,
         )
         report_files = generate_compare_report(
             report_dir=report_dir,
@@ -570,6 +583,8 @@ def main() -> int:
         "hidden_dim": int(getattr(model, "hidden_dim")),
         "clamp_pif": float(getattr(model, "clamp_pif")),
         "dt": args.dt,
+        "data_dt": args.data_dt,
+        "model_stride": model_stride,
         "horizon_default": args.pred_len,
         "onnx_verify_random_max_abs_err": random_max_err,
         "onnx_verify_test_max_abs_err": test_max_err,

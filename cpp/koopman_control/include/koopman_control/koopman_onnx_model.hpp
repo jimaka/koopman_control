@@ -29,6 +29,9 @@ public:
     explicit KoopmanOnnxModel(const std::string& onnx_path);
     ~KoopmanOnnxModel();
 
+    /** 从已读入内存的 ONNX 字节创建 Session（路径加载失败时可回退） */
+    static std::unique_ptr<KoopmanOnnxModel> FromBuffer(std::vector<char> bytes);
+
     KoopmanOnnxModel(const KoopmanOnnxModel&) = delete;
     KoopmanOnnxModel& operator=(const KoopmanOnnxModel&) = delete;
     KoopmanOnnxModel(KoopmanOnnxModel&&) noexcept;
@@ -49,10 +52,13 @@ public:
                                float dt) const;
 
 private:
+    KoopmanOnnxModel() = default;
+
+    void loadFromMemory(const void* data, size_t size);
+
     /** 解析 ONNX 图中 u_seq 输入维度 */
     int readHorizonFromSession() const;
 
-    std::unique_ptr<Ort::Env> env_;
     std::unique_ptr<Ort::SessionOptions> options_;
     std::unique_ptr<Ort::Session> session_;
     int horizon_{0};

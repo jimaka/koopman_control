@@ -6,6 +6,7 @@
 #include "koopman_control/mpc_controller.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
@@ -188,7 +189,12 @@ float KoopmanMpcController::mpcCost(const std::array<float, 6>& state0,
                                     const std::vector<float>& u_flat,
                                     const std::array<float, 4>& u_prev) const {
     const int H = cfg_.horizon;
+    const auto t_rollout = std::chrono::high_resolution_clock::now();
     auto states = model_.rollout(state0, u_flat, cfg_.dt);
+    ++step_rollout_count_;
+    step_inference_ms_ += std::chrono::duration<double, std::milli>(
+                              std::chrono::high_resolution_clock::now() - t_rollout)
+                              .count();
 
     float c = 0.f;
     // 跟踪误差：位置 / 航向 / 速度
@@ -250,7 +256,11 @@ std::vector<float> KoopmanMpcController::numericGrad(
 std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     const std::array<float, 6>& state0,
     const std::vector<std::array<float, 6>>& ref_window,
-    const std::array<float, 4>* u_prev_applied) {
+    const std::array<float, 4>* u_prev_applied,
+    MpcSolveTiming* timing) {
+    const auto t_solve_start = std::chrono::high_resolution_clock::now();
+    step_inference_ms_ = 0.;
+    step_rollout_count_ = 0;
     const int H = cfg_.horizon;
     const int n_blk = numControlBlocks();
     const size_t n_opt = static_cast<size_t>(optControlBlocks() * 4);
@@ -292,7 +302,9 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     const float beta2 = 0.999f;
     const float eps_adam = 1e-8f;
 
+    int opt_iters_done = 0;
     for (int it = 0; it < cfg_.opt_iters; ++it) {
+        opt_iters_done = it + 1;
         finalizeBlocks(blocks, u_prev, u_flat);
         const float cost = mpcCost(state0, ref, u_flat, u_prev);
         if (cost < best_cost) {
@@ -320,6 +332,24 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     }
     u_applied_ = u0_out;
     has_applied_ = true;
+
+    const double solve_ms = std::chrono::duration<double, std::milli>(
+                                std::chrono::high_resolution_clock::now() -
+                                t_solve_start)
+                                .count();
+    const double inference_ms = step_inference_ms_;
+    const double opt_ms = std::max(0., solve_ms - inference_ms);
+    if (timing != nullptr) {
+        timing->inference_ms = inference_ms;
+        timing->opt_ms = opt_ms;
+        timing->opt_iters_cfg = cfg_.opt_iters;
+        timing->opt_iters_done = opt_iters_done;
+        timing->rollout_count = step_rollout_count_;
+    }
+    printf("Koopman solveStep: total=%.3f ms | inference=%.3f | mpc_opt=%.3f | "
+           "mpc_iters=%d/%d rollouts=%d (H=%d, opt_blocks=%d)\n",
+           solve_ms, inference_ms, opt_ms, opt_iters_done, cfg_.opt_iters,
+           step_rollout_count_, cfg_.horizon, optControlBlocks());
     return {u0_out, best_cost};
 }
 
