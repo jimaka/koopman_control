@@ -1,0 +1,63 @@
+graph TD
+    A([开始运行 main]) --> B[解析参数与融合 YAML 配置]
+    B --> C{是否开启 Smoketest?}
+    C -- 是 --> D[构造微型数据集运行极简验证]
+    D --> End([结束])
+    C -- 否 --> E[初始化环境: Logger, 随机种子, TensorBoard]
+
+    E --> F[初始化模型并自检 _self_check_dict]
+    F --> G[设置优化器 AdamW & EMA 权重滑动平均]
+    G --> H[设置余弦退火学习率调度器 Scheduler]
+
+    H --> I((Epoch 循环开始))
+
+    I --> J{检查是否需增长 pred_len?}
+    J -- 是 --> K[重建数据集 & DataLoader (课程学习)]
+    J -- 否 --> L[模型进入 train 模式]
+    K --> L
+
+    L --> M((Batch 循环开始))
+    
+    M --> N[数据移动至 Device & 清空梯度]
+    N --> O[执行 compute_losses]
+    
+    subgraph 损失计算模块 compute_losses
+        O1[隐空间连续 K 步 Rollout] --> O2[解码得到物理状态轨迹]
+        O2 --> O3[计算 L_vel & L_acc]
+        O1 --> O4[计算隐空间 L_lin 逼近]
+        O4 --> O5[计算 L_recon & L_stab 谱半径惩罚]
+        O3 & O5 --> O6[加权求和得到总 Loss]
+    end
+    O --> O6
+    
+    O6 --> P[Loss 反向传播 backward]
+    P --> Q[梯度截断 clip_grad_norm]
+    Q --> R[优化器步进 optimizer.step]
+    R --> S[更新 EMA 模型]
+    S --> T{数据遍历完?}
+    
+    T -- 否 --> M
+    T -- 是 --> U[Scheduler 步进更新学习率]
+    
+    U --> V[EMA 模型进入 eval 模式执行验证]
+    
+    subgraph 验证评估模块 quick_validation
+        V1[执行验证集 Rollout] --> V2[计算时序演变指标 per_step_metrics]
+        V2 --> V3[提取对数斜率及 instability_score]
+        V3 --> V4[计算复合评价指标 cur_metric]
+    end
+    V --> V4
+    
+    V4 --> W[写入 TensorBoard 与 JSONL 日志]
+    W --> X[保存 latest.pth]
+    
+    X --> Y{cur_metric < best_metric?}
+    Y -- 是 --> Z[更新 best_metric 并保存 best.pth]
+    Y -- 否 --> AA{Epoch 结束?}
+    Z --> AA
+    
+    AA -- 否 --> I
+    AA -- 是 --> AB[加载 best.pth]
+    
+    AB --> AC[提取参数及统计信息导出最佳 YAML]
+    AC --> AD([训练完成])

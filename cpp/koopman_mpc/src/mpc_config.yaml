@@ -1,0 +1,21 @@
+# MPC Controller Configuration (v4 20s @ dt=1.0s, H=20)
+horizon: 20
+opt_control_steps: 2
+dt: 1.0
+control_hold_steps: 1
+w_xy: 10.0
+w_yaw: 5.0
+w_vel: 0.5
+w_u: 0.0001
+w_du: 0.05
+w_du_throttle: 0.05
+w_du_rudder: 0.08
+throttle_du_max: 15.0
+rudder_du_max: 3.5
+opt_iters: 8
+opt_lr: 0.08
+u_min: [-100.0, -35.0, -100.0, -35.0]
+u_max: [100.0, 35.0, 100.0, 35.0]
+
+# Main Loop Runtime overrides
+steps: 400

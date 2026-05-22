@@ -1,0 +1,38 @@
+# =============================================================================
+# Koopman MPC 默认配置（v4 / ONNX / H=20 @ dt=1.0s）
+# 原始数据集 0.1s 采样；模型 1s 一步，预测 20 步 = 20s
+# =============================================================================
+
+# 预测步数 H，须与 ONNX pred_len 一致（20s @ dt=1.0 → 20）
+horizon: 20
+# 仅优化前 N 步控制；后续零阶保持（2 步 = 2s @ dt=1.0）
+opt_control_steps: 2
+# 离散时间步长 (s)，须与训练/ONNX 一致
+dt: 1.0
+# 控制块长度：dt=1.0 时通常设为 1（每步控制可独立变化）
+control_hold_steps: 1
+
+# --- 代价权重 ---
+w_xy: 10.0
+w_yaw: 5.0
+w_vel: 0.5
+w_u: 0.0001
+w_du: 0.05
+w_du_throttle: 0.05
+w_du_rudder: 0.08
+
+throttle_du_max: 15.0
+rudder_du_max: 3.5
+
+# --- 优化器 ---
+opt_iters: 8
+opt_lr: 0.08
+
+u_min: [-100.0, -35.0, -100.0, -35.0]
+u_max: [100.0, 35.0, 100.0, 35.0]
+
+# --- motion.cpp 桥接（MotionBridgeConfig，代码中单独设置）---
+motion_ref_dt: 1.0              # 模型步长；运行时 ref_dt 仍来自 mpc_during
+motion_ref_time_offset: 0.5
+
+onnx_path: cpp/koopman_mpc/weights/koopman_rollout.onnx

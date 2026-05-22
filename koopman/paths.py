@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 DATA_DIR = REPO_ROOT / "data"
-CKPT_DIR = REPO_ROOT / "checkpoints"
+CKPT_DIR = REPO_ROOT / "checkpoints/run_v4_20260520_034545"
 LOG_DIR = REPO_ROOT / "logs"
 EVAL_OUT_DIR = REPO_ROOT / "eval_out"
 CPP_MPC_DIR = REPO_ROOT / "cpp" / "koopman_mpc"

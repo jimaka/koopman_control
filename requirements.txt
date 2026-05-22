@@ -5,5 +5,10 @@ matplotlib>=3.7
 pyyaml>=6.0
 scipy>=1.10
 
+# PT → ONNX 导出与精度验证（C++ MPC 部署）
+onnx>=1.16
+onnxruntime>=1.17
+onnxscript>=0.1
+
 # 数据处理（rosbag 切分，需 ROS 环境）
 # rosbag
