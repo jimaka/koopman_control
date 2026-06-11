@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import json
 import logging
@@ -26,7 +27,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import yaml
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
@@ -401,8 +402,14 @@ def quick_validation(
     dyn_std: torch.Tensor,
     pose_mean: torch.Tensor,
     pose_std: torch.Tensor,
+    loss_max_samples: Optional[int] = None,
 ) -> Dict[str, float]:
-    """在 hold-out 测试集上评估 rollout 指标与训练同款 loss。"""
+    """在 hold-out 测试集上评估 rollout 指标与训练同款 loss。
+
+    ``loss_max_samples``: 限制「训练同款 loss」部分的评估样本数（等距子采样，
+    与 rollout 子采样口径一致）；None 表示全量（历史行为）。best ckpt 选择只
+    依赖 rollout 指标（vel_rmse_mean × instability），不受该参数影响。
+    """
     model.eval()
 
     # 1. Rollout-based metrics (RMSE, instability, etc.)
@@ -439,8 +446,15 @@ def quick_validation(
     }
 
     # 2. Loss-based metrics (same as training losses)
+    # 旧实现固定遍历整个 test 集（与 rollout 部分的 max_samples 不一致，
+    # 每个 epoch 代价高）；现支持等距子采样。
+    if loss_max_samples is not None and 0 <= loss_max_samples < len(eval_dataset):
+        sel = np.linspace(0, len(eval_dataset) - 1, loss_max_samples).astype(int)
+        loss_dataset: Dataset = Subset(eval_dataset, sel.tolist())
+    else:
+        loss_dataset = eval_dataset
     eval_loader = DataLoader(
-        eval_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=torch.cuda.is_available()
+        loss_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=torch.cuda.is_available()
     )
     loss_keys = ["L_total", "L_vel", "L_acc", "L_lin", "L_recon", "L_xy", "L_yaw", "L_stab", "spec_radius"]
     eval_losses = {k: 0.0 for k in loss_keys}
@@ -530,6 +544,24 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--clamp_pif", type=float, default=5.0)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", type=str, default="auto")
+    p.add_argument("--amp", action="store_true", default=False,
+                   help="启用 CUDA 混合精度训练（与梯度累积兼容；CPU 自动关闭）")
+    p.add_argument("--resume", type=str, default=None,
+                   help="断点续训：从 ckpt 恢复 model/optimizer/scheduler/EMA/epoch/best")
+    p.add_argument(
+        "--scheduler",
+        type=str,
+        default="warmrestart",
+        choices=("warmrestart", "cosine", "constant"),
+        help="学习率调度：warmrestart=历史默认 CosineAnnealingWarmRestarts(T_0=cos_T0，"
+             "T_0=1000 时常规 epoch 数内 LR 几乎恒定)；cosine=CosineAnnealingLR(T_max=epochs)"
+             "（推荐）；constant=恒定 LR",
+    )
+    p.add_argument("--cos_T0", type=int, default=1000,
+                   help="warmrestart 调度的 T_0（保持历史默认 1000）")
+    p.add_argument("--early_stop_patience", type=int, default=0,
+                   help="早停：best composite 连续 N 个 epoch 无改善则提前结束；0=禁用。"
+                        "仅在 curriculum 到达 pred_len_max 后才开始计数。")
     p.add_argument(
         "--dist_backend",
         type=str,
@@ -538,6 +570,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="DDP 通信后端；多 GPU 训练推荐 nccl",
     )
     p.add_argument("--val_max_samples", type=int, default=512)
+    p.add_argument("--val_loss_max_samples", type=int, default=None,
+                   help="每 epoch 验证「训练同款 loss」部分的最大样本数（等距子采样）；"
+                        "默认 None=跟随 --val_max_samples；-1=全量（旧行为，遍历整个 test 集）。"
+                        "仅影响日志中 test/L_* 数值口径，不影响 best ckpt 选择。")
     p.add_argument("--val_batch_size", type=int, default=128, help="验证 rollout 的 batch（无梯度，可小于训练 batch）")
     p.add_argument("--smoketest", action="store_true")
     p.add_argument("--config", type=str, default=None)
@@ -687,9 +723,54 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
         )
     base_model = unwrap_model(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1000, T_mult=1)
+    sched_kind = str(getattr(args, "scheduler", "warmrestart")).lower()
+    if sched_kind == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(int(args.epochs), 1))
+    elif sched_kind == "constant":
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _epoch: 1.0)
+    else:  # warmrestart：历史默认（T_0=1000 时常规 epoch 数内 LR 几乎恒定）
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer, T_0=max(int(getattr(args, "cos_T0", 1000)), 1), T_mult=1
+        )
     ema = None if args.no_ema else ModelEMA(base_model, decay=args.ema_decay)
+
+    # AMP（默认关闭；仅 CUDA 生效）
+    use_amp = bool(getattr(args, "amp", False)) and device.type == "cuda"
+    if getattr(args, "amp", False) and not use_amp:
+        logger.info("AMP 仅在 CUDA 设备上生效，当前 device=%s，已自动关闭。", device)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp) if use_amp else None
+
     state = TrainState()
+
+    # ---- 断点续训 ----
+    if getattr(args, "resume", None):
+        if not os.path.exists(args.resume):
+            raise FileNotFoundError(f"--resume ckpt 不存在: {args.resume}")
+        ck = torch.load(args.resume, map_location=device, weights_only=False)
+        base_model.load_state_dict(ck["model_state_dict"])
+        if ck.get("optimizer_state_dict"):
+            optimizer.load_state_dict(ck["optimizer_state_dict"])
+        if ck.get("scheduler_state_dict"):
+            try:
+                scheduler.load_state_dict(ck["scheduler_state_dict"])
+            except Exception as e:  # 调度器类型改变时跳过（例如换了 --scheduler）
+                logger.warning("scheduler state 加载失败（%s），将从当前 epoch 重新初始化调度。", e)
+        if ema is not None and ck.get("ema_state_dict"):
+            ema.module.load_state_dict(ck["ema_state_dict"])
+        if scaler is not None and ck.get("scaler_state_dict"):
+            scaler.load_state_dict(ck["scaler_state_dict"])
+        state.epoch = int(ck.get("epoch", 0))
+        state.best_metric = float(ck.get("best_metric", float("inf")))
+        logger.info(
+            "Resumed from %s @ epoch=%d best=%.6g", args.resume, state.epoch, state.best_metric
+        )
+
+    # 验证 loss 部分的子采样上限（None=跟随 val_max_samples；-1=全量）
+    val_loss_max = getattr(args, "val_loss_max_samples", None)
+    if val_loss_max is None:
+        val_loss_max = args.val_max_samples
+    elif int(val_loss_max) < 0:
+        val_loss_max = None
 
     dyn_mean_t = torch.tensor(stats["state_mean"][3:6], device=device, dtype=torch.float32)
     dyn_std_t = torch.tensor(stats["state_std"][3:6], device=device, dtype=torch.float32)
@@ -730,6 +811,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
         args.test_data,
     )
 
+    es_no_improve = 0  # 早停计数（仅 pred_len 到达 max 后计数）
     for epoch in range(state.epoch, args.epochs):
         target_pl = curriculum_pred_len(epoch, args)
         if target_pl != pred_len:
@@ -755,15 +837,35 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             x_t_full = x_t_full.to(device, non_blocking=True)
             x_target_seq = x_target_seq.to(device, non_blocking=True)
             u_seq = u_seq.to(device, non_blocking=True)
-            loss, info = compute_losses(
-                model, x_t_full, x_target_seq, u_seq,
-                dyn_mean_t, dyn_std_t, pose_mean_t, pose_std_t, args, epoch,
-            )
-            (loss / accum).backward()
             step_now = ((batch_idx + 1) % accum == 0) or (batch_idx + 1 == len(train_loader))
+            # DDP + 梯度累积：非步进 micro-batch 用 no_sync() 跳过 all-reduce，
+            # 仅在真正 optimizer.step() 前同步一次（梯度数值不变，省通信）。
+            sync_ctx = (
+                model.no_sync() if (dinfo.enabled and not step_now) else contextlib.nullcontext()
+            )
+            with sync_ctx:
+                if use_amp:
+                    with torch.amp.autocast("cuda"):
+                        loss, info = compute_losses(
+                            model, x_t_full, x_target_seq, u_seq,
+                            dyn_mean_t, dyn_std_t, pose_mean_t, pose_std_t, args, epoch,
+                        )
+                    scaler.scale(loss / accum).backward()
+                else:
+                    loss, info = compute_losses(
+                        model, x_t_full, x_target_seq, u_seq,
+                        dyn_mean_t, dyn_std_t, pose_mean_t, pose_std_t, args, epoch,
+                    )
+                    (loss / accum).backward()
             if step_now:
+                if use_amp:
+                    scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
+                if use_amp:
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    optimizer.step()
                 if ema is not None:
                     ema.update(base_model)
                 optimizer.zero_grad(set_to_none=True)
@@ -772,6 +874,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             n_batches += 1
 
         scheduler.step()
+        train_time = time.time() - t0  # 纯训练耗时（不含验证），用于吞吐统计
         for k in ep:
             ep[k] /= max(n_batches, 1)
 
@@ -792,6 +895,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
                 dyn_std=dyn_std_t,
                 pose_mean=pose_mean_t,
                 pose_std=pose_std_t,
+                loss_max_samples=val_loss_max,
             )
         if dinfo.enabled:
             dist.barrier()
@@ -815,7 +919,8 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
 
             logger.info(
                 "Epoch [%03d/%d] pl=%d Ltot=%.4f Lvel=%.4f Lxy=%.4f Lyaw=%.4f Lrecon=%.4f | "
-                "test_vel_mean=%.5f test_xy@K=%.5f test_vel@K=%.5f slope=%.3f inst=%.3f | %.1fs",
+                "test_vel_mean=%.5f test_xy@K=%.5f test_vel@K=%.5f slope=%.3f inst=%.3f | "
+                "%.1fs (%.0f samp/s)",
                 epoch + 1,
                 args.epochs,
                 pred_len,
@@ -830,6 +935,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
                 vm.get("test/slope_loglog", float("nan")),
                 vm.get("test/instability_score", float("nan")),
                 elapsed,
+                n_batches * args.batch_size * max(dinfo.world_size, 1) / max(train_time, 1e-9),
             )
 
             ckpt = {
@@ -839,6 +945,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
                 "best_metric": state.best_metric,
                 "optimizer_state_dict": optimizer.state_dict(),
                 "scheduler_state_dict": scheduler.state_dict(),
+                "scaler_state_dict": scaler.state_dict() if scaler is not None else None,
                 "ema_state_dict": ema.state_dict() if ema is not None else None,
                 "args": vars(args),
                 "model_class": base_model.__class__.__name__,
@@ -853,11 +960,33 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
                 torch.save(ckpt, epoch_ckpt_path)
                 logger.info("Saved periodic checkpoint: %s", epoch_ckpt_path)
 
-            if vm and cur_metric < state.best_metric:
+            improved = bool(vm) and cur_metric < state.best_metric
+            if improved:
                 state.best_metric = cur_metric
                 ckpt["best_metric"] = state.best_metric
                 torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_v4_best.pth"))
                 logger.info("  ↳ new best composite=%.6g @ epoch %d", cur_metric, epoch + 1)
+
+        # ---- 早停（--early_stop_patience > 0 时启用；rank0 判定后广播）----
+        stop_flag = False
+        if is_main_process(dinfo) and int(getattr(args, "early_stop_patience", 0)) > 0:
+            if pred_len >= args.pred_len_max:
+                es_no_improve = 0 if improved else es_no_improve + 1
+                if es_no_improve >= int(args.early_stop_patience):
+                    logger.info(
+                        "[EarlyStop] best composite 连续 %d 个 epoch 无改善"
+                        "（patience=%d），在 epoch %d 提前停止训练。",
+                        es_no_improve, int(args.early_stop_patience), epoch + 1,
+                    )
+                    stop_flag = True
+            else:
+                es_no_improve = 0  # curriculum 未到 max，不计数
+        if dinfo.enabled:
+            payload = [stop_flag]
+            dist.broadcast_object_list(payload, src=0)
+            stop_flag = bool(payload[0])
+        if stop_flag:
+            break
 
     if dinfo.enabled:
         dist.barrier()
