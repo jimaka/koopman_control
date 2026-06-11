@@ -756,6 +756,10 @@ def build_parser() -> argparse.ArgumentParser:
     # EMA
     p.add_argument("--ema_decay", type=float, default=0.999)
     p.add_argument("--no_ema", action="store_true", default=False)
+    p.add_argument("--early_stop_patience", type=int, default=0,
+                   help="早停：best 指标连续 N 个 epoch 无改善则提前结束训练；0=禁用。"
+                        "仅在 curriculum 到达 --pred_len_max 后才开始计数，避免扩窗"
+                        "导致的指标跳变误触发。")
     p.add_argument("--encoder_dropout", type=float, default=0.0)
     p.add_argument("--best_metric",
                    choices=["vel_rmse_mean", "instability_score", "composite", "composite_v3a"],
@@ -950,7 +954,7 @@ def train(args: argparse.Namespace) -> None:
         )
     else:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.5)
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp) if use_amp else None
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp) if use_amp else None
     ema = None if args.no_ema else ModelEMA(model, decay=args.ema_decay)
 
     state = TrainState()
@@ -1028,6 +1032,7 @@ def train(args: argparse.Namespace) -> None:
     dyn_std_t = torch.tensor(stats["state_std"][3:6], device=device, dtype=torch.float32)
 
     metrics_summary_lines: List[str] = []
+    es_no_improve = 0  # 早停计数（仅 pred_len 到达 max 后计数）
 
     for epoch in range(state.epoch, args.epochs):
         # Curriculum：是否需要扩窗 + 重建 dataloader
@@ -1050,7 +1055,7 @@ def train(args: argparse.Namespace) -> None:
             u_seq = u_seq.to(device, non_blocking=True)
             optimizer.zero_grad(set_to_none=True)
             if use_amp:
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast("cuda"):
                     loss, info = compute_losses(
                         model, x_t_full, x_target_seq, u_seq,
                         dyn_mean_t, dyn_std_t, args, epoch, args.detach_target_lat,
@@ -1078,12 +1083,16 @@ def train(args: argparse.Namespace) -> None:
 
         if not isinstance(scheduler, torch.optim.lr_scheduler.OneCycleLR):
             scheduler.step()
+        train_time = time.time() - t0  # 纯训练耗时（不含验证），用于吞吐统计
         for k in epoch_acc:
             epoch_acc[k] /= max(n_batches, 1)
 
         # ---- 验证：用 EMA 权重（如果有） ----
         eval_model = ema.module if ema is not None else model
-        need_per_sample = args.best_metric == "composite_v3a"
+        # 只要 v1 baseline 可用就顺带取 per-sample 误差：degraded_pct 的
+        # 计算复用同一次验证 rollout，避免旧实现中为补数据把
+        # quick_validation 完整重跑一遍（数值不变，验证耗时减半）。
+        need_per_sample = (args.best_metric == "composite_v3a") or v1_cache.available
         val_metrics = quick_validation(
             eval_model, val_ds, pred_len, device, args.dt,
             batch_size=args.batch_size, max_samples=args.val_max_samples,
@@ -1095,14 +1104,6 @@ def train(args: argparse.Namespace) -> None:
             base_per_sample = v1_cache.per_sample_vel_err_K(val_ds, pred_len)
             if base_per_sample is not None:
                 cur_per_sample = val_metrics.pop("_per_sample_vel_err_K", None)
-                if cur_per_sample is None:
-                    # 未请求 per_sample 时也补算一次，避免 logging 缺数据
-                    aux = quick_validation(
-                        eval_model, val_ds, pred_len, device, args.dt,
-                        batch_size=args.batch_size, max_samples=args.val_max_samples,
-                        return_per_sample_vel_err_K=True,
-                    )
-                    cur_per_sample = aux.get("_per_sample_vel_err_K")
                 if cur_per_sample is not None:
                     n = min(cur_per_sample.shape[0], base_per_sample.shape[0])
                     deg_pct_val = float(np.mean(cur_per_sample[:n] > base_per_sample[:n]) * 100.0)
@@ -1153,7 +1154,7 @@ def train(args: argparse.Namespace) -> None:
             f"deg%={val_metrics['val/degraded_pct_vs_v1_val']:.2f} "
             f"cV3a={val_metrics['val/composite_v3a']:.5f} "
             f"spec={epoch_acc['spec_radius']:.3f} "
-            f"| {elapsed:.1f}s"
+            f"| {elapsed:.1f}s ({len(train_ds) / max(train_time, 1e-9):.0f} samp/s)"
         )
         logger.info(log_msg)
         if (epoch + 1) % 5 == 0 or epoch == 0:
@@ -1196,7 +1197,8 @@ def train(args: argparse.Namespace) -> None:
             cur_metric = val_metrics["val/composite_v3a"]
         else:  # composite
             cur_metric = val_metrics["val/vel_rmse_mean"] * max(1.0, val_metrics["val/instability_score"])
-        if cur_metric < state.best_metric:
+        improved = cur_metric < state.best_metric
+        if improved:
             state.best_metric = cur_metric
             ckpt["best_metric"] = state.best_metric
             torch.save(ckpt, os.path.join(args.ckpt_dir, "koopman_best.pth"))
@@ -1208,6 +1210,20 @@ def train(args: argparse.Namespace) -> None:
                 f"deg%={val_metrics['val/degraded_pct_vs_v1_val']:.2f}, "
                 f"epoch {epoch + 1})"
             )
+
+        # ---- 早停（--early_stop_patience > 0 时启用）----
+        if args.early_stop_patience > 0:
+            if pred_len >= args.pred_len_max:
+                es_no_improve = 0 if improved else es_no_improve + 1
+                if es_no_improve >= args.early_stop_patience:
+                    logger.info(
+                        f"[EarlyStop] best[{args.best_metric}] 连续 {es_no_improve} 个 epoch "
+                        f"无改善（patience={args.early_stop_patience}），"
+                        f"在 epoch {epoch + 1} 提前停止训练。"
+                    )
+                    break
+            else:
+                es_no_improve = 0  # curriculum 未到 max，不计数
 
     # ---- 训练结束：导出 best 的 yaml ----
     best_path = os.path.join(args.ckpt_dir, "koopman_best.pth")
