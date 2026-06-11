@@ -67,7 +67,11 @@ def unwrap_model(model: nn.Module) -> nn.Module:
 
 
 def init_distributed(backend: str = "nccl") -> DistInfo:
-    """由 torchrun / torch.distributed.launch 注入的环境变量初始化 DDP。"""
+    """由 torchrun / torch.distributed.launch 注入的环境变量初始化 DDP。
+
+    GPU 多卡用 nccl；无 GPU 环境可用 ``--dist_backend gloo`` 做 CPU 多进程
+    DDP（主要用于流程调试 / CI 冒烟，吞吐不如单进程大 batch）。
+    """
     if "LOCAL_RANK" not in os.environ:
         return DistInfo()
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -75,9 +79,10 @@ def init_distributed(backend: str = "nccl") -> DistInfo:
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     if world_size <= 1:
         return DistInfo()
-    if not torch.cuda.is_available():
-        raise RuntimeError("多卡 DDP 需要 CUDA；请检查 GPU 与驱动。")
-    torch.cuda.set_device(local_rank)
+    if backend == "nccl" and not torch.cuda.is_available():
+        raise RuntimeError("nccl 后端需要 CUDA；CPU 环境请改用 --dist_backend gloo。")
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
     dist.init_process_group(backend=backend, init_method="env://")
     return DistInfo(enabled=True, rank=rank, local_rank=local_rank, world_size=world_size, backend=backend)
 
@@ -387,6 +392,38 @@ def compute_losses(
     }
 
 
+class V4LossModule(nn.Module):
+    """把整套训练损失包进 ``forward``，供 DDP 正确包装。
+
+    背景：DDP 的梯度 all-reduce 依赖 ``DDP.forward()`` 触发 reducer 注册；
+    历史实现直接对 DDP 包装对象调用 ``model.encode(...)`` 等子方法，
+    一方面 `DistributedDataParallel` 根本不转发自定义方法（直接
+    AttributeError 崩溃），另一方面即使转发也会绕过 reducer 导致梯度
+    不同步。因此训练侧统一通过本模块的 ``forward`` 计算损失。
+    """
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(
+        self,
+        x_t_full_n: torch.Tensor,
+        x_target_seq_n: torch.Tensor,
+        u_seq_n: torch.Tensor,
+        dyn_mean: torch.Tensor,
+        dyn_std: torch.Tensor,
+        pose_mean: torch.Tensor,
+        pose_std: torch.Tensor,
+        args: argparse.Namespace,
+        epoch: int,
+    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        return compute_losses(
+            self.model, x_t_full_n, x_target_seq_n, u_seq_n,
+            dyn_mean, dyn_std, pose_mean, pose_std, args, epoch,
+        )
+
+
 @torch.no_grad()
 def quick_validation(
     model: nn.Module,
@@ -676,7 +713,9 @@ def make_dataloaders(
 
 def resolve_device(args: argparse.Namespace, dinfo: DistInfo) -> torch.device:
     if dinfo.enabled:
-        return torch.device(f"cuda:{dinfo.local_rank}")
+        if torch.cuda.is_available():
+            return torch.device(f"cuda:{dinfo.local_rank}")
+        return torch.device("cpu")  # gloo CPU DDP
     if args.device == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return torch.device(args.device)
@@ -712,17 +751,21 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             args.model_stride,
             args.pred_len_max * args.dt,
         )
-    model = HorizontalKoopmanModelV4DictInput(hidden_dim=args.hidden_dim, clamp_pif=args.clamp_pif).to(device)
-    unwrap_model(model)._self_check_dict()
+    base_model = HorizontalKoopmanModelV4DictInput(hidden_dim=args.hidden_dim, clamp_pif=args.clamp_pif).to(device)
+    base_model._self_check_dict()
+    # 训练侧统一走 V4LossModule.forward（DDP 梯度同步的正确姿势，见类注释）
+    train_module: nn.Module = V4LossModule(base_model)
     if dinfo.enabled:
-        model = DDP(
-            model,
-            device_ids=[dinfo.local_rank],
-            output_device=dinfo.local_rank,
-            find_unused_parameters=False,
-        )
-    base_model = unwrap_model(model)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        if device.type == "cuda":
+            train_module = DDP(
+                train_module,
+                device_ids=[dinfo.local_rank],
+                output_device=dinfo.local_rank,
+                find_unused_parameters=False,
+            )
+        else:  # gloo CPU DDP：不能传 device_ids
+            train_module = DDP(train_module, find_unused_parameters=False)
+    optimizer = torch.optim.AdamW(base_model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     sched_kind = str(getattr(args, "scheduler", "warmrestart")).lower()
     if sched_kind == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(int(args.epochs), 1))
@@ -826,7 +869,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
 
-        model.train()
+        train_module.train()
         t0 = time.time()
         ep = {"L_total": 0.0, "L_vel": 0.0, "L_acc": 0.0, "L_lin": 0.0, "L_recon": 0.0, "L_xy": 0.0, "L_yaw": 0.0, "L_stab": 0.0, "spec_radius": 0.0}
         n_batches = 0
@@ -841,26 +884,26 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             # DDP + 梯度累积：非步进 micro-batch 用 no_sync() 跳过 all-reduce，
             # 仅在真正 optimizer.step() 前同步一次（梯度数值不变，省通信）。
             sync_ctx = (
-                model.no_sync() if (dinfo.enabled and not step_now) else contextlib.nullcontext()
+                train_module.no_sync() if (dinfo.enabled and not step_now) else contextlib.nullcontext()
             )
             with sync_ctx:
                 if use_amp:
                     with torch.amp.autocast("cuda"):
-                        loss, info = compute_losses(
-                            model, x_t_full, x_target_seq, u_seq,
+                        loss, info = train_module(
+                            x_t_full, x_target_seq, u_seq,
                             dyn_mean_t, dyn_std_t, pose_mean_t, pose_std_t, args, epoch,
                         )
                     scaler.scale(loss / accum).backward()
                 else:
-                    loss, info = compute_losses(
-                        model, x_t_full, x_target_seq, u_seq,
+                    loss, info = train_module(
+                        x_t_full, x_target_seq, u_seq,
                         dyn_mean_t, dyn_std_t, pose_mean_t, pose_std_t, args, epoch,
                     )
                     (loss / accum).backward()
             if step_now:
                 if use_amp:
                     scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(base_model.parameters(), 1.0)
                 if use_amp:
                     scaler.step(optimizer)
                     scaler.update()
@@ -1080,14 +1123,18 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
 
 
 def run_smoketest(args: argparse.Namespace, dinfo: DistInfo) -> int:
-    raw = np.load(args.train_data, allow_pickle=True)["datas"]
-    raw_t = np.load(args.test_data, allow_pickle=True)["datas"]
     out_dir = Path("logs/smoketest_v4_dict_input")
-    out_dir.mkdir(parents=True, exist_ok=True)
     mini_train = out_dir / "mini_train.npz"
     mini_test = out_dir / "mini_test.npz"
-    np.savez(mini_train, datas=np.array([raw[0], raw[1]], dtype=object))
-    np.savez(mini_test, datas=np.array([raw_t[0]], dtype=object))
+    # DDP 下仅 rank0 写迷你数据集，避免多进程同写同一文件
+    if is_main_process(dinfo):
+        raw = np.load(args.train_data, allow_pickle=True)["datas"]
+        raw_t = np.load(args.test_data, allow_pickle=True)["datas"]
+        out_dir.mkdir(parents=True, exist_ok=True)
+        np.savez(mini_train, datas=np.array([raw[0], raw[1]], dtype=object))
+        np.savez(mini_test, datas=np.array([raw_t[0]], dtype=object))
+    if dinfo.enabled:
+        dist.barrier()
 
     args.train_data = str(mini_train)
     args.test_data = str(mini_test)
