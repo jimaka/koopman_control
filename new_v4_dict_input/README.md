@@ -2,6 +2,9 @@
 
 该目录是新增脚本目录，不改动原有 `koopman/` 与 `scripts/` 下脚本。
 
+> 训练机制详解与本轮训练流程优化（验证 rollout 向量化、DDP 修复、AMP / 断点续训 /
+> 早停等新参数）见 [docs/训练流程指南.md](../docs/训练流程指南.md)。
+
 ## 文件
 
 - `model_v4_dict_input.py`：16 阶字典作为主输入的 Koopman 模型。
@@ -64,6 +67,22 @@ python3 new_v4_dict_input/train_v4_dict_input.py \
 | 8 GB（curriculum 前期 pl≤40） | 512 | 2 | 1024 |
 
 也可直接指定步数：`--pred_len_max 200 --pred_len_start 20`。
+
+### 训练新增参数（流程优化后）
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `--amp` | 关 | CUDA 混合精度（与梯度累积兼容；CPU 自动关闭） |
+| `--resume <ckpt>` | — | 断点续训（恢复 optimizer/scheduler/EMA/scaler/epoch/best） |
+| `--scheduler {warmrestart,cosine,constant}` | `warmrestart` | 学习率调度；历史默认 `warmrestart`（T_0=1000，常规 epoch 数内 LR 几乎恒定），需要显式退火用 `cosine` |
+| `--early_stop_patience N` | 0（禁用） | best composite 连续 N 个 epoch 无改善则提前停止（curriculum 到 max 后才计数） |
+| `--val_loss_max_samples` | None | 每 epoch 验证 loss 部分的子采样数；None=跟随 `--val_max_samples`；`-1`=全量（旧日志口径） |
+
+多卡 DDP：`bash new_v4_dict_input/run_v4_ddp.sh --nproc 4 -- --epochs 120`。
+历史 DDP 路径存在「DDP 不转发 `encode` 等自定义方法」导致启动即崩溃的 bug，
+现已通过 `V4LossModule.forward` 修复；无 GPU 环境可用
+`torchrun --standalone --nproc_per_node 2 new_v4_dict_input/train_v4_dict_input.py --smoketest --dist_backend gloo`
+做流程冒烟。
 
 快速冒烟：
 
