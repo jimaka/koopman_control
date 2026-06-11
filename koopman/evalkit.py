@@ -78,21 +78,38 @@ def data_span_for_pred_len(pred_len: int, model_stride: int = 1) -> int:
     return int(pred_len) * int(model_stride)
 
 
-def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1, model_stride: int = 1):
-    """把所有段拼成 (N_total, 6) 状态张量与 (N_total, 4) 控制张量。
+# ---------------------------------------------------------------------------
+# 1a. npz 扁平化缓存
+#
+# curriculum 训练每次扩窗都会重建 Dataset，从而重复执行「np.load + 逐段拼接」。
+# 拼接结果只取决于 npz 文件本身（与 pred_len/stride 无关），因此用模块级缓存
+# （key = 绝对路径 + mtime + size，文件被替换时自动失效）。缓存数组设为只读，
+# 防止使用方意外原地修改污染后续读取。
+# ---------------------------------------------------------------------------
 
-    当 model_stride>1 时，pred_len 表示**模型步数**，段内至少需要
-    pred_len * model_stride 行原始 0.1s 数据。
+_SEGMENT_CACHE: Dict[Tuple[str, float, int], Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+_SEGMENT_CACHE_MAX = 8  # 数据集都是 MB 级，留 8 个槽位足够 train/val/test 复用
+
+
+def _load_segments_cached(npz_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """读取 npz 并拼接所有段（带缓存）。
 
     返回:
-        states_full: (N, 6) float32 —— [x, y, yaw, u, v, r]
-        ctrls_full:  (N, 4) float32
-        seg_starts:  (S,) int  —— 每段在 states_full 中的起点
-        seg_lens:    (S,) int  —— 每段长度
-        sample_index: (M, 2) int —— 每个样本的 (global_t0, seg_idx)
-                      满足 t0 + data_span <= seg_len
+        states_full: (N, 6) float32 —— [x, y, yaw, u, v, r]（只读）
+        ctrls_full:  (N, 4) float32（只读）
+        seg_starts:  (S,) int64 —— 每段在 states_full 中的起点
+        seg_lens:    (S,) int64 —— 每段长度
     """
-    data_span = data_span_for_pred_len(pred_len, model_stride)
+    abs_path = os.path.abspath(npz_path)
+    try:
+        st_info = os.stat(abs_path)
+        key = (abs_path, float(st_info.st_mtime), int(st_info.st_size))
+    except OSError:
+        key = (abs_path, 0.0, 0)
+    cached = _SEGMENT_CACHE.get(key)
+    if cached is not None:
+        return cached
+
     raw = np.load(npz_path, allow_pickle=True)["datas"]
     state_chunks: List[np.ndarray] = []
     ctrl_chunks: List[np.ndarray] = []
@@ -116,9 +133,41 @@ def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1, model_strid
         seg_lens.append(T)
         cursor += T
     states_full = np.concatenate(state_chunks, axis=0)
-    ctrls_full = np.concatenate(ctrl_chunks, axis=0)
+    ctrls_full = np.ascontiguousarray(np.concatenate(ctrl_chunks, axis=0))
     seg_starts_arr = np.asarray(seg_starts, dtype=np.int64)
     seg_lens_arr = np.asarray(seg_lens, dtype=np.int64)
+    # 缓存共享数组，置为只读避免被意外原地修改
+    for arr in (states_full, ctrls_full, seg_starts_arr, seg_lens_arr):
+        arr.setflags(write=False)
+
+    if len(_SEGMENT_CACHE) >= _SEGMENT_CACHE_MAX:
+        _SEGMENT_CACHE.pop(next(iter(_SEGMENT_CACHE)))
+    entry = (states_full, ctrls_full, seg_starts_arr, seg_lens_arr)
+    _SEGMENT_CACHE[key] = entry
+    return entry
+
+
+def _flatten_segments(npz_path: str, pred_len: int, stride: int = 1, model_stride: int = 1):
+    """把所有段拼成 (N_total, 6) 状态张量与 (N_total, 4) 控制张量。
+
+    当 model_stride>1 时，pred_len 表示**模型步数**，段内至少需要
+    pred_len * model_stride 行原始 0.1s 数据。
+
+    拼接部分带模块级缓存（见 :func:`_load_segments_cached`），curriculum
+    扩窗重建 Dataset 时不再重复 IO；索引部分依赖 pred_len/stride 每次重算。
+
+    返回:
+        states_full: (N, 6) float32 —— [x, y, yaw, u, v, r]
+        ctrls_full:  (N, 4) float32
+        seg_starts:  (S,) int  —— 每段在 states_full 中的起点
+        seg_lens:    (S,) int  —— 每段长度
+        sample_index: (M, 2) int —— 每个样本的 (global_t0, seg_idx)
+                      满足 t0 + data_span <= seg_len
+    """
+    data_span = data_span_for_pred_len(pred_len, model_stride)
+    states_full, ctrls_full, seg_starts_arr, seg_lens_arr = _load_segments_cached(npz_path)
+    seg_starts = seg_starts_arr.tolist()
+    seg_lens = seg_lens_arr.tolist()
 
     # 生成 (sample_idx, seg_idx, t0_global) 索引
     sample_global_t0 = []
@@ -195,21 +244,22 @@ def rollout_dataset(
     gt_xy = np.empty((M, K, 2), dtype=np.float32)
 
     model.eval()
+    ms = int(model_stride)
+    # 向量化取数用的步进偏移：第 k 个模型步对应原始数据 t0 + k*ms 行
+    step_offsets = np.arange(K, dtype=np.int64) * ms  # (K,)
     for start in range(0, M, batch_size):
         end = min(M, start + batch_size)
-        idx = sample_global_t0[start:end]  # (b,)
-        b = idx.shape[0]
+        idx = sample_global_t0[start:end].astype(np.int64, copy=False)  # (b,)
 
         # 取 t0 处 6 维状态（用于位置初值与 dyn 起始点）
         x0 = states_full[idx]  # (b, 6) [x,y,yaw,u,v,r]
-        # 取未来 K 步控制（CPU numpy 切片，再一次性转 GPU）
-        u_future = np.empty((b, K, 4), dtype=np.float32)
-        gt_dyn_future = np.empty((b, K, 3), dtype=np.float32)
-        ms = int(model_stride)
-        for j, t0 in enumerate(idx):
-            for k in range(K):
-                u_future[j, k] = ctrls_full[t0 + k * ms]
-                gt_dyn_future[j, k] = states_full[t0 + (k + 1) * ms, 3:6]
+        # 取未来 K 步控制与 GT 速度：fancy indexing 一次 gather（替代逐样本逐步
+        # 的 Python 双层循环；纯拷贝操作，数值与旧实现逐位一致）
+        gather_idx = idx[:, None] + step_offsets[None, :]            # (b, K)
+        u_future = ctrls_full[gather_idx]                            # (b, K, 4)
+        gt_dyn_future = np.ascontiguousarray(
+            states_full[gather_idx + ms][:, :, 3:6]                  # (b, K, 3)
+        )
 
         x0_t = torch.from_numpy(x0).to(device)
         u_future_t = torch.from_numpy(u_future).to(device)
@@ -229,6 +279,11 @@ def rollout_dataset(
 
         gt_dyn_future_t = torch.from_numpy(gt_dyn_future).to(device)
 
+        # 每步结果先留在 device 上，K 步结束后一次性转回 CPU，
+        # 避免循环内反复的小块 device→host 拷贝/同步。
+        pred_dyn_steps: List[torch.Tensor] = []
+        pred_xy_steps: List[torch.Tensor] = []
+        gt_xy_steps: List[torch.Tensor] = []
         for k in range(K):
             z = model.latent_step(z, u_norm[:, k, :])
             pred_norm = model.reconstruct_state(z)
@@ -237,11 +292,8 @@ def rollout_dataset(
             cur_x = cur_x + (up * torch.cos(cur_yaw) - vp * torch.sin(cur_yaw)) * dt
             cur_y = cur_y + (up * torch.sin(cur_yaw) + vp * torch.cos(cur_yaw)) * dt
             cur_yaw = cur_yaw + rp * dt
-            pred_dyn[start:end, k, 0] = up.cpu().numpy()
-            pred_dyn[start:end, k, 1] = vp.cpu().numpy()
-            pred_dyn[start:end, k, 2] = rp.cpu().numpy()
-            pred_xy[start:end, k, 0] = cur_x.cpu().numpy()
-            pred_xy[start:end, k, 1] = cur_y.cpu().numpy()
+            pred_dyn_steps.append(pred_phys)
+            pred_xy_steps.append(torch.stack([cur_x, cur_y], dim=-1))
 
             ug = gt_dyn_future_t[:, k, 0]
             vg = gt_dyn_future_t[:, k, 1]
@@ -249,11 +301,12 @@ def rollout_dataset(
             gt_x = gt_x + (ug * torch.cos(gt_yaw) - vg * torch.sin(gt_yaw)) * dt
             gt_y = gt_y + (ug * torch.sin(gt_yaw) + vg * torch.cos(gt_yaw)) * dt
             gt_yaw = gt_yaw + rg * dt
-            gt_dyn[start:end, k, 0] = ug.cpu().numpy()
-            gt_dyn[start:end, k, 1] = vg.cpu().numpy()
-            gt_dyn[start:end, k, 2] = rg.cpu().numpy()
-            gt_xy[start:end, k, 0] = gt_x.cpu().numpy()
-            gt_xy[start:end, k, 1] = gt_y.cpu().numpy()
+            gt_xy_steps.append(torch.stack([gt_x, gt_y], dim=-1))
+
+        pred_dyn[start:end] = torch.stack(pred_dyn_steps, dim=1).cpu().numpy()
+        pred_xy[start:end] = torch.stack(pred_xy_steps, dim=1).cpu().numpy()
+        gt_xy[start:end] = torch.stack(gt_xy_steps, dim=1).cpu().numpy()
+        gt_dyn[start:end] = gt_dyn_future  # GT 速度即 gather 结果本身
     return gt_dyn, pred_dyn, gt_xy, pred_xy
 
 
