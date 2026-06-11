@@ -1,15 +1,19 @@
 graph TD
-    A([开始运行 main]) --> B[解析参数与融合 YAML 配置]
+    A([开始运行 main]) --> A1[初始化 DDP 进程组<br/>nccl / gloo 可选]
+    A1 --> B[解析参数与融合 YAML 配置]
     B --> C{是否开启 Smoketest?}
     C -- 是 --> D[构造微型数据集运行极简验证]
     D --> End([结束])
     C -- 否 --> E[初始化环境: Logger, 随机种子, TensorBoard]
 
     E --> F[初始化模型并自检 _self_check_dict]
-    F --> G[设置优化器 AdamW & EMA 权重滑动平均]
-    G --> H[设置余弦退火学习率调度器 Scheduler]
-
-    H --> I((Epoch 循环开始))
+    F --> F1[V4LossModule 包装 + DDP wrap<br/>保证梯度正确同步]
+    F1 --> G[设置优化器 AdamW & EMA 权重滑动平均 & AMP GradScaler 可选]
+    G --> H[设置学习率调度器<br/>warmrestart / cosine / constant]
+    H --> H1{是否 --resume?}
+    H1 -- 是 --> H2[加载 ckpt 恢复 optimizer/scheduler/EMA/epoch/best]
+    H1 -- 否 --> I
+    H2 --> I((Epoch 循环开始))
 
     I --> J{检查是否需增长 pred_len?}
     J -- 是 --> K[重建数据集 & DataLoader (课程学习)]
@@ -19,7 +23,7 @@ graph TD
     L --> M((Batch 循环开始))
     
     M --> N[数据移动至 Device & 清空梯度]
-    N --> O[执行 compute_losses]
+    N --> O[执行 compute_losses<br/>经 V4LossModule.forward; 梯度累积非步进批用 no_sync 省通信]
     
     subgraph 损失计算模块 compute_losses
         O1[隐空间连续 K 步 Rollout] --> O2[解码得到物理状态轨迹]
@@ -53,8 +57,10 @@ graph TD
     
     X --> Y{cur_metric < best_metric?}
     Y -- 是 --> Z[更新 best_metric 并保存 best.pth]
-    Y -- 否 --> AA{Epoch 结束?}
-    Z --> AA
+    Y -- 否 --> Y1{早停判定<br/>patience 内无改善?}
+    Z --> Y1
+    Y1 -- 是, rank0 广播停止 --> AB[加载 best.pth]
+    Y1 -- 否 --> AA{Epoch 结束?}
     
     AA -- 否 --> I
     AA -- 是 --> AB[加载 best.pth]

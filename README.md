@@ -5,6 +5,7 @@
 **文档**：
 
 - [docs/项目指南.md](docs/项目指南.md) — 项目总览与全流程
+- [docs/训练流程指南.md](docs/训练流程指南.md) — 训练流程详解、性能优化说明与新参数（早停 / AMP / 断点续训 / DDP）
 - [docs/MPC使用指南.md](docs/MPC使用指南.md) — MPC 原理、用法与验证
 - [cpp/koopman_control/模型输入输出接口说明.md](cpp/koopman_control/模型输入输出接口说明.md) — v4 ONNX/MPC 接口（中文）
 - [cpp/koopman_control/README_CN.md](cpp/koopman_control/README_CN.md) — C++ 库与 motion 集成
