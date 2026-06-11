@@ -7,7 +7,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 DATA_DIR = REPO_ROOT / "data"
-CKPT_DIR = REPO_ROOT / "checkpoints/run_v4_20260520_034545"
+# 注意：CKPT_DIR 必须指向 checkpoints 根目录。
+# 历史上曾被误改为某次 v4 run 子目录（checkpoints/run_v4_xxx），导致
+# CKPT_V1_BEST 等常量失效、train_v1/v2 默认把权重写进 v4 run 目录。
+# v4 训练脚本会在 CKPT_DIR 下自动创建 run_v4_<timestamp>/ 子目录，无需在此硬编码。
+CKPT_DIR = REPO_ROOT / "checkpoints"
 LOG_DIR = REPO_ROOT / "logs"
 EVAL_OUT_DIR = REPO_ROOT / "eval_out"
 CPP_MPC_DIR = REPO_ROOT / "cpp" / "koopman_mpc"
