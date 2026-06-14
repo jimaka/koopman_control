@@ -36,6 +36,7 @@ def load_v4_model(ckpt_path: str, device: torch.device) -> tuple[torch.nn.Module
     model = HorizontalKoopmanModelV4DictInput(
         hidden_dim=int(args_d.get("hidden_dim", 32)),
         clamp_pif=float(args_d.get("clamp_pif", 5.0)),
+        encoder_arch=str(args_d.get("encoder_arch", "conv")),
     )
     model.load_state_dict(sd)
     model.to(device)

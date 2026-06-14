@@ -841,6 +841,7 @@ def load_model_from_ckpt(ckpt_path: str, device: torch.device) -> Tuple[nn.Modul
         model = HorizontalKoopmanModelV4DictInput(
             hidden_dim=int(args_d.get("hidden_dim", 32)),
             clamp_pif=float(args_d.get("clamp_pif", 5.0)),
+            encoder_arch=str(args_d.get("encoder_arch", "conv")),
         )
     elif model_class == "HorizontalKoopmanModelV3":
         if HorizontalKoopmanModelV3 is None:

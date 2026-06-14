@@ -52,6 +52,28 @@ def _compute_atoms_16(u: torch.Tensor, v: torch.Tensor, r: torch.Tensor) -> List
     ]
 
 
+class _ResidualMLPEncoder(nn.Module):
+    """干净的残差 MLP 编码器：dict16 -> hidden。
+
+    相对历史 ``res_mlp``（ResidualConvBlock 内 Conv1d 退化为逐通道缩放），
+    这里用标准 Linear+GELU，并在等宽隐藏层之间加残差连接，表达力更直接。
+    """
+
+    def __init__(self, in_dim: int, hidden: int, out_dim: int) -> None:
+        super().__init__()
+        self.in_proj = nn.Linear(in_dim, hidden)
+        self.fc1 = nn.Linear(hidden, hidden)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.out_proj = nn.Linear(hidden, out_dim)
+        self.act = nn.GELU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.act(self.in_proj(x))
+        h = h + self.act(self.fc1(h))   # 等宽残差块 1
+        h = h + self.act(self.fc2(h))   # 等宽残差块 2
+        return self.out_proj(h)
+
+
 class HorizontalKoopmanModelV4DictInput(BaseKoopmanModel):
     """v4 模型：z = [dict16, hidden]，dict16 作为模型主输入。"""
 
@@ -62,6 +84,7 @@ class HorizontalKoopmanModelV4DictInput(BaseKoopmanModel):
         dict_dim: int = 16,
         hidden_dim: int = 32,
         clamp_pif: float = 5.0,
+        encoder_arch: str = "conv",
     ) -> None:
         super().__init__()
         if dict_dim != 16:
@@ -72,8 +95,18 @@ class HorizontalKoopmanModelV4DictInput(BaseKoopmanModel):
         self.hidden_dim = hidden_dim
         self.clamp_pif = float(clamp_pif)
         self.latent_dim = self.dict_dim + self.hidden_dim
+        if encoder_arch not in ("conv", "mlp"):
+            raise ValueError(f"encoder_arch 仅支持 'conv'/'mlp'，收到 {encoder_arch}")
+        self.encoder_arch = encoder_arch
 
-        self.encoder_mlp = res_mlp([self.dict_dim, 64, 64, hidden_dim], dropout=0.0)
+        # encoder: dict16 -> hidden。
+        # - "conv"（历史默认）：res_mlp（ResidualConvBlock，旧 ckpt 兼容）。
+        #   注意该 Conv1d 作用在长度=1 序列上会退化为逐通道缩放，仅为兼容保留。
+        # - "mlp"：干净的残差 MLP（Linear+GELU+skip），表达力更直接，无退化层。
+        if encoder_arch == "conv":
+            self.encoder_mlp = res_mlp([self.dict_dim, 64, 64, hidden_dim], dropout=0.0)
+        else:
+            self.encoder_mlp = _ResidualMLPEncoder(self.dict_dim, 64, hidden_dim)
         self.decoder_mlp = nn.Sequential(
             nn.Linear(self.latent_dim, 64),
             nn.GELU(),
