@@ -10,3 +10,7 @@ dataset_plots/
 # 构建产物
 cpp/koopman_mpc/build/
 cpp/koopman_mpc/weights/
+
+# 优化对照训练：仅保留各配置的 best.pth + best.yaml，忽略体积大的 latest / epoch 快照
+checkpoints/opt_*/**/koopman_v4_latest.pth
+checkpoints/opt_*/**/koopman_v4_epoch*.pth
