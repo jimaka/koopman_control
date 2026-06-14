@@ -579,8 +579,30 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no_ema", action="store_true", default=False)
     p.add_argument("--hidden_dim", type=int, default=32)
     p.add_argument("--clamp_pif", type=float, default=5.0)
+    p.add_argument(
+        "--encoder_arch",
+        type=str,
+        default="conv",
+        choices=("conv", "mlp"),
+        help="v4 encoder 结构：conv=历史默认（res_mlp/ResidualConvBlock，旧 ckpt 兼容）；"
+             "mlp=干净残差 MLP（无退化 Conv1d 层，表达力更直接）。latent 维度恒为 dict16+hidden。",
+    )
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", type=str, default="auto")
+    p.add_argument(
+        "--num_threads",
+        type=int,
+        default=0,
+        help="torch CPU 线程数；0=不显式设置（沿用默认）。CPU 训练时建议设为物理核数。",
+    )
+    p.add_argument(
+        "--final-eval",
+        dest="final_eval",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="训练结束后是否自动在 test 集评估 best ckpt 并跑多模型 MPC 跟踪对比。"
+             "--no-final-eval 可跳过该耗时尾段（YAML 导出始终执行）。",
+    )
     p.add_argument("--amp", action="store_true", default=False,
                    help="启用 CUDA 混合精度训练（与梯度累积兼容；CPU 自动关闭）")
     p.add_argument("--resume", type=str, default=None,
@@ -589,13 +611,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--scheduler",
         type=str,
         default="warmrestart",
-        choices=("warmrestart", "cosine", "constant"),
+        choices=("warmrestart", "cosine", "cosine_warmup", "constant"),
         help="学习率调度：warmrestart=历史默认 CosineAnnealingWarmRestarts(T_0=cos_T0，"
-             "T_0=1000 时常规 epoch 数内 LR 几乎恒定)；cosine=CosineAnnealingLR(T_max=epochs)"
-             "（推荐）；constant=恒定 LR",
+             "T_0=1000 时常规 epoch 数内 LR 几乎恒定)；cosine=CosineAnnealingLR(T_max=epochs)；"
+             "cosine_warmup=线性 warmup(--warmup_epochs) 后 cosine 退火到 --lr_min（推荐）；"
+             "constant=恒定 LR",
     )
     p.add_argument("--cos_T0", type=int, default=1000,
                    help="warmrestart 调度的 T_0（保持历史默认 1000）")
+    p.add_argument("--warmup_epochs", type=int, default=5,
+                   help="cosine_warmup 的线性 warmup epoch 数")
+    p.add_argument("--lr_min", type=float, default=1e-5,
+                   help="cosine / cosine_warmup 退火的最小学习率 (eta_min)")
     p.add_argument("--early_stop_patience", type=int, default=0,
                    help="早停：best composite 连续 N 个 epoch 无改善则提前结束；0=禁用。"
                         "仅在 curriculum 到达 pred_len_max 后才开始计数。")
@@ -722,6 +749,8 @@ def resolve_device(args: argparse.Namespace, dinfo: DistInfo) -> torch.device:
 
 
 def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
+    if int(getattr(args, "num_threads", 0)) > 0:
+        torch.set_num_threads(int(args.num_threads))
     run_ts = datetime.now().strftime("%Y%m%d_%H%M%S") if is_main_process(dinfo) else ""
     run_ts = broadcast_run_id(dinfo, run_ts)
     logger, ts = setup_logger(args.log_dir, dinfo, ts=run_ts)
@@ -751,7 +780,11 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             args.model_stride,
             args.pred_len_max * args.dt,
         )
-    base_model = HorizontalKoopmanModelV4DictInput(hidden_dim=args.hidden_dim, clamp_pif=args.clamp_pif).to(device)
+    base_model = HorizontalKoopmanModelV4DictInput(
+        hidden_dim=args.hidden_dim,
+        clamp_pif=args.clamp_pif,
+        encoder_arch=getattr(args, "encoder_arch", "conv"),
+    ).to(device)
     base_model._self_check_dict()
     # 训练侧统一走 V4LossModule.forward（DDP 梯度同步的正确姿势，见类注释）
     train_module: nn.Module = V4LossModule(base_model)
@@ -767,8 +800,23 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             train_module = DDP(train_module, find_unused_parameters=False)
     optimizer = torch.optim.AdamW(base_model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     sched_kind = str(getattr(args, "scheduler", "warmrestart")).lower()
+    lr_min = float(getattr(args, "lr_min", 1e-5))
     if sched_kind == "cosine":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(int(args.epochs), 1))
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(int(args.epochs), 1), eta_min=lr_min
+        )
+    elif sched_kind == "cosine_warmup":
+        warmup_epochs = max(int(getattr(args, "warmup_epochs", 5)), 1)
+        warmup_epochs = min(warmup_epochs, max(int(args.epochs) - 1, 1))
+        warm = torch.optim.lr_scheduler.LinearLR(
+            optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs
+        )
+        cos = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(int(args.epochs) - warmup_epochs, 1), eta_min=lr_min
+        )
+        scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimizer, schedulers=[warm, cos], milestones=[warmup_epochs]
+        )
     elif sched_kind == "constant":
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _epoch: 1.0)
     else:  # warmrestart：历史默认（T_0=1000 时常规 epoch 数内 LR 几乎恒定）
@@ -1041,11 +1089,21 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
     if os.path.exists(best_path):
         best = torch.load(best_path, map_location="cpu", weights_only=False)
         sd = best.get("ema_state_dict") or best["model_state_dict"]
-        export_model = HorizontalKoopmanModelV4DictInput(hidden_dim=args.hidden_dim, clamp_pif=args.clamp_pif)
+        export_model = HorizontalKoopmanModelV4DictInput(
+            hidden_dim=args.hidden_dim,
+            clamp_pif=args.clamp_pif,
+            encoder_arch=getattr(args, "encoder_arch", "conv"),
+        )
         export_model.load_state_dict(sd)
         export_yaml = os.path.join(args.ckpt_dir, "koopman_v4_best.yaml")
         export_params_to_yaml(export_model, best["stats"], export_yaml)
         logger.info("Exported YAML -> %s", export_yaml)
+
+        if not getattr(args, "final_eval", True):
+            logger.info("跳过训练末尾的 test 评估 + MPC 跟踪对比（--no-final-eval）。")
+            if tb is not None:
+                tb.close()
+            return
 
         logger.info("Running evaluation on test set using best checkpoint...")
         try:
