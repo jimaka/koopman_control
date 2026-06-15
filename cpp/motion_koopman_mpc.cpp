@@ -7,13 +7,13 @@
 namespace elane {
 namespace control {
 
-void MotionKoopmanMpcHelper::init(const std::string& yaml_path, const std::string& onnx_path,
+void MotionKoopmanMpcHelper::init(const std::string& yaml_path, const std::string& /*onnx_path*/,
                                   float mpc_during) {
     koopman_control::MpcConfig cfg = koopman_control::loadMpcConfigFromYaml(yaml_path);
     koopman_control::MotionBridgeConfig bridge;
     bridge.ref_dt = mpc_during;
     bridge.ref_time_offset = 0.5f;
-    solver_ = std::make_unique<koopman_control::KoopmanMotionMpc>(onnx_path, cfg, bridge);
+    solver_ = std::make_unique<koopman_control::KoopmanMotionMpc>(cfg.latent_model, cfg, bridge);
 }
 
 bool MotionKoopmanMpcHelper::solveStep(float u, float v, float r,

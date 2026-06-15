@@ -10,10 +10,10 @@
 - `model_v4_dict_input.py`：16 阶字典作为主输入的 Koopman 模型。
 - `train_v4_dict_input.py`：参考 `train_v2.py` 重写的训练脚本（独立版本）。
 - `eval_v4_dict_input.py`：v4 单模型验证脚本（默认使用 `data/koopman_test.npz`）。
-- `export_v4_onnx.py`：v4 checkpoint 导出 ONNX（供 C++ MPC 使用）。
+- `export_v4_onnx.py`：v4 checkpoint 导出 ONNX（供 C++ plant 仿真）。
+- `export_v4_encode_weights.py`：导出潜空间 OSQP-MPC 权重 YAML。
 - `ONNX导出说明.md`：v4 ONNX 导出中文使用文档。
 - `run_v4_in_docker.sh`：一键 Docker 启动脚本（自动探测路径并按需同步）。
-- `compare_mpc_tracking.py`：多模型 MPC 跟踪精度比对脚本。
 
 ## Docker 运行约束
 
@@ -131,14 +131,4 @@ python3 new_v4_dict_input/export_v4_onnx.py \
 
 详细说明见 [ONNX导出说明.md](./ONNX导出说明.md)。
 
-多模型跟踪精度比对（MPC）：
-
-```bash
-docker exec -it koopman_latest_sm120_martin bash -lc '
-cd /workspace && \
-python3 new_v4_dict_input/compare_mpc_tracking.py \
-  --models checkpoints/koopman_v2_best.pth:v2 checkpoints/koopman_v3a_best.pth:v3a checkpoints/koopman_v4_best.pth:v4 \
-  --ref segment --data data/koopman_test.npz --segment 0 --steps 120 \
-  --out_dir eval_out/mpc_compare_seg0
-'
-```
+MPC 跟踪见 [docs/MPC使用指南.md](../docs/MPC使用指南.md)（C++ OSQP）。

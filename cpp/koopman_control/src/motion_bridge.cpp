@@ -1,9 +1,5 @@
 /**
  * @file motion_bridge.cpp
- * @brief motion.cpp 桥接层：参考轨迹重采样 + 单步 MPC 求解
- *
- * motion 侧 PointChange() 通常只生成 mpc_steps 个参考点（如 20~40），
- * 而 Koopman ONNX 需要 H+1 个参考（v4 默认 H=20 @ dt=1.0s）。本文件按时间轴线性插值对齐。
  */
 
 #include "koopman_control/motion_bridge.hpp"
@@ -21,7 +17,6 @@ namespace koopman_control {
 
 namespace {
 
-/** 在 motion 参考序列上按时间 t_query 线性插值 */
 MotionRefPoint interpolateRef(const std::vector<MotionRefPoint>& ref, float t_query,
                               float ref_dt, float ref_time_offset) {
     if (ref.empty()) {
@@ -46,8 +41,8 @@ MotionRefPoint interpolateRef(const std::vector<MotionRefPoint>& ref, float t_qu
     const float alpha = idx_f - static_cast<float>(i0);
 
     MotionRefPoint out;
-    const auto& a = ref[i0];
-    const auto& b = ref[i1];
+    const auto& a = ref[static_cast<size_t>(i0)];
+    const auto& b = ref[static_cast<size_t>(i1)];
     out.x = a.x + alpha * (b.x - a.x);
     out.y = a.y + alpha * (b.y - a.y);
     out.psi = a.psi + alpha * (b.psi - a.psi);
@@ -81,27 +76,22 @@ std::vector<std::array<float, 6>> resampleMotionRefToHorizon(
     return out;
 }
 
-/** KoopmanMotionMpc 内部实现（隐藏 ONNX 与 Controller 细节） */
 class KoopmanMotionMpc::Impl {
 public:
-    Impl(KoopmanOnnxModel model, MpcConfig mpc_cfg, MotionBridgeConfig bridge_cfg)
+    Impl(const std::string& latent_yaml, MpcConfig mpc_cfg, MotionBridgeConfig bridge_cfg)
         : bridge_(bridge_cfg) {
-        mpc_cfg = syncHorizonWithOnnx(mpc_cfg, model.horizon());
-        controller_ = std::make_unique<KoopmanMpcController>(std::move(model), mpc_cfg);
+        const LatentMpcQpConfig qp_cfg = latentQpConfigFromMpc(mpc_cfg);
+        controller_ = std::make_unique<KoopmanMpcController>(latent_yaml, mpc_cfg, qp_cfg);
     }
 
     MotionBridgeConfig bridge_;
     std::unique_ptr<KoopmanMpcController> controller_;
 };
 
-KoopmanMotionMpc::KoopmanMotionMpc(const std::string& onnx_path, MpcConfig mpc_cfg,
+KoopmanMotionMpc::KoopmanMotionMpc(const std::string& latent_yaml_path, MpcConfig mpc_cfg,
                                    MotionBridgeConfig bridge_cfg)
     : bridge_(bridge_cfg),
-      impl_(std::make_unique<Impl>(KoopmanOnnxModel(onnx_path), mpc_cfg, bridge_cfg)) {}
-
-KoopmanMotionMpc::KoopmanMotionMpc(KoopmanOnnxModel model, MpcConfig mpc_cfg,
-                                   MotionBridgeConfig bridge_cfg)
-    : bridge_(bridge_cfg), impl_(std::make_unique<Impl>(std::move(model), mpc_cfg, bridge_cfg)) {}
+      impl_(std::make_unique<Impl>(latent_yaml_path, mpc_cfg, bridge_cfg)) {}
 
 KoopmanMotionMpc::~KoopmanMotionMpc() = default;
 
@@ -117,7 +107,6 @@ bool KoopmanMotionMpc::solve(const MotionSolveInput& in, MotionSolveOutput& out)
     const auto ref_window = buildRefWindow(in);
     const auto t1 = std::chrono::high_resolution_clock::now();
 
-    // motion 约定：船体坐标系原点为当前位置，故 x=y=yaw=0
     std::array<float, 6> state0{0.f, 0.f, 0.f, in.u, in.v, in.r};
     const std::array<float, 4>* u_prev_ptr = in.has_u_prev ? &in.u_prev : nullptr;
     MpcSolveTiming mpc_timing;
@@ -131,22 +120,19 @@ bool KoopmanMotionMpc::solve(const MotionSolveInput& in, MotionSolveOutput& out)
         std::chrono::duration<double, std::milli>(t2 - t1).count();
     const double total_ms =
         std::chrono::duration<double, std::milli>(t2 - t0).count();
-    printf("Koopman MPC solve: total=%.3f ms | ref_resample=%.3f | solve_step=%.3f "
-           "(inference=%.3f mpc_opt=%.3f) | mpc_iters=%d/%d rollouts=%d | cost=%.4f\n",
-           total_ms, ref_ms, solve_step_ms, mpc_timing.inference_ms, mpc_timing.opt_ms,
-           mpc_timing.opt_iters_done, mpc_timing.opt_iters_cfg, mpc_timing.rollout_count,
-           cost);
+    printf("Koopman OSQP-MPC solve: total=%.3f ms | ref_resample=%.3f | qp_solve=%.3f "
+           "| osqp_iters=%d status=%d | cost=%.4f\n",
+           total_ms, ref_ms, mpc_timing.qp_solve_ms, mpc_timing.osqp_iters,
+           mpc_timing.osqp_status, cost);
 
     out.control = u_opt;
     out.cost = cost;
     out.horizon = impl_->controller_->horizon();
     out.timing.ref_resample_ms = ref_ms;
-    out.timing.inference_ms = mpc_timing.inference_ms;
-    out.timing.mpc_opt_ms = mpc_timing.opt_ms;
+    out.timing.qp_solve_ms = mpc_timing.qp_solve_ms;
     out.timing.solve_step_ms = solve_step_ms;
-    out.timing.mpc_opt_iters_cfg = mpc_timing.opt_iters_cfg;
-    out.timing.mpc_opt_iters_done = mpc_timing.opt_iters_done;
-    out.timing.mpc_rollout_count = mpc_timing.rollout_count;
+    out.timing.osqp_iters = mpc_timing.osqp_iters;
+    out.timing.osqp_status = mpc_timing.osqp_status;
     return true;
 }
 

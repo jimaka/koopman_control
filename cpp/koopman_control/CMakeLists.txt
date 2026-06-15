@@ -1,15 +1,14 @@
 # =============================================================================
 # Koopman MPC 控制库 CMake 构建脚本
-# 产物：静态/动态库 koopman_control，供 koopman_mpc demo 与 ship_control 链接
 # =============================================================================
 
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
-project(koopman_control LANGUAGES CXX)
+project(koopman_control LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# ONNX Runtime 默认路径（可由 -DONNXRUNTIME_ROOT= 覆盖）
 if(NOT DEFINED ONNXRUNTIME_ROOT)
     set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../koopman_mpc/third_party/onnxruntime")
 endif()
@@ -19,15 +18,27 @@ set(ONNXRUNTIME_LIB "${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so")
 
 find_package(yaml-cpp REQUIRED)
 
+include(FetchContent)
+set(OSQP_BUILD_SHARED_LIB OFF CACHE BOOL "" FORCE)
+set(OSQP_BUILD_STATIC_LIB ON CACHE BOOL "" FORCE)
+set(OSQP_ENABLE_MATLAB OFF CACHE BOOL "" FORCE)
+set(OSQP_ENABLE_R_LANGUAGE OFF CACHE BOOL "" FORCE)
+set(OSQP_ENABLE_INTERRUPT OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    osqp
+    GIT_REPOSITORY https://github.com/osqp/osqp.git
+    GIT_TAG v0.6.3
+)
+FetchContent_MakeAvailable(osqp)
+
 set(KOOPMAN_CONTROL_SOURCES
-    src/koopman_onnx_model.cpp   # ONNX rollout 推理
-    src/mpc_controller.cpp       # MPC 优化与仿真
-    src/mpc_config_loader.cpp    # YAML 配置加载
-    src/motion_bridge.cpp        # motion.cpp 桥接
-    src/koopman_latent_model.cpp # v4 潜空间矩阵 / condensed 预测
-    src/koopman_encode.cpp       # v4 dict16 encoder
-    src/latent_mpc_qp.cpp        # Tier-1 潜空间 QP
-    src/mpc_controller_qp.cpp    # QP-MPC 控制器
+    src/koopman_onnx_model.cpp
+    src/mpc_controller.cpp
+    src/mpc_config_loader.cpp
+    src/motion_bridge.cpp
+    src/koopman_latent_model.cpp
+    src/koopman_encode.cpp
+    src/latent_mpc_qp.cpp
 )
 
 option(KOOPMAN_BUILD_QP_VERIFY "Build verify_latent_qp tool" ON)
@@ -36,9 +47,10 @@ add_library(koopman_control ${KOOPMAN_CONTROL_SOURCES})
 target_include_directories(koopman_control
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${ONNXRUNTIME_INCLUDE})
+        ${ONNXRUNTIME_INCLUDE}
+        ${osqp_SOURCE_DIR}/include)
 target_link_libraries(koopman_control PUBLIC "${ONNXRUNTIME_LIB}")
-target_link_libraries(koopman_control PUBLIC yaml-cpp)
+target_link_libraries(koopman_control PUBLIC yaml-cpp osqpstatic)
 
 if(UNIX AND NOT APPLE)
     set_target_properties(koopman_control PROPERTIES

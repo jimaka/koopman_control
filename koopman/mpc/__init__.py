@@ -1,7 +1,5 @@
-"""MPC 航迹跟踪。"""
-from koopman.mpc.controller import (
-    KoopmanMPC,
-    MPCConfig,
+"""MPC 数据工具；求解器见 C++ `koopman_control`（OSQP）。"""
+from koopman.mpc.data_utils import (
     MPCTrajectory,
     make_circle_reference,
     make_line_reference,
@@ -10,8 +8,6 @@ from koopman.mpc.controller import (
 )
 
 __all__ = [
-    "KoopmanMPC",
-    "MPCConfig",
     "MPCTrajectory",
     "make_circle_reference",
     "make_line_reference",
