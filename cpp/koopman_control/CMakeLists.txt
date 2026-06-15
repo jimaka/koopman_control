@@ -24,7 +24,13 @@ set(KOOPMAN_CONTROL_SOURCES
     src/mpc_controller.cpp       # MPC 优化与仿真
     src/mpc_config_loader.cpp    # YAML 配置加载
     src/motion_bridge.cpp        # motion.cpp 桥接
+    src/koopman_latent_model.cpp # v4 潜空间矩阵 / condensed 预测
+    src/koopman_encode.cpp       # v4 dict16 encoder
+    src/latent_mpc_qp.cpp        # Tier-1 潜空间 QP
+    src/mpc_controller_qp.cpp    # QP-MPC 控制器
 )
+
+option(KOOPMAN_BUILD_QP_VERIFY "Build verify_latent_qp tool" ON)
 
 add_library(koopman_control ${KOOPMAN_CONTROL_SOURCES})
 target_include_directories(koopman_control
@@ -46,3 +52,8 @@ install(TARGETS koopman_control
 install(DIRECTORY include/koopman_control
     DESTINATION include
     FILES_MATCHING PATTERN "*.hpp")
+
+if(KOOPMAN_BUILD_QP_VERIFY)
+    add_executable(verify_latent_qp tools/verify_latent_qp.cpp)
+    target_link_libraries(verify_latent_qp PRIVATE koopman_control)
+endif()

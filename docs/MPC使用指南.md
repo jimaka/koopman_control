@@ -93,6 +93,9 @@ Python 在 **控制块空间**（或逐步空间，hold=1 时等价）优化后�
 | **动力学前向** | PyTorch 模型 | **ONNX Runtime**（`koopman_rollout.onnx`） |
 | **默认 `opt_iters`** | 40 | 15（v4 `mpc_config.yaml`）；冒烟可更低 |
 | **专用 NLP 求解器** | 无（非 Ipopt/OSQP） | 无 |
+| **潜空间 QP-MPC（可选）** | — | `KoopmanQpMpcController`（Tier-1，见 `docs/潜空间QP-MPC实现.md`） |
+
+> **Tier-1 QP-MPC**：在 48 维潜空间上用预计算 \(\Theta\) 矩阵做凸 QP（当前 C++ 为投影梯度求解，可替换 OSQP），不再在优化内反复 ONNX rollout。物理航迹跟踪需 Tier-2（decoder 线性化），尚未合并入主链路。
 | **外部连接库** | PyTorch | **ONNX Runtime** + yaml-cpp；Adam **非**独立库，为源码内实现 |
 
 **Adam 不是单独链接的库**：C++ 侧在 `mpc_controller.cpp` 内手写 Adam（β₁=0.9, β₂=0.999）与前向差分梯度；编译时链接的主要是 **ONNX Runtime**（`libonnxruntime.so`）与 **yaml-cpp**。
