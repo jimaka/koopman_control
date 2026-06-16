@@ -38,6 +38,8 @@ set(KOOPMAN_CONTROL_SOURCES
     src/motion_bridge.cpp
     src/koopman_latent_model.cpp
     src/koopman_encode.cpp
+    src/koopman_decoder.cpp
+    src/pose_linearize.cpp
     src/latent_mpc_qp.cpp
 )
 
@@ -68,4 +70,7 @@ install(DIRECTORY include/koopman_control
 if(KOOPMAN_BUILD_QP_VERIFY)
     add_executable(verify_latent_qp tools/verify_latent_qp.cpp)
     target_link_libraries(verify_latent_qp PRIVATE koopman_control)
+
+    add_executable(verify_pose_linearize tools/verify_pose_linearize.cpp)
+    target_link_libraries(verify_pose_linearize PRIVATE koopman_control)
 endif()

@@ -51,6 +51,22 @@ def _export_res_mlp(encoder_mlp: nn.Sequential) -> list:
     return blocks
 
 
+def _export_decoder(decoder_mlp: nn.Sequential) -> list:
+    """Export decoder Sequential(Linear, GELU, Linear, GELU, Linear) in forward order.
+
+    供 C++ Tier-2 位姿跟踪线性化使用：z(48) -> (u,v,r)_norm(3)。
+    """
+    layers = []
+    for layer in decoder_mlp:
+        if isinstance(layer, nn.Linear):
+            layers.append({"type": "linear", **_linear_to_dict(layer)})
+        elif isinstance(layer, nn.GELU):
+            layers.append({"type": "gelu"})
+        else:
+            raise TypeError(f"unexpected decoder layer {type(layer)}")
+    return layers
+
+
 def load_v4_model(ckpt_path: str) -> tuple[HorizontalKoopmanModelV4DictInput, dict]:
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     stats = ckpt["stats"]
@@ -113,6 +129,9 @@ def main() -> int:
         "encoder": {
             "arch": str(getattr(model, "encoder_arch", "conv")),
             "layers": _export_res_mlp(model.encoder_mlp),
+        },
+        "decoder": {
+            "layers": _export_decoder(model.decoder_mlp),
         },
     }
 

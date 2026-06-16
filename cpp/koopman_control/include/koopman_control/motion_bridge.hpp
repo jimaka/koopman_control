@@ -35,6 +35,13 @@ struct MotionSolveInput {
     std::array<float, 4> u_prev{};
     bool has_u_prev = false;
     std::vector<MotionRefPoint> ref;
+
+    // 当前全局位姿；用于把全局参考变换到船体系（位姿跟踪 Tier-2 必需）。
+    // has_pose=false 时不变换（与历史 Tier-1 行为一致）。
+    float x = 0.f;
+    float y = 0.f;
+    float psi = 0.f;
+    bool has_pose = false;
 };
 
 struct MotionSolveTiming {

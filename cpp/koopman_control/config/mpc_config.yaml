@@ -12,6 +12,11 @@ w_z: 1.0
 w_u: 0.0001
 w_du: 0.05
 
+# --- Tier-2 位姿跟踪（>0 启用；需 latent YAML 含 decoder）---
+w_xy: 0.0
+w_yaw: 0.0
+sqp_iters: 2
+
 throttle_du_max: 15.0
 rudder_du_max: 3.5
 

@@ -10,6 +10,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "koopman_control/detail/dense_matrix.hpp"
 #include "koopman_control/mpc_config_loader.hpp"
 #include "koopman_control/mpc_controller.hpp"
 
@@ -149,8 +150,23 @@ void KoopmanMotionMpc::resetWarmStart() {
 std::vector<std::array<float, 6>> KoopmanMotionMpc::buildRefWindow(
     const MotionSolveInput& in) const {
     const int H = horizon();
-    return resampleMotionRefToHorizon(in.ref, H, impl_->controller_->config().dt, bridge_.ref_dt,
-                                      bridge_.ref_time_offset);
+    auto win = resampleMotionRefToHorizon(in.ref, H, impl_->controller_->config().dt, bridge_.ref_dt,
+                                          bridge_.ref_time_offset);
+    if (in.has_pose) {
+        // 将全局参考位姿变换到以当前船位为原点、当前艏向为 x 轴的船体系：
+        // p_body = R(-psi) (p_global - p_cur)，yaw 取相对并 wrap。
+        const float c = std::cos(in.psi);
+        const float s = std::sin(in.psi);
+        for (auto& p : win) {
+            const float dx = p[0] - in.x;
+            const float dy = p[1] - in.y;
+            p[0] = c * dx + s * dy;   // R(-psi)
+            p[1] = -s * dx + c * dy;
+            p[2] = detail::wrapAngle(p[2] - in.psi);
+            // 速度分量 (p[3..5]) 为船体系参考量，保持不变
+        }
+    }
+    return win;
 }
 
 }  // namespace koopman_control

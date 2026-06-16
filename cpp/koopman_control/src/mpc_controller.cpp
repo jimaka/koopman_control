@@ -34,6 +34,11 @@ KoopmanMpcController::KoopmanMpcController(std::string latent_yaml_path, MpcConf
     model_.loadFromYaml(latent_yaml_path, cfg_.horizon);
     model_.precomputePredictionMatrices();
     encoder_.loadFromYaml(latent_yaml_path);
+    decoder_.loadFromYaml(latent_yaml_path);  // 旧 YAML 无 decoder 时静默禁用 Tier-2
+}
+
+bool KoopmanMpcController::poseTrackingEnabled() const {
+    return (cfg_.w_xy > 0.f || cfg_.w_yaw > 0.f) && decoder_.loaded();
 }
 
 KoopmanMpcController::KoopmanMpcController(std::string latent_yaml_path, std::string onnx_plant_path,
@@ -71,6 +76,20 @@ std::vector<float> KoopmanMpcController::buildRefLatentStack(
     return stack;
 }
 
+std::vector<float> KoopmanMpcController::buildRefPoseStack(
+    const std::vector<std::array<float, 6>>& ref_window) const {
+    const int n = model_.horizon();
+    std::vector<float> stack(static_cast<size_t>(3 * n), 0.f);
+    for (int k = 1; k <= n; ++k) {
+        const size_t idx = static_cast<size_t>(std::min(k, static_cast<int>(ref_window.size()) - 1));
+        const int r = (k - 1) * 3;
+        stack[static_cast<size_t>(r + 0)] = ref_window[idx][0];
+        stack[static_cast<size_t>(r + 1)] = ref_window[idx][1];
+        stack[static_cast<size_t>(r + 2)] = ref_window[idx][2];
+    }
+    return stack;
+}
+
 std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     const std::array<float, 6>& state0,
     const std::vector<std::array<float, 6>>& ref_window,
@@ -90,8 +109,29 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
         u_prev = *u_prev_applied;
     }
 
-    const std::vector<float>* warm = has_warm_ ? &u_warm_tilde_ : nullptr;
-    const LatentMpcQpSolution sol = solver_.solve(z0, z_ref, u_prev, warm);
+    const bool pose_on = poseTrackingEnabled();
+    const std::array<float, 3> pose0 = {state0[0], state0[1], state0[2]};
+    const std::vector<float> pose_ref = pose_on ? buildRefPoseStack(ref_window) : std::vector<float>{};
+
+    // 标称控制序列（SQP 线性化工作点）：优先使用 warm start
+    const int nvar = model_.horizon() * model_.nu();
+    std::vector<float> U = has_warm_ && static_cast<int>(u_warm_tilde_.size()) == nvar
+                              ? u_warm_tilde_
+                              : std::vector<float>(static_cast<size_t>(nvar), 0.f);
+
+    const int iters = pose_on ? std::max(1, cfg_.sqp_iters) : 1;
+    LatentMpcQpSolution sol;
+    for (int it = 0; it < iters; ++it) {
+        PoseLinearization pl;
+        const PoseLinearization* plp = nullptr;
+        if (pose_on) {
+            pl = buildPoseLinearization(model_, decoder_, z0, pose0, U, pose_ref, cfg_.dt,
+                                        cfg_.w_xy, cfg_.w_yaw);
+            plp = pl.valid ? &pl : nullptr;
+        }
+        sol = solver_.solve(z0, z_ref, u_prev, &U, plp);
+        U = sol.u_tilde_stack;
+    }
     const auto t1 = std::chrono::high_resolution_clock::now();
 
     u_warm_tilde_ = sol.u_tilde_stack;

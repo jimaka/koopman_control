@@ -7,7 +7,8 @@
 
 #include <string>
 
-#include "koopman_control/mpc_config_loader.hpp"
+#include "koopman_control/latent_mpc_qp.hpp"
+#include "koopman_control/mpc_config.hpp"
 
 namespace koopman_control {
 

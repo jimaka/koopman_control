@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "koopman_control/koopman_decoder.hpp"
 #include "koopman_control/koopman_encode.hpp"
 #include "koopman_control/koopman_latent_model.hpp"
 #include "koopman_control/koopman_onnx_model.hpp"
@@ -70,14 +71,17 @@ private:
     LatentMpcQpConfig qp_cfg_;
     KoopmanLatentModel model_;
     KoopmanEncoder encoder_;
+    KoopmanDecoder decoder_;
     LatentMpcQpSolver solver_;
     std::unique_ptr<KoopmanOnnxModel> plant_;
 
     std::vector<float> u_warm_tilde_;
     bool has_warm_{false};
 
+    bool poseTrackingEnabled() const;
     std::array<float, 3> normalizeDyn(const std::array<float, 3>& dyn) const;
     std::vector<float> buildRefLatentStack(const std::vector<std::array<float, 6>>& ref_window) const;
+    std::vector<float> buildRefPoseStack(const std::vector<std::array<float, 6>>& ref_window) const;
 };
 
 TrackingMetrics computeMetrics(const MpcTrajectory& traj);

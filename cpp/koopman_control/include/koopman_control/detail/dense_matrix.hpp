@@ -16,6 +16,24 @@ inline float gelu(float x) {
     return 0.5f * x * (1.f + std::erf(x * 0.70710678118f));  // erf(x/sqrt(2)), matches PyTorch default
 }
 
+// d/dx GELU(x) = 0.5(1+erf(x/sqrt2)) + x * exp(-x^2/2)/sqrt(2*pi)
+inline float geluGrad(float x) {
+    constexpr float kInvSqrt2 = 0.70710678118f;
+    constexpr float kInvSqrt2Pi = 0.39894228040f;  // 1/sqrt(2*pi)
+    return 0.5f * (1.f + std::erf(x * kInvSqrt2)) + x * std::exp(-0.5f * x * x) * kInvSqrt2Pi;
+}
+
+// 角度归一化到 (-pi, pi]
+inline float wrapAngle(float a) {
+    constexpr float kPi = 3.14159265358979323846f;
+    constexpr float kTwoPi = 2.f * kPi;
+    a = std::fmod(a + kPi, kTwoPi);
+    if (a <= 0.f) {
+        a += kTwoPi;
+    }
+    return a - kPi;
+}
+
 class Matrix {
 public:
     Matrix() = default;

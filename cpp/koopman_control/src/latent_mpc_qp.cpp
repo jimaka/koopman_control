@@ -213,7 +213,8 @@ float LatentMpcQpSolver::evalCost(const std::vector<float>& z0,
 LatentMpcQpSolution LatentMpcQpSolver::solve(const std::vector<float>& z0,
                                              const std::vector<float>& z_ref_stack,
                                              const std::array<float, 4>& u_prev_phys,
-                                             const std::vector<float>* u_init_tilde_stack) const {
+                                             const std::vector<float>* u_init_tilde_stack,
+                                             const PoseLinearization* pose) const {
     ensureMats();
     const int nvar = n_ * nu_;
     if (static_cast<int>(z0.size()) != nz_) {
@@ -237,6 +238,35 @@ LatentMpcQpSolution LatentMpcQpSolver::solve(const std::vector<float>& z0,
     for (int r = 0; r < nvar; ++r) {
         for (int c = 0; c < nvar; ++c) {
             P(r, c) = 2.f * H_(r, c);
+        }
+    }
+
+    // Tier-2：叠加位姿软约束项 P += 2 PhiᵀQpPhi, q += 2 PhiᵀQp b
+    if (pose != nullptr && pose->valid && pose->Phi.rows() == 3 * n_ &&
+        pose->Phi.cols() == nvar) {
+        const detail::Matrix& Phi = pose->Phi;
+        const int rows = Phi.rows();
+        detail::Matrix scaled(rows, nvar, 0.f);
+        for (int r = 0; r < rows; ++r) {
+            const float w = pose->wq[static_cast<size_t>(r)];
+            for (int c = 0; c < nvar; ++c) {
+                scaled(r, c) = w * Phi(r, c);
+            }
+        }
+        const detail::Matrix PhiT = detail::Matrix::transpose(Phi);
+        const detail::Matrix Ppose = detail::Matrix::matmul(PhiT, scaled);
+        for (int r = 0; r < nvar; ++r) {
+            for (int c = 0; c < nvar; ++c) {
+                P(r, c) += 2.f * Ppose(r, c);
+            }
+        }
+        std::vector<float> wb(static_cast<size_t>(rows));
+        for (int r = 0; r < rows; ++r) {
+            wb[static_cast<size_t>(r)] = pose->wq[static_cast<size_t>(r)] * pose->b[static_cast<size_t>(r)];
+        }
+        const std::vector<float> qpose = detail::Matrix::matvec(PhiT, wb);
+        for (int i = 0; i < nvar; ++i) {
+            q[static_cast<size_t>(i)] += 2.f * qpose[static_cast<size_t>(i)];
         }
     }
 

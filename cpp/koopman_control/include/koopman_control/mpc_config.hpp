@@ -14,6 +14,11 @@ struct MpcConfig {
     float w_u = 1e-4f;
     float w_du = 0.05f;
 
+    // Tier-2 位姿跟踪（>0 时启用；需 latent YAML 含 decoder）
+    float w_xy = 0.f;
+    float w_yaw = 0.f;
+    int sqp_iters = 2;
+
     std::array<float, 4> du_max{0.f, 0.f, 0.f, 0.f};
     float throttle_du_max = 0.f;
     float rudder_du_max = 0.f;

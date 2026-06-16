@@ -10,6 +10,7 @@
 
 #include "koopman_control/koopman_latent_model.hpp"
 #include "koopman_control/mpc_config.hpp"
+#include "koopman_control/pose_linearize.hpp"
 
 namespace koopman_control {
 
@@ -38,7 +39,8 @@ public:
     LatentMpcQpSolution solve(const std::vector<float>& z0,
                                const std::vector<float>& z_ref_stack,
                                const std::array<float, 4>& u_prev_phys,
-                               const std::vector<float>* u_init_tilde_stack = nullptr) const;
+                               const std::vector<float>* u_init_tilde_stack = nullptr,
+                               const PoseLinearization* pose = nullptr) const;
 
     int numDecisionVars() const { return n_ * nu_; }
 

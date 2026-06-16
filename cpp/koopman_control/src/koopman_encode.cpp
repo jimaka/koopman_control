@@ -47,6 +47,17 @@ LinearW loadLinearNode(const YAML::Node& node) {
     return l;
 }
 
+// 递归展平任意嵌套的 YAML 数值序列为标量（用于 conv_weight 的 (out,1,3) 形状）。
+void flattenScalars(const YAML::Node& node, std::vector<float>& out) {
+    if (node.IsScalar()) {
+        out.push_back(node.as<float>());
+    } else if (node.IsSequence()) {
+        for (const auto& child : node) {
+            flattenScalars(child, out);
+        }
+    }
+}
+
 std::vector<float> linearForward(const LinearW& layer, const std::vector<float>& x) {
     std::vector<float> y(static_cast<size_t>(layer.out_dim), 0.f);
     for (int r = 0; r < layer.out_dim; ++r) {
@@ -81,15 +92,10 @@ void KoopmanEncoder::loadFromYaml(const std::string& yaml_path) {
             ResidualBlockW blk;
             blk.fc = loadLinearNode(layer["fc"]);
             blk.conv_weight.clear();
-            for (const auto& row : layer["conv_weight"]) {
-                for (const auto& v : row) {
-                    blk.conv_weight.push_back(v.as<float>());
-                }
-            }
+            // conv_weight 形状 (out_dim, 1, 3)：展平为 out_dim*3，encode 取每通道中间 tap。
+            flattenScalars(layer["conv_weight"], blk.conv_weight);
             if (layer["conv_bias"]) {
-                for (const auto& b : layer["conv_bias"]) {
-                    blk.conv_bias.push_back(b.as<float>());
-                }
+                flattenScalars(layer["conv_bias"], blk.conv_bias);
             }
             if (layer["shortcut"] && !layer["shortcut"].IsNull()) {
                 blk.shortcut = loadLinearNode(layer["shortcut"]);

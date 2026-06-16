@@ -84,5 +84,7 @@ python3 tests/test_v4_encode_reference.py
 ## 说明
 
 - **Tier-1**：潜空间 `z` 跟踪；参考由 `encode(ref [u,v,r])` 构造。
-- **Tier-2**（物理 `(x,y,ψ)` 跟踪，decoder 线性化）未实现。
+- **Tier-2**（物理 `(x,y,ψ)` 跟踪）：已实现，`w_xy>0` 或 `w_yaw>0` 启用，
+  通过 decoder + 欧拉积分线性化 + SQP 外迭代，详见 [潜空间QP-MPC实现.md](./潜空间QP-MPC实现.md)。
+  实船经 motion 桥接时需在 `MotionSolveInput` 提供当前全局位姿 `x,y,psi` 并置 `has_pose=true`。
 - 历史 Adam / ONNX 迭代优化说明见 git 历史。

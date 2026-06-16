@@ -48,6 +48,15 @@ MpcConfig loadMpcConfigFromYaml(const std::string& yaml_path, MpcConfig cfg) {
     if (node["w_du"]) {
         cfg.w_du = node["w_du"].as<float>();
     }
+    if (node["w_xy"]) {
+        cfg.w_xy = node["w_xy"].as<float>();
+    }
+    if (node["w_yaw"]) {
+        cfg.w_yaw = node["w_yaw"].as<float>();
+    }
+    if (node["sqp_iters"]) {
+        cfg.sqp_iters = node["sqp_iters"].as<int>();
+    }
     if (node["throttle_du_max"]) {
         cfg.throttle_du_max = node["throttle_du_max"].as<float>();
     }
