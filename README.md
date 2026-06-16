@@ -61,10 +61,10 @@ python3 scripts/eval.py --ckpt checkpoints/koopman_v3a_best.pth \
 
 ## C++ MPC（OSQP / v4）
 
-MPC 求解**仅保留 C++ OSQP 潜空间路径**（无 Python Adam MPC）。
+MPC 求解**仅保留 C++ OSQP 潜空间路径**（无 Python Adam MPC）。支持 **Tier-1** 速度（潜空间 `z`）跟踪与 **Tier-2** 物理位姿 `(x,y,ψ)` 跟踪（`w_xy>0`/`w_yaw>0` 启用）。
 
 ```bash
-# 1. 导出潜空间权重（MPC 优化用）
+# 1. 导出潜空间权重（MPC 优化用；含 encoder + decoder）
 python3 new_v4_dict_input/export_v4_encode_weights.py \
   --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
   --horizon 20 \

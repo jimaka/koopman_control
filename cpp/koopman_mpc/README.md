@@ -56,9 +56,11 @@ MPC 参数：[`../koopman_control/config/mpc_config.yaml`](../koopman_control/co
 
 | 关键参数 | v4 默认 | 含义 |
 |----------|---------|------|
-| `latent_model` | `koopman_v4_latent.yaml` | 潜空间 Ā,B + encoder |
+| `latent_model` | `koopman_v4_latent.yaml` | 潜空间 Ā,B + encoder + decoder |
 | `horizon` | 20 | MPC 预测步数（粗步长 dt=1 s） |
 | `opt_control_steps` | 2 | 优化前 2 步控制 |
+| `w_xy` / `w_yaw` | 0 / 0 | Tier-2 位姿跟踪权重（>0 启用） |
+| `sqp_iters` | 2 | Tier-2 SQP 外迭代次数 |
 | `w_z` / `w_u` / `w_du` | 1.0 / 1e-4 / 0.05 | QP 代价权重 |
 | `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | 变化速率约束 |
 
@@ -99,7 +101,8 @@ export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_P
 |------|--------|-----|
 | 潜空间动力学 | `model_v4_dict_input.py` | `KoopmanLatentModel`（YAML） |
 | 编码 | `encode()` | `KoopmanEncoder` |
-| MPC 求解 | （已移除 Adam MPC） | **OSQP** condensed QP |
+| 解码（Tier-2） | `reconstruct_state()` | `KoopmanDecoder` + `pose_linearize` |
+| MPC 求解 | （已移除 Adam MPC） | **OSQP** condensed QP（Tier-1/2） |
 | 闭环 plant | PyTorch / ONNX rollout | `KoopmanOnnxModel`（可选） |
 | 参考工具 | `koopman.mpc.data_utils` | demo JSON / motion 桥接 |
 

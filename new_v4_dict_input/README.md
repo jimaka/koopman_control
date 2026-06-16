@@ -11,7 +11,7 @@
 - `train_v4_dict_input.py`：参考 `train_v2.py` 重写的训练脚本（独立版本）。
 - `eval_v4_dict_input.py`：v4 单模型验证脚本（默认使用 `data/koopman_test.npz`）。
 - `export_v4_onnx.py`：v4 checkpoint 导出 ONNX（供 C++ plant 仿真）。
-- `export_v4_encode_weights.py`：导出潜空间 OSQP-MPC 权重 YAML。
+- `export_v4_encode_weights.py`：导出潜空间 OSQP-MPC 权重 YAML（含 Ā/B、encoder 与 decoder；decoder 供 Tier-2 位姿跟踪）。
 - `ONNX导出说明.md`：v4 ONNX 导出中文使用文档。
 - `run_v4_in_docker.sh`：一键 Docker 启动脚本（自动探测路径并按需同步）。
 

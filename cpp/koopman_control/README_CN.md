@@ -11,6 +11,10 @@
 
 MPC 优化路径：**encode → condensed QP（Γ,Θ,ξ）→ OSQP**。ONNX 仅作闭环仿真 **plant**（`simulate` / demo），**不参与** `solveStep` 内的优化前向。
 
+支持两层跟踪目标：
+- **Tier-1（默认）**：潜空间 `z` 跟踪（速度）。
+- **Tier-2（可选，`w_xy>0`/`w_yaw>0`）**：物理位姿 `(x,y,ψ)` 跟踪，经 decoder + 欧拉积分线性化 + SQP 外迭代叠加进同一 OSQP。
+
 ```
 cpp/koopman_control/
 ├── CMakeLists.txt              # 构建库；FetchContent 拉取 OSQP v0.6.3
@@ -19,9 +23,11 @@ cpp/koopman_control/
 ├── include/koopman_control/
 │   ├── koopman_latent_model.hpp # Ā,B,Γ,Θ 预计算
 │   ├── koopman_encode.hpp      # dict16 + res_mlp 编码
-│   ├── latent_mpc_qp.hpp       # OSQP 组装与求解
+│   ├── koopman_decoder.hpp     # decoder 前向 + Jacobian（Tier-2）
+│   ├── pose_linearize.hpp      # 位姿灵敏度 Φ（Tier-2）
+│   ├── latent_mpc_qp.hpp       # OSQP 组装与求解（含位姿项）
 │   ├── koopman_onnx_model.hpp  # ONNX plant（仿真用）
-│   ├── mpc_controller.hpp      # KoopmanMpcController
+│   ├── mpc_controller.hpp      # KoopmanMpcController（SQP 外迭代）
 │   ├── mpc_config_loader.hpp   # YAML 配置加载
 │   └── motion_bridge.hpp       # ★ motion.cpp 对接入口
 ├── src/
@@ -43,7 +49,7 @@ cpp/koopman_control/
 权重由 Python 导出：
 
 ```bash
-# MPC 优化必需
+# MPC 优化必需（同时导出 encoder 与 decoder；decoder 供 Tier-2 位姿跟踪）
 python3 new_v4_dict_input/export_v4_encode_weights.py \
   --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
   --horizon 20 \
@@ -168,12 +174,14 @@ Koopman 模型输出 **4 维抽象控制** `u[0..3]`（与训练数据集 `ctrl`
 
 | 参数 | 默认 | 说明 |
 |------|------|------|
-| `latent_model` | `koopman_v4_latent.yaml` | 潜空间动力学 + encoder 权重 |
+| `latent_model` | `koopman_v4_latent.yaml` | 潜空间动力学 + encoder（+ decoder）权重 |
 | `horizon` | 20 | MPC 预测步数 |
 | `dt` | 1.0 | MPC 时间步（秒） |
 | `opt_control_steps` | 2 | 参与优化的控制步数 |
 | `control_hold_steps` | 1 | 控制零阶保持块大小 |
 | `w_z` / `w_u` / `w_du` | 1.0 / 1e-4 / 0.05 | 潜空间跟踪 / 控制幅值 / 增量惩罚 |
+| `w_xy` / `w_yaw` | 0 / 0 | **Tier-2** 位姿跟踪权重（>0 启用，需 decoder） |
+| `sqp_iters` | 2 | **Tier-2** SQP 外迭代次数 |
 | `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | 块间变化速率硬约束；≤0 不限制 |
 | `osqp_eps_abs` / `osqp_eps_rel` | 1e-4 | OSQP 容差 |
 | `osqp_max_iter` | 4000 | OSQP 最大迭代 |
@@ -214,6 +222,7 @@ bash cpp/koopman_mpc/build_v4.sh
 | `yaw_rate_` | `MotionSolveInput.r` |
 | `ini_state << 0,0,0,u,v,r` | 桥接层内部构造 `state0` |
 | `mpc_states_gl.targets[i].x/y/psi/u/v` | `MotionRefPoint` |
+| 当前全局位姿（Tier-2） | `MotionSolveInput.{x,y,psi}` + `has_pose=true` |
 | `PointChange()` + `mpc_during` | `MotionBridgeConfig.ref_dt` |
 | `xicheng_...Solve()` 输出 | `MotionSolveOutput.control[4]` |
 
@@ -233,14 +242,20 @@ A: **MPC 优化不用**。仅 demo `simulate` 或需要 ONNX 闭环仿真时加�
 **Q: 编译找不到 onnxruntime？**  
 A: 先运行 `bash cpp/koopman_mpc/build_v4.sh` 下载 ORT，或手动指定 `ONNXRUNTIME_ROOT`。
 
+**Q: 如何启用位姿 (x,y,yaw) 跟踪？**  
+A: 在 `mpc_config.yaml` 设 `w_xy>0`/`w_yaw>0`，并确保 latent YAML 含 `decoder`
+（新版 `export_v4_encode_weights.py` 自动导出）。实船经 motion 桥接时须填 `MotionSolveInput.{x,y,psi}` 并置 `has_pose=true`。
+
 ---
 
 ## 10. 相关文件
 
 | 文件 | 说明 |
 |------|------|
-| `new_v4_dict_input/export_v4_encode_weights.py` | 导出潜空间 YAML |
+| `new_v4_dict_input/export_v4_encode_weights.py` | 导出潜空间 YAML（含 encoder + decoder） |
 | `new_v4_dict_input/export_v4_onnx.py` | 导出 ONNX plant |
+| `src/koopman_decoder.cpp` / `src/pose_linearize.cpp` | Tier-2 decoder Jacobian / 位姿线性化 |
+| `tools/verify_pose_linearize.cpp` | Tier-2 验证（Φ 精度 + OSQP 端到端） |
 | `docs/潜空间QP-MPC实现.md` | QP 推导与模块索引 |
 | `cpp/koopman_mpc/build_v4.sh` | v4 全流程构建脚本 |
 | `cpp/motion_koopman_mpc.cpp` | 可拷贝的 `MpcTaRunKoopman` 实现 |
