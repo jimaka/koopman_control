@@ -11,12 +11,19 @@
 #   --weights CKPT   额外用该 ckpt 导出 latent YAML(+ONNX plant) 到 weights/
 #   --smoketest      构建后跑 MPC 冒烟（需先有 weights，可配合 --weights）
 #   --skip-deps      跳过依赖安装（仅检测并告警）
+#   --ort-tgz PATH   使用本地 ONNX Runtime 压缩包（离线/网络受限时，免下载）
 #   --jobs N         并行编译数（默认 nproc）
 #   -h, --help       显示帮助
+#
+# 环境变量：
+#   ORT_URL          覆盖 ONNX Runtime 下载地址（镜像）
+#   ORT_TGZ_PATH     同 --ort-tgz
 #
 # 说明：
 #   - 仅“直接编译”时无需 Python/ckpt；--weights / --smoketest 才需要 torch/onnx 与 ckpt。
 #   - OSQP 由 CMake FetchContent 自动拉取（需 git + 网络）。
+#   - ORT 下载失败（如 curl 56 SSL 断流）多为网络/代理/GitHub CDN 重置：可重试、
+#     配代理、用 ORT_URL 镜像，或 --ort-tgz 指定离线包。
 # =============================================================================
 set -euo pipefail
 
@@ -25,11 +32,13 @@ CPP_DIR="$ROOT/cpp/koopman_mpc"
 ORT_VERSION="1.26.0"
 ORT_DIR="$CPP_DIR/third_party/onnxruntime"
 ORT_TGZ="onnxruntime-linux-x64-${ORT_VERSION}.tgz"
-ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/${ORT_TGZ}"
+# 可用环境变量 ORT_URL 覆盖下载地址（镜像）
+ORT_URL="${ORT_URL:-https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/${ORT_TGZ}}"
 
 CKPT=""
 DO_SMOKETEST=0
 SKIP_DEPS=0
+ORT_TGZ_PATH="${ORT_TGZ_PATH:-}"
 JOBS="$(nproc 2>/dev/null || echo 4)"
 
 usage() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"; }
@@ -39,6 +48,7 @@ while (($#)); do
     --weights) CKPT="$2"; shift 2 ;;
     --smoketest) DO_SMOKETEST=1; shift ;;
     --skip-deps) SKIP_DEPS=1; shift ;;
+    --ort-tgz) ORT_TGZ_PATH="$2"; shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "[ERROR] 未知参数: $1"; usage; exit 2 ;;
@@ -93,17 +103,36 @@ fi
 # 2) ONNX Runtime（缺失时下载）
 # ----------------------------------------------------------------------------
 echo ">>> [2/4] 准备 ONNX Runtime ${ORT_VERSION}..."
-if [[ ! -f "$ORT_DIR/include/onnxruntime_cxx_api.h" ]]; then
-  echo "    下载 ORT..."
+if [[ -f "$ORT_DIR/include/onnxruntime_cxx_api.h" ]]; then
+  echo "    已存在，跳过下载。"
+else
   mkdir -p third_party
   tmp="$(mktemp -d)"
-  curl -fsSL "$ORT_URL" -o "$tmp/$ORT_TGZ"
+  if [[ -n "$ORT_TGZ_PATH" && -f "$ORT_TGZ_PATH" ]]; then
+    echo "    使用本地包: $ORT_TGZ_PATH"
+    cp "$ORT_TGZ_PATH" "$tmp/$ORT_TGZ"
+  else
+    echo "    下载 ORT: $ORT_URL"
+    # 自动重试 + 断点续传，缓解 SSL/连接被重置（curl 56）等网络抖动
+    if ! curl -fL --retry 5 --retry-delay 3 --retry-all-errors \
+              --connect-timeout 20 -C - "$ORT_URL" -o "$tmp/$ORT_TGZ"; then
+      rm -rf "$tmp"
+      cat >&2 <<EOF
+[ERROR] 下载 ONNX Runtime 失败（常见为网络/代理/GitHub CDN 被重置，如 curl 56）。
+  解决方法：
+   1) 配置代理后重试：export HTTPS_PROXY=... HTTP_PROXY=...
+   2) 用镜像地址：    ORT_URL=<镜像tgz地址> bash $0 ...
+   3) 离线包（最稳）：在可联网机器下载该 tgz，docker cp 进容器后：
+        bash $0 --ort-tgz /path/onnxruntime-linux-x64-${ORT_VERSION}.tgz
+EOF
+      exit 1
+    fi
+  fi
   tar -xzf "$tmp/$ORT_TGZ" -C "$tmp"
   rm -rf "$ORT_DIR"
   mv "$tmp/onnxruntime-linux-x64-${ORT_VERSION}" "$ORT_DIR"
   rm -rf "$tmp"
-else
-  echo "    已存在，跳过下载。"
+  echo "    ORT 就绪: $ORT_DIR"
 fi
 
 # ----------------------------------------------------------------------------

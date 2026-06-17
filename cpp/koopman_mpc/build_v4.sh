@@ -6,7 +6,7 @@ CPP_DIR="$(cd "$(dirname "$0")" && pwd)"
 ORT_VERSION="1.26.0"
 ORT_DIR="$CPP_DIR/third_party/onnxruntime"
 ORT_TGZ="onnxruntime-linux-x64-${ORT_VERSION}.tgz"
-ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/${ORT_TGZ}"
+ORT_URL="${ORT_URL:-https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/${ORT_TGZ}}"
 
 CKPT="${1:-$ROOT/checkpoints/run_v4_20260520_034545/koopman_v4_best.pth}"
 PRED_LEN="${2:-20}"
@@ -19,7 +19,13 @@ if [[ ! -f "$ORT_DIR/include/onnxruntime_cxx_api.h" ]]; then
     echo ">>> Download ONNX Runtime C++ ${ORT_VERSION}..."
     mkdir -p third_party
     tmp="$(mktemp -d)"
-    curl -fsSL "$ORT_URL" -o "$tmp/$ORT_TGZ"
+    # 支持本地离线包 ORT_TGZ_PATH / 镜像 ORT_URL；自动重试 + 断点续传缓解 curl 56 断流
+    if [[ -n "${ORT_TGZ_PATH:-}" && -f "${ORT_TGZ_PATH}" ]]; then
+        cp "$ORT_TGZ_PATH" "$tmp/$ORT_TGZ"
+    else
+        curl -fL --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 20 -C - \
+            "${ORT_URL}" -o "$tmp/$ORT_TGZ"
+    fi
     tar -xzf "$tmp/$ORT_TGZ" -C "$tmp"
     rm -rf "$ORT_DIR"
     mv "$tmp/onnxruntime-linux-x64-${ORT_VERSION}" "$ORT_DIR"
