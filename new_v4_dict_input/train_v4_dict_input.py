@@ -1143,38 +1143,8 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
             plot_channel_sample_curves(gt_dyn, pred_dyn, "v", v_curve_png, tag)
             
             logger.info("Evaluation completed. Plots and metrics saved to %s", eval_out_dir)
-
-            # 将本次训练保存的所有模型作图对比 (调用 compare_mpc_tracking.py)
-            compare_models = []
-            for e in range(max(0, args.epochs - 30), args.epochs):
-                if (e + 1) % 5 == 0:
-                    ep_path = os.path.join(args.ckpt_dir, f"koopman_v4_epoch{e+1}.pth")
-                    if os.path.exists(ep_path):
-                        compare_models.append(f"{ep_path}:ep{e+1}")
-            if os.path.exists(best_path):
-                compare_models.append(f"{best_path}:best")
-
-            if len(compare_models) > 1:
-                logger.info("Running MPC tracking comparison on all saved models...")
-                import subprocess
-                cmd = [
-                    sys.executable,
-                    os.path.join(os.path.dirname(__file__), "compare_mpc_tracking.py"),
-                    "--models",
-                ] + compare_models + [
-                    "--data", str(args.test_data),
-                    "--out_dir", os.path.join(eval_out_dir, "mpc_compare"),
-                    "--horizon", str(args.pred_len_max),
-                    "--dt", str(args.dt),
-                    "--data_dt", str(args.data_dt),
-                    "--opt_iters", "8",
-                    "--opt_control_steps", "2",
-                    "--steps", str(min(args.pred_len_max * 4, 80)),
-                ]
-                subprocess.run(cmd, check=True)
-                logger.info("MPC tracking comparison plot saved to %s", os.path.join(eval_out_dir, "mpc_compare"))
         except Exception as e:
-            logger.error("Test evaluation or MPC tracking failed: %s", e)
+            logger.error("Test evaluation failed: %s", e)
 
     if tb is not None:
         tb.close()

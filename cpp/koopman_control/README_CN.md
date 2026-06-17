@@ -4,25 +4,33 @@
 
 ## 1. 概述
 
-`cpp/koopman_control/` 是将 **Koopman v4 + ONNX Runtime** 的 MPC 控制逻辑独立封装后的 C++ 库，供：
+`cpp/koopman_control/` 将 **v4 潜空间 OSQP-MPC** 独立封装为 C++ 库，供：
 
 - 本仓库离线仿真 / 测试（`cpp/koopman_mpc/` 中的 demo 程序）
 - **Elane 实船 ROS 节点 `motion.cpp`** 通过桥接层 `motion_bridge.hpp` 调用
 
-与原先 `motion.cpp` 中使用的水动力 MPC（`MpcTaSlove` / 西城 Azimuthing）不同，本库使用 **训练得到的 Koopman 神经网络 rollout** 作为预测模型。
+MPC 优化路径：**encode → condensed QP（Γ,Θ,ξ）→ OSQP**。ONNX 仅作闭环仿真 **plant**（`simulate` / demo），**不参与** `solveStep` 内的优化前向。
+
+支持两层跟踪目标：
+- **Tier-1（默认）**：潜空间 `z` 跟踪（速度）。
+- **Tier-2（可选，`w_xy>0`/`w_yaw>0`）**：物理位姿 `(x,y,ψ)` 跟踪，经 decoder + 欧拉积分线性化 + SQP 外迭代叠加进同一 OSQP。
 
 ```
 cpp/koopman_control/
-├── CMakeLists.txt              # 构建静态/动态库 koopman_control
+├── CMakeLists.txt              # 构建库；FetchContent 拉取 OSQP v0.6.3
 ├── README_CN.md                # 本文档
 ├── config/mpc_config.yaml      # MPC 默认参数
 ├── include/koopman_control/
-│   ├── koopman_onnx_model.hpp  # ONNX 推理
-│   ├── mpc_config.hpp          # 代价权重、horizon 等
-│   ├── mpc_controller.hpp      # 滚动时域 MPC 求解器
+│   ├── koopman_latent_model.hpp # Ā,B,Γ,Θ 预计算
+│   ├── koopman_encode.hpp      # dict16 + res_mlp 编码
+│   ├── koopman_decoder.hpp     # decoder 前向 + Jacobian（Tier-2）
+│   ├── pose_linearize.hpp      # 位姿灵敏度 Φ（Tier-2）
+│   ├── latent_mpc_qp.hpp       # OSQP 组装与求解（含位姿项）
+│   ├── koopman_onnx_model.hpp  # ONNX plant（仿真用）
+│   ├── mpc_controller.hpp      # KoopmanMpcController（SQP 外迭代）
 │   ├── mpc_config_loader.hpp   # YAML 配置加载
 │   └── motion_bridge.hpp       # ★ motion.cpp 对接入口
-├── src/                        # 实现
+├── src/
 └── examples/
     └── motion_integration_example.cpp
 ```
@@ -34,12 +42,23 @@ cpp/koopman_control/
 | 依赖 | 用途 |
 |------|------|
 | C++17 | 语言标准 |
-| ONNX Runtime C++ ≥ 1.26 | 加载 `koopman_rollout.onnx` |
+| **OSQP v0.6.3** | 凸 QP 求解（CMake FetchContent 自动获取） |
 | yaml-cpp | 读取 `config/mpc_config.yaml` |
+| ONNX Runtime C++ ≥ 1.26 | **可选**；仅 `simulate` / demo 闭环 plant。`-DKOOPMAN_ENABLE_ONNX=OFF` 可完全去除（见 §7.3） |
 
-ONNX 权重由 Python 导出：
+> **仅 MPC 核心**：只跑 OSQP 优化（Tier-1/Tier-2）时用 `KOOPMAN_ENABLE_ONNX=OFF`，
+> 依赖仅 OSQP + yaml-cpp，无需 ONNX Runtime（规避其下载）。
+
+权重由 Python 导出：
 
 ```bash
+# MPC 优化必需（同时导出 encoder 与 decoder；decoder 供 Tier-2 位姿跟踪）
+python3 new_v4_dict_input/export_v4_encode_weights.py \
+  --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
+  --horizon 20 \
+  --out cpp/koopman_mpc/weights/koopman_v4_latent.yaml
+
+# 闭环仿真 plant（可选）
 python3 new_v4_dict_input/export_v4_onnx.py \
   --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
   --pred_len 200 \
@@ -54,12 +73,17 @@ python3 new_v4_dict_input/export_v4_onnx.py \
 
 ```cpp
 #include "koopman_control/mpc_controller.hpp"
+#include "koopman_control/mpc_config_loader.hpp"
 
-koopman_control::KoopmanOnnxModel model("/path/to/koopman_rollout.onnx");
-koopman_control::MpcConfig cfg;
-cfg.horizon = model.horizon();  // 通常 200
+koopman_control::MpcConfig cfg =
+    koopman_control::loadMpcConfigFromYaml("cpp/koopman_control/config/mpc_config.yaml");
+koopman_control::LatentMpcQpConfig qp_cfg = koopman_control::latentQpConfigFromMpc(cfg);
 
-koopman_control::KoopmanMpcController mpc(std::move(model), cfg);
+// 实船 / motion：仅需潜空间 YAML
+koopman_control::KoopmanMpcController mpc(cfg.latent_model, cfg, qp_cfg);
+
+// demo 闭环仿真：附加 ONNX plant
+koopman_control::KoopmanMpcController mpc_sim(cfg.latent_model, cfg.onnx_plant, cfg, qp_cfg);
 
 std::array<float, 6> state0{0, 0, 0, u, v, r};
 std::vector<std::array<float, 6>> ref_window;  // 长度 horizon+1
@@ -67,7 +91,7 @@ auto [u_opt, cost] = mpc.solveStep(state0, ref_window);
 // u_opt: 4 维控制量
 ```
 
-状态定义：`[x, y, yaw, u, v, r]`，与训练数据一致。
+状态定义：`[x, y, yaw, u, v, r]`，与训练数据一致。motion 侧通常 `state0 = [0,0,0,u,v,r]`。
 
 ### 3.2 上层：`KoopmanMotionMpc`（供 motion.cpp 使用）
 
@@ -78,10 +102,10 @@ koopman_control::MpcConfig cfg =
     koopman_control::loadMpcConfigFromYaml("cpp/koopman_control/config/mpc_config.yaml");
 
 koopman_control::MotionBridgeConfig bridge;
-bridge.ref_dt = 0.1f;           // 对应 motion 中 mpc_during
+bridge.ref_dt = 1.0f;           // 参考点时间间隔
 bridge.ref_time_offset = 0.5f;  // 对应 PointChange 中 +0.5
 
-koopman_control::KoopmanMotionMpc solver(onnx_path, cfg, bridge);
+koopman_control::KoopmanMotionMpc solver(cfg.latent_model, cfg, bridge);
 
 koopman_control::MotionSolveInput in;
 in.u = fusion_pose->velocity.x;
@@ -97,10 +121,11 @@ for (const auto& t : mpc_states_gl.targets) {
 koopman_control::MotionSolveOutput out;
 if (solver.solve(in, out)) {
     // out.control[0..3] 为 Koopman 4 维控制量
+    // out.timing.qp_solve_ms / osqp_iters 可观测
 }
 ```
 
-桥接层会自动将 motion 侧较短/较稀疏的参考序列 **重采样** 为 ONNX 所需的 `horizon+1` 个点。
+桥接层将 motion 侧较短参考序列 **重采样** 为 `horizon+1` 个点（步长 `cfg.dt`）。
 
 ---
 
@@ -118,25 +143,9 @@ target_include_directories(ship_control_node PRIVATE
 target_compile_definitions(ship_control_node PRIVATE USE_KOOPMAN_MPC=1)
 ```
 
-并设置 `LD_LIBRARY_PATH` 包含 ONNX Runtime 的 `lib` 目录。
+并设置 `LD_LIBRARY_PATH` 包含 ONNX Runtime 的 `lib` 目录（若使用 ONNX plant 仿真）。
 
-### 4.2 头文件 `motion.h`
-
-在 `ControlNode` 中增加（参见仓库内已提供的 `cpp/motion_koopman_mpc.hpp`）：
-
-```cpp
-#ifdef USE_KOOPMAN_MPC
-#include "koopman_control/motion_bridge.hpp"
-#endif
-
-// private:
-#ifdef USE_KOOPMAN_MPC
-  void MpcTaRunKoopman();
-  std::unique_ptr<koopman_control::KoopmanMotionMpc> koopman_mpc_;
-#endif
-```
-
-### 4.3 初始化 `Init()`
+### 4.2 初始化 `Init()`
 
 ```cpp
 #ifdef USE_KOOPMAN_MPC
@@ -146,30 +155,11 @@ target_compile_definitions(ship_control_node PRIVATE USE_KOOPMAN_MPC=1)
   bridge.ref_dt = mpc_during;
   bridge.ref_time_offset = 0.5f;
   koopman_mpc_ = std::make_unique<koopman_control::KoopmanMotionMpc>(
-      cfg_onnx_path, cfg, bridge);
+      cfg.latent_model, cfg, bridge);
 #endif
 ```
 
-### 4.4 主循环 `Run()`
-
-增加船型分支或替换西城 MPC：
-
-```cpp
-case static_cast<int>(ThrustModeId::DOUBLE_THRUST_XI_CHENG):
-#ifdef USE_KOOPMAN_MPC
-  MpcTaRunKoopman();
-#else
-  MpcTaRunXiCheng();
-#endif
-  break;
-```
-
-### 4.5 实现 `MpcTaRunKoopman()`
-
-完整示例见：
-
-- `cpp/koopman_control/examples/motion_integration_example.cpp`
-- `cpp/motion_koopman_mpc.cpp`（本仓库提供的可拷贝实现）
+完整示例见 `cpp/koopman_control/examples/motion_integration_example.cpp` 与 `cpp/motion_koopman_mpc.cpp`。
 
 ---
 
@@ -177,17 +167,7 @@ case static_cast<int>(ThrustModeId::DOUBLE_THRUST_XI_CHENG):
 
 Koopman 模型输出 **4 维抽象控制** `u[0..3]`（与训练数据集 `ctrl` 字段一致），**不是**直接的左右推力/舵角。
 
-`motion.cpp` 当前通过 `thrust_command_send` 发布：
-
-- `port_thruster_throttle` / `starboard_thruster_throttle`
-- `port_thruster_angle` / `starboard_thruster_angle`
-
-接入 Koopman MPC 后需要增加一层 **控制分配（Control Allocation）**：
-
-1. **短期**：在仿真中直接将 `u[0..3]` 映射到训练数据的物理含义（需对照数据集文档）
-2. **长期**：仿照现有 `xicheng_azimuthing_MpcTaRudderSlove_`，编写 4 维 u → 双推进器 (force, angle) 的分配矩阵
-
-在未完成分配前，可先将 `u[0]`, `u[1]` 线性映射到左右油门做联调。
+`motion.cpp` 当前通过 `thrust_command_send` 发布左右油门与舵角。接入 Koopman MPC 后需要 **控制分配（Control Allocation）** 将 4 维 u 映射到双推进器指令。
 
 ---
 
@@ -197,33 +177,24 @@ Koopman 模型输出 **4 维抽象控制** `u[0..3]`（与训练数据集 `ctrl`
 
 | 参数 | 默认 | 说明 |
 |------|------|------|
-| `horizon` | 200 | 与 ONNX 一致，20s @ dt=0.1 |
-| `opt_control_steps` | 40 | 仅优化前 N 个**细步**；hold=10 时 → 4 个控制块 |
-| `control_hold_steps` | 10 | 每 N 细步共用一个控制；10 → **1 s 变一次** |
-| `control_period` | — | 可选；`round(period/dt)` 换算 hold_steps |
-| `dt` | 0.1 | 与训练/ONNX 一致 |
-| `w_xy` / `w_yaw` / `w_vel` | 10 / 5 / 0.5 | 跟踪权重 |
-| `w_u` | 0.0001 | 控制幅值惩罚 |
-| `w_du` | 0.05 | 增量惩罚（全局默认） |
-| `w_du_throttle` / `w_du_rudder` | 0.05 / 0.08 | 油门 (0,2) / 舵角 (1,3) 分组惩罚 |
-| `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | **控制块间**最大变化；≤0 不限制 |
-| `du_max` | — | 可选 `[4]` 逐通道覆盖 |
-| `opt_iters` / `opt_lr` | 15 / 0.05 | Adam 迭代与学习率（源码内实现，非外部库） |
+| `latent_model` | `koopman_v4_latent.yaml` | 潜空间动力学 + encoder（+ decoder）权重 |
+| `horizon` | 20 | MPC 预测步数 |
+| `dt` | 1.0 | MPC 时间步（秒） |
+| `opt_control_steps` | 2 | 参与优化的控制步数 |
+| `control_hold_steps` | 1 | 控制零阶保持块大小 |
+| `w_z` / `w_u` / `w_du` | 1.0 / 1e-4 / 0.05 | 潜空间跟踪 / 控制幅值 / 增量惩罚 |
+| `w_xy` / `w_yaw` | 0 / 0 | **Tier-2** 位姿跟踪权重（>0 启用，需 decoder） |
+| `sqp_iters` | 2 | **Tier-2** SQP 外迭代次数 |
+| `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | 块间变化速率硬约束；≤0 不限制 |
+| `osqp_eps_abs` / `osqp_eps_rel` | 1e-4 | OSQP 容差 |
+| `osqp_max_iter` | 4000 | OSQP 最大迭代 |
 | `u_min` / `u_max` | ±100 / ±35 | 4 维控制盒约束 |
-| `motion_ref_dt` | 0.1 | motion `PointChange` 参考点时间间隔 |
+| `onnx_plant` | `koopman_rollout.onnx` | 仅 `simulate` / demo 使用 |
+| `motion_ref_dt` | 1.0 | motion 参考点时间间隔 |
 
-**控制块示意**（`control_hold_steps=10`，`horizon=200`）：
+**依赖库**：编译链接 **OSQP**、**yaml-cpp**；使用 ONNX plant 时额外链接 **ONNX Runtime**。
 
-```
-u_blocks[0] → u_seq[0:9]   相同
-u_blocks[1] → u_seq[10:19] 相同
-…
-u_blocks[19] → u_seq[190:199] 相同
-```
-
-**依赖库**：编译链接 **ONNX Runtime**、**yaml-cpp**；Adam 优化器在 `mpc_controller.cpp` 内，**不**单独链接。
-
-单步 ONNX rollout（H=200）在 CPU 上约 **数毫秒～数十毫秒**；完整 MPC 求解约 **`opt_control_blocks × 4 × opt_iters`** 次 rollout（默认 4×4×15=240），建议实船控制周期 **≥ 0.5 s**。
+单步 `solveStep` 为毫秒级 QP（无迭代 rollout）；适合实船 **≥ 0.5 s** 控制周期。
 
 ---
 
@@ -244,7 +215,22 @@ cmake --build . -j
 bash cpp/koopman_mpc/build_v4.sh
 ```
 
-`cpp/koopman_mpc/CMakeLists.txt` 已通过 `add_subdirectory` 链接本库。
+### 7.3 仅编译 MPC 核心（不依赖 ONNX）
+
+只跑 MPC 优化（Tier-1/Tier-2 OSQP）、想规避 ONNX Runtime 下载时，用 `KOOPMAN_ENABLE_ONNX=OFF`：
+
+```bash
+# 容器内直接运行：仅 g++/cmake/git/yaml-cpp，无需 ONNX / Python
+bash cpp/koopman_control/build_mpc_only.sh
+```
+
+该开关下不编译 ONNX plant、不提供 `simulate()`（闭环仿真），仅构建库 + `verify_latent_qp` /
+`verify_pose_linearize`。手动等价命令：
+
+```bash
+cd cpp/koopman_control && mkdir -p build && cd build
+cmake .. -DKOOPMAN_ENABLE_ONNX=OFF && cmake --build . -j
+```
 
 ---
 
@@ -254,8 +240,9 @@ bash cpp/koopman_mpc/build_v4.sh
 |------------|------------------|
 | `FusionPoseStamped_->velocity.x/y` | `MotionSolveInput.u / .v` |
 | `yaw_rate_` | `MotionSolveInput.r` |
-| `ini_state << 0,0,0,u,v,r` | 船体系原点，桥接层内部构造 `state0` |
+| `ini_state << 0,0,0,u,v,r` | 桥接层内部构造 `state0` |
 | `mpc_states_gl.targets[i].x/y/psi/u/v` | `MotionRefPoint` |
+| 当前全局位姿（Tier-2） | `MotionSolveInput.{x,y,psi}` + `has_pose=true` |
 | `PointChange()` + `mpc_during` | `MotionBridgeConfig.ref_dt` |
 | `xicheng_...Solve()` 输出 | `MotionSolveOutput.control[4]` |
 
@@ -263,14 +250,21 @@ bash cpp/koopman_mpc/build_v4.sh
 
 ## 9. 常见问题
 
-**Q: horizon 必须为 200 吗？**  
-A: 须与 ONNX 导出时的 `--pred_len` 一致。更换 horizon 需重新导出 ONNX。
+**Q: horizon 必须为 20 吗？**  
+A: 须与 `export_v4_encode_weights.py --horizon` 及 yaml 中 `horizon` 一致。更换后需重新导出 latent YAML。
 
-**Q: motion 参考点只有 20 个，horizon 是 200 怎么办？**  
-A: `motion_bridge` 按时间线性插值并重采样，末端 hold 最后一点。
+**Q: motion 参考点只有 20 个，horizon 是 20 怎么办？**  
+A: `motion_bridge` 按时间线性插值并重采样为 `horizon+1` 点，末端 hold 最后一点。
+
+**Q: ONNX 还用吗？**  
+A: **MPC 优化不用**。仅 demo `simulate` 或需要 ONNX 闭环仿真时加载 `onnx_plant`。
 
 **Q: 编译找不到 onnxruntime？**  
-A: 先运行 `bash cpp/koopman_mpc/build.sh` 或 `build_v4.sh` 下载 ORT，或手动指定 `ONNXRUNTIME_ROOT`。
+A: 先运行 `bash cpp/koopman_mpc/build_v4.sh` 下载 ORT，或手动指定 `ONNXRUNTIME_ROOT`。
+
+**Q: 如何启用位姿 (x,y,yaw) 跟踪？**  
+A: 在 `mpc_config.yaml` 设 `w_xy>0`/`w_yaw>0`，并确保 latent YAML 含 `decoder`
+（新版 `export_v4_encode_weights.py` 自动导出）。实船经 motion 桥接时须填 `MotionSolveInput.{x,y,psi}` 并置 `has_pose=true`。
 
 ---
 
@@ -278,7 +272,10 @@ A: 先运行 `bash cpp/koopman_mpc/build.sh` 或 `build_v4.sh` 下载 ORT，或�
 
 | 文件 | 说明 |
 |------|------|
-| `new_v4_dict_input/export_v4_onnx.py` | 导出 ONNX |
+| `new_v4_dict_input/export_v4_encode_weights.py` | 导出潜空间 YAML（含 encoder + decoder） |
+| `new_v4_dict_input/export_v4_onnx.py` | 导出 ONNX plant |
+| `src/koopman_decoder.cpp` / `src/pose_linearize.cpp` | Tier-2 decoder Jacobian / 位姿线性化 |
+| `tools/verify_pose_linearize.cpp` | Tier-2 验证（Φ 精度 + OSQP 端到端） |
+| `docs/潜空间QP-MPC实现.md` | QP 推导与模块索引 |
 | `cpp/koopman_mpc/build_v4.sh` | v4 全流程构建脚本 |
-| `cpp/motion.cpp` | Elane ROS 控制节点（集成目标） |
 | `cpp/motion_koopman_mpc.cpp` | 可拷贝的 `MpcTaRunKoopman` 实现 |

@@ -7,8 +7,7 @@
 | `train_v2.py` | 主训练（v2/v3/v3a），`--help` 查看参数 |
 | `train_v1.py` | v1 baseline 训练 |
 | `eval.py` | 量化评估与多模型对比 |
-| `mpc_track.py` | Python MPC 航迹跟踪闭环仿真 |
 | `reselect_v3a.py` | v3a 离线 composite 重选 best ckpt |
 | `data/bag_test.py` 等 | 从 rosbag 构建 / 合并 / 检查数据集 |
 
-C++ / v4：见 `new_v4_dict_input/export_v4_onnx.py`（H=200 ONNX）、`cpp/koopman_mpc/build_v4.sh`；MPC 配置见 `cpp/koopman_control/config/mpc_config.yaml`。v3 导出见 `cpp/koopman_mpc/scripts/`。
+C++ / v4 MPC：见 `new_v4_dict_input/export_v4_encode_weights.py`（潜空间 YAML）、`export_v4_onnx.py`（plant）、`cpp/koopman_mpc/build_v4.sh`；配置见 `cpp/koopman_control/config/mpc_config.yaml` 与 [docs/MPC使用指南.md](../docs/MPC使用指南.md)。v3 导出见 `cpp/koopman_mpc/scripts/`。

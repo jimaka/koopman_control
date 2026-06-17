@@ -137,7 +137,9 @@ int main(int argc, char** argv) {
         koopman_control::MpcConfig cfg;
         cfg = koopman_control::loadMpcConfigFromYaml(config, cfg);
         cfg = koopman_control::syncHorizonWithOnnx(cfg, H);
-        koopman_control::KoopmanMpcController mpc(std::move(model), cfg);
+        // OSQP MPC：优化仅用 latent YAML（不依赖 ONNX）；ONNX 仅作 plant
+        koopman_control::KoopmanMpcController mpc(cfg.latent_model, cfg,
+                                                 koopman_control::latentQpConfigFromMpc(cfg));
 
         const auto ref_window = makeRefWindow(H);
         std::array<float, 4> u_prev{0.f, 0.f, 0.f, 0.f};
@@ -154,10 +156,11 @@ int main(int argc, char** argv) {
             }
         }
 
-        std::cout << "MPC config: opt_iters=" << cfg.opt_iters
+        std::cout << "MPC config: osqp_max_iter=" << cfg.osqp_max_iter
                   << " opt_control_steps=" << cfg.opt_control_steps
-                  << " control_hold_steps=" << cfg.control_hold_steps << "\n";
-        printStats("MPC solveStep (full optimization)", summarize(mpc_lat), warmup, iters);
+                  << " control_hold_steps=" << cfg.control_hold_steps
+                  << " sqp_iters=" << cfg.sqp_iters << "\n";
+        printStats("MPC solveStep (OSQP)", summarize(mpc_lat), warmup, iters);
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";

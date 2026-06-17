@@ -1,21 +1,33 @@
-# MPC Controller Configuration (v4 20s @ dt=1.0s, H=20)
+# MPC Controller Configuration (v4 OSQP, H=20 @ dt=1.0s)
+# demo（koopman_mpc_cpp）用配置；权重路径相对仓库根目录。
 horizon: 20
 opt_control_steps: 2
 dt: 1.0
 control_hold_steps: 1
-w_xy: 10.0
-w_yaw: 5.0
-w_vel: 0.5
+
+# --- 潜空间 QP 代价 ---
+w_z: 1.0
 w_u: 0.0001
 w_du: 0.05
-w_du_throttle: 0.05
-w_du_rudder: 0.08
+
+# --- Tier-2 位姿跟踪（>0 启用；需 latent YAML 含 decoder）---
+# smoketest 默认 Tier-1（仅速度），如需位姿跟踪设 w_xy/w_yaw>0
+w_xy: 0.0
+w_yaw: 0.0
+sqp_iters: 2
+
 throttle_du_max: 15.0
 rudder_du_max: 3.5
-opt_iters: 8
-opt_lr: 0.08
+
+# --- OSQP ---
+osqp_eps_abs: 0.0001
+osqp_eps_rel: 0.0001
+osqp_max_iter: 4000
+osqp_verbose: 0
+
 u_min: [-100.0, -35.0, -100.0, -35.0]
 u_max: [100.0, 35.0, 100.0, 35.0]
 
-# Main Loop Runtime overrides
-steps: 400
+# 权重文件（build_v4.sh 导出到 cpp/koopman_mpc/weights/）
+latent_model: cpp/koopman_mpc/weights/koopman_v4_latent.yaml
+onnx_plant: cpp/koopman_mpc/weights/koopman_rollout.onnx

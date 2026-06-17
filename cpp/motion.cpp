@@ -466,9 +466,8 @@ void ControlNode::MpcTaRunKoopman() {
     const double solve_ms =
         std::chrono::duration<double, std::milli>(t_solve_end - t_prep_end).count();
     printf("[KoopmanMPC] solve failed | prep=%.2fms solve=%.2fms "
-           "(infer=%.2f mpc_opt=%.2f ref=%.2f)\n",
-           prep_ms, solve_ms, out.timing.inference_ms, out.timing.mpc_opt_ms,
-           out.timing.ref_resample_ms);
+           "(qp=%.2f ref=%.2f)\n",
+           prep_ms, solve_ms, out.timing.qp_solve_ms, out.timing.ref_resample_ms);
     Stop();
     return;
   }
@@ -492,11 +491,11 @@ void ControlNode::MpcTaRunKoopman() {
   const double total_ms =
       std::chrono::duration<double, std::milli>(t_loop_end - t_loop_start).count();
   printf("[KoopmanMPC] cost=%.3f u=[%.3f %.3f %.3f %.3f] | "
-         "prep=%.2fms solve=%.2fms (ref=%.2f infer=%.2f mpc_opt=%.2f) "
+         "prep=%.2fms solve=%.2fms (ref=%.2f qp=%.2f osqp_iters=%d) "
          "pub=%.2fms total=%.2fms (H=%d, refs=%zu)\n",
          out.cost, out.control[0], out.control[1], out.control[2], out.control[3],
-         prep_ms, solve_ms, out.timing.ref_resample_ms, out.timing.inference_ms,
-         out.timing.mpc_opt_ms, pub_ms, total_ms, koopman_mpc_helper_.horizon(),
+         prep_ms, solve_ms, out.timing.ref_resample_ms, out.timing.qp_solve_ms,
+         out.timing.osqp_iters, pub_ms, total_ms, koopman_mpc_helper_.horizon(),
          targets.size());
 }
 #endif

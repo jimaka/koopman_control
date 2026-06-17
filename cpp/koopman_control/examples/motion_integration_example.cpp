@@ -2,13 +2,12 @@
  * @file motion_integration_example.cpp
  * @brief motion.cpp 集成示例（无 ROS 依赖）
  *
- * 演示：加载 YAML + ONNX → 构造参考点 → 调用 KoopmanMotionMpc::solve
+ * 演示：加载潜空间 YAML → 构造参考点 → 调用 KoopmanMotionMpc::solve（OSQP，无需 ONNX）
  *
  * 编译示例（在 koopman_control/build 目录）：
  *   g++ -std=c++17 ../examples/motion_integration_example.cpp \
  *       -I../include -L. -lkoopman_control \
- *       -I$ONNXRUNTIME_ROOT/include -L$ONNXRUNTIME_ROOT/lib -lonnxruntime \
- *       -lyaml-cpp -Wl,-rpath,$ONNXRUNTIME_ROOT/lib
+ *       -lyaml-cpp -losqpstatic
  */
 #include <iostream>
 #include <vector>
@@ -19,9 +18,8 @@
 int main() {
     try {
         const std::string yaml_path = "cpp/koopman_control/config/mpc_config.yaml";
-        const std::string onnx_path = "cpp/koopman_mpc/weights/koopman_rollout.onnx";
 
-        // 1. 加载 MPC 参数
+        // 1. 加载 MPC 参数（含 latent_model 路径）
         koopman_control::MpcConfig cfg =
             koopman_control::loadMpcConfigFromYaml(yaml_path);
 
@@ -30,8 +28,9 @@ int main() {
         bridge.ref_dt = 1.0f;
         bridge.ref_time_offset = 0.5f;
 
-        koopman_control::KoopmanMotionMpc mpc(onnx_path, cfg, bridge);
-        std::cout << "ONNX horizon = " << mpc.horizon() << "\n";
+        // 实船 MPC 仅需潜空间 YAML（OSQP 求解，无需 ONNX）
+        koopman_control::KoopmanMotionMpc mpc(cfg.latent_model, cfg, bridge);
+        std::cout << "MPC horizon = " << mpc.horizon() << "\n";
 
         // 3. 构造输入：模拟 PointChange 生成的 40 个船体坐标参考点
         koopman_control::MotionSolveInput in;
