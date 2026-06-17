@@ -1,8 +1,13 @@
 # v4 模型 ONNX 导出说明
 
+> **导出物分工**：C++ **OSQP MPC 优化**加载的是 `export_v4_encode_weights.py` 生成的
+> `koopman_v4_latent.yaml`（含 Ā/B、encoder、decoder）；本文档的 **ONNX 仅作闭环仿真 plant**
+> （`simulate()`/benchmark），**不参与 MPC 优化**。两者均由同一 best ckpt 导出，须保持同源。
+> 完整导出总览见 [docs/训练流程指南.md §5.6](../docs/训练流程指南.md)。
+
 ## 1. 功能说明
 
-`export_v4_onnx.py` 用于将 `train_v4_dict_input.py` 训练得到的 v4 checkpoint 导出为 C++ MPC 可用的 ONNX 文件，并在 **test 数据集** 上对比 PyTorch 与 ONNX 的 rollout 精度，生成 CSV/JSON 报告与对比图片（保存在独立目录）。
+`export_v4_onnx.py` 用于将 `train_v4_dict_input.py` 训练得到的 v4 checkpoint 导出为闭环仿真用的 ONNX 文件（被控对象 plant），并在 **test 数据集** 上对比 PyTorch 与 ONNX 的 rollout 精度，生成 CSV/JSON 报告与对比图片（保存在独立目录）。
 
 导出后的接口与现有 C++ 部署保持一致：
 
