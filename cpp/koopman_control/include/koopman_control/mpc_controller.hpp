@@ -14,9 +14,17 @@
 #include "koopman_control/koopman_decoder.hpp"
 #include "koopman_control/koopman_encode.hpp"
 #include "koopman_control/koopman_latent_model.hpp"
-#include "koopman_control/koopman_onnx_model.hpp"
 #include "koopman_control/latent_mpc_qp.hpp"
 #include "koopman_control/mpc_config.hpp"
+
+// KOOPMAN_ENABLE_ONNX=0 时编译「仅 MPC（OSQP）」版本：不依赖 ONNX Runtime，
+// 不提供 ONNX plant 构造与 simulate()。默认 1（含 ONNX，供闭环仿真 / demo）。
+#ifndef KOOPMAN_ENABLE_ONNX
+#define KOOPMAN_ENABLE_ONNX 1
+#endif
+#if KOOPMAN_ENABLE_ONNX
+#include "koopman_control/koopman_onnx_model.hpp"
+#endif
 
 namespace koopman_control {
 
@@ -47,9 +55,11 @@ public:
     KoopmanMpcController(std::string latent_yaml_path, MpcConfig cfg,
                        LatentMpcQpConfig qp_cfg = {});
 
+#if KOOPMAN_ENABLE_ONNX
     /** 闭环仿真需 ONNX 作为被控对象（plant）；MPC 优化仅用 OSQP + 潜空间矩阵 */
     KoopmanMpcController(std::string latent_yaml_path, std::string onnx_plant_path, MpcConfig cfg,
                        LatentMpcQpConfig qp_cfg = {});
+#endif
 
     std::pair<std::array<float, 4>, float> solveStep(
         const std::array<float, 6>& state0,
@@ -57,10 +67,12 @@ public:
         const std::array<float, 4>* u_prev_applied = nullptr,
         MpcSolveTiming* timing = nullptr);
 
+#if KOOPMAN_ENABLE_ONNX
     MpcTrajectory simulate(const std::array<float, 6>& state0,
                            const std::vector<std::array<float, 6>>& ref_traj,
                            const std::vector<std::array<float, 4>>* ref_ctrl,
                            int max_steps);
+#endif
 
     int horizon() const { return cfg_.horizon; }
     const MpcConfig& config() const { return cfg_; }
@@ -73,7 +85,9 @@ private:
     KoopmanEncoder encoder_;
     KoopmanDecoder decoder_;
     LatentMpcQpSolver solver_;
+#if KOOPMAN_ENABLE_ONNX
     std::unique_ptr<KoopmanOnnxModel> plant_;
+#endif
 
     std::vector<float> u_warm_tilde_;
     bool has_warm_{false};

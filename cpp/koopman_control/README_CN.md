@@ -212,6 +212,23 @@ cmake --build . -j
 bash cpp/koopman_mpc/build_v4.sh
 ```
 
+### 7.3 仅编译 MPC 核心（不依赖 ONNX）
+
+只跑 MPC 优化（Tier-1/Tier-2 OSQP）、想规避 ONNX Runtime 下载时，用 `KOOPMAN_ENABLE_ONNX=OFF`：
+
+```bash
+# 容器内直接运行：仅 g++/cmake/git/yaml-cpp，无需 ONNX / Python
+bash cpp/koopman_control/build_mpc_only.sh
+```
+
+该开关下不编译 ONNX plant、不提供 `simulate()`（闭环仿真），仅构建库 + `verify_latent_qp` /
+`verify_pose_linearize`。手动等价命令：
+
+```bash
+cd cpp/koopman_control && mkdir -p build && cd build
+cmake .. -DKOOPMAN_ENABLE_ONNX=OFF && cmake --build . -j
+```
+
 ---
 
 ## 8. 与 motion.cpp 的数据对应关系

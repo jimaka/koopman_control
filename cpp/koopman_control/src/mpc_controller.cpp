@@ -12,6 +12,7 @@
 namespace koopman_control {
 namespace {
 
+#if KOOPMAN_ENABLE_ONNX
 std::array<float, 6> rolloutOneStepOnnx(const KoopmanOnnxModel& plant, const std::array<float, 6>& state0,
                                         const std::array<float, 4>& u0, float dt) {
     // ONNX 图固定 H 步 rollout，要求 u_seq 长度为 H*4；单步推进只取 states[1]，
@@ -30,6 +31,7 @@ std::array<float, 6> rolloutOneStepOnnx(const KoopmanOnnxModel& plant, const std
     }
     return out;
 }
+#endif
 
 }  // namespace
 
@@ -46,6 +48,7 @@ bool KoopmanMpcController::poseTrackingEnabled() const {
     return (cfg_.w_xy > 0.f || cfg_.w_yaw > 0.f) && decoder_.loaded();
 }
 
+#if KOOPMAN_ENABLE_ONNX
 KoopmanMpcController::KoopmanMpcController(std::string latent_yaml_path, std::string onnx_plant_path,
                                            MpcConfig cfg, LatentMpcQpConfig qp_cfg)
     : KoopmanMpcController(std::move(latent_yaml_path), cfg, qp_cfg) {
@@ -54,6 +57,7 @@ KoopmanMpcController::KoopmanMpcController(std::string latent_yaml_path, std::st
         throw std::runtime_error("ONNX plant horizon must match MPC horizon");
     }
 }
+#endif
 
 std::array<float, 3> KoopmanMpcController::normalizeDyn(const std::array<float, 3>& dyn) const {
     std::array<float, 3> out{};
@@ -158,6 +162,7 @@ std::pair<std::array<float, 4>, float> KoopmanMpcController::solveStep(
     return {u0_phys, sol.cost};
 }
 
+#if KOOPMAN_ENABLE_ONNX
 MpcTrajectory KoopmanMpcController::simulate(const std::array<float, 6>& state0,
                                              const std::vector<std::array<float, 6>>& ref_traj,
                                              const std::vector<std::array<float, 4>>* ref_ctrl,
@@ -205,6 +210,7 @@ MpcTrajectory KoopmanMpcController::simulate(const std::array<float, 6>& state0,
     }
     return traj;
 }
+#endif  // KOOPMAN_ENABLE_ONNX
 
 void KoopmanMpcController::resetWarmStart() {
     u_warm_tilde_.clear();
