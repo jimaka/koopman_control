@@ -12,7 +12,8 @@ cpp/koopman_mpc/
 ├── CMakeLists.txt           # 链接 koopman_control 库
 ├── build.sh                 # v3：下载 ORT、导出 H=20 ONNX、编译、验证
 ├── build_v4.sh              # v4：导出 latent YAML + ONNX + 编译 + 验证（推荐）
-├── build_v4_in_docker.sh    # v4：本地 Docker 内编译（先检测环境/依赖再按需安装）
+├── build_in_docker.sh       # v4：容器内直接运行、直接编译（按需装依赖）
+├── build_v4_in_docker.sh    # v4：宿主机启动器（docker exec 进容器再编译）
 ├── include/                 # 兼容头文件（转发至 koopman_control）
 ├── src/
 │   ├── main.cpp             # demo：koopman_mpc_cpp（OSQP MPC + ONNX plant）
@@ -56,20 +57,33 @@ bash cpp/koopman_mpc/build_v4.sh
 > `build_v4.sh` 现在会**同时导出** latent YAML（`export_v4_encode_weights.py`，OSQP MPC 必需）
 > 与 ONNX plant，再 CMake 构建并跑冒烟。
 
-### 在本地 Docker 容器内编译
+### 在 Docker 容器内编译
 
-`build_v4_in_docker.sh` 会先检测本地 Docker 环境（CLI / 容器存在且运行中），
-再在容器内**检测构建依赖、仅安装缺失项**，最后在容器内执行 `build_v4.sh`：
+提供两种方式：
+
+**A. 容器内直接运行（推荐，最简单）** —— `build_in_docker.sh`
+已 `docker exec -it <容器> bash` 进入容器后，直接在仓库根执行；它会检测依赖（缺失才装）、
+按需下载 ONNX Runtime，然后 CMake 直接编译：
 
 ```bash
-# 默认容器 koopman_latest_sm120_martin
-bash cpp/koopman_mpc/build_v4_in_docker.sh
+# 仅编译 C++（无需 Python/ckpt）
+bash cpp/koopman_mpc/build_in_docker.sh
 
-# 指定容器 / ckpt / horizon；源码未挂载时用 --sync 复制进容器
+# 顺带导出权重并跑冒烟
+bash cpp/koopman_mpc/build_in_docker.sh \
+  --weights checkpoints/run_v4_xxx/koopman_v4_best.pth --smoketest
+
+# 仅检测不装依赖 / 指定并行数
+bash cpp/koopman_mpc/build_in_docker.sh --skip-deps --jobs 8
+```
+
+**B. 宿主机一键启动** —— `build_v4_in_docker.sh`
+在宿主机执行，先检测本地 Docker（CLI/容器存在且运行中），再 `docker exec` 进容器
+检测依赖并执行 `build_v4.sh`：
+
+```bash
 CONTAINER_NAME=my_ctr bash cpp/koopman_mpc/build_v4_in_docker.sh \
   --ckpt /workspace/checkpoints/run_v4_xxx/koopman_v4_best.pth --pred_len 20 --sync
-
-# 依赖控制：--force-deps 强制安装，--skip-deps 仅检测不安装
 ```
 
 MPC 参数：[`../koopman_control/config/mpc_config.yaml`](../koopman_control/config/mpc_config.yaml)
