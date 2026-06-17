@@ -69,6 +69,7 @@ def main() -> None:
         state0=ref_state[0],
         u_seq=u_seq.numpy(),
         states=states.numpy(),
+        dt=np.float32(args.dt),
     )
     print(f"Wrote rollout_check.npz (horizon={args.horizon})")
 

@@ -9,6 +9,9 @@ ORT_TGZ="onnxruntime-linux-x64-${ORT_VERSION}.tgz"
 ORT_URL="${ORT_URL:-https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/${ORT_TGZ}}"
 
 CKPT="${1:-$ROOT/checkpoints/run_v4_20260520_034545/koopman_v4_best.pth}"
+if [[ "$CKPT" != /* ]]; then
+    CKPT="$ROOT/$CKPT"
+fi
 PRED_LEN="${2:-20}"
 MODEL_DT="${3:-1.0}"
 
@@ -36,6 +39,7 @@ echo ">>> Export v4 latent weights (OSQP MPC: Ā/B + encoder + decoder)..."
 python3 "$ROOT/new_v4_dict_input/export_v4_encode_weights.py" \
     --ckpt "$CKPT" \
     --horizon "$PRED_LEN" \
+    --dt "$MODEL_DT" \
     --out "$ROOT/cpp/koopman_mpc/weights/koopman_v4_latent.json" \
     --out-yaml "$ROOT/cpp/koopman_mpc/weights/koopman_v4_latent.yaml"
 

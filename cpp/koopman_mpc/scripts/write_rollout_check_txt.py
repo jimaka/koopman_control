@@ -12,10 +12,12 @@ d = np.load(npz)
 s0 = d["state0"]
 u = d["u_seq"]
 states = d["states"]
+dt = float(d["dt"]) if "dt" in d else 1.0
 H = u.shape[0]
 with open(txt, "w") as f:
     f.write(" ".join(f"{x:.9g}" for x in s0) + "\n")
     f.write(f"{H}\n")
+    f.write(f"{dt:.9g}\n")
     f.write(" ".join(f"{x:.9g}" for x in u.reshape(-1)) + "\n")
     f.write(f"{states.shape[0]} {states.shape[1]}\n")
     f.write(" ".join(f"{x:.9g}" for x in states.reshape(-1)) + "\n")

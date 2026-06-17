@@ -29,6 +29,9 @@ MpcConfig loadMpcConfigFromYaml(const std::string& yaml_path, MpcConfig cfg) {
     if (node["dt"]) {
         cfg.dt = node["dt"].as<float>();
     }
+    if (node["data_dt"]) {
+        cfg.data_dt = node["data_dt"].as<float>();
+    }
     if (node["control_hold_steps"]) {
         cfg.control_hold_steps = node["control_hold_steps"].as<int>();
     }

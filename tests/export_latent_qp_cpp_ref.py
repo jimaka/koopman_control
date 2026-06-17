@@ -24,8 +24,17 @@ def write_vec(path: Path, v: np.ndarray) -> None:
 
 
 def main() -> int:
-    horizon = 20
-    model, _ = load_v4_model("checkpoints/koopman_v4_best.pth")
+    import argparse
+    import torch
+
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--ckpt", default="checkpoints/koopman_v4_best.pth")
+    p.add_argument("--horizon", type=int, default=20)
+    p.add_argument("--out_dir", default="eval_out/latent_qp_cpp_ref")
+    args = p.parse_args()
+
+    horizon = int(args.horizon)
+    model, _ = load_v4_model(args.ckpt)
     nz = model.latent_dim
     nu = model.control_dim
 
@@ -44,15 +53,12 @@ def main() -> int:
 
     dyn = np.array([1.5, 0.02, 0.01], dtype=np.float32)
 
-    out = Path("eval_out/latent_qp_cpp_ref")
+    out = Path(args.out_dir)
     write_vec(out / "z0.txt", z0)
     write_vec(out / "U.txt", U)
     write_vec(out / "Z_ref.txt", Z_ref)
 
-    stats_mean = None
-    import torch
-
-    ckpt = torch.load("checkpoints/koopman_v4_best.pth", map_location="cpu", weights_only=False)
+    ckpt = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     stats = ckpt["stats"]
     dyn_mean = np.asarray(stats["state_mean"][3:6], dtype=np.float32)
     dyn_std = np.asarray(stats["state_std"][3:6], dtype=np.float32)

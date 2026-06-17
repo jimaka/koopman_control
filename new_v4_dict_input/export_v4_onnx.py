@@ -619,6 +619,7 @@ def main() -> int:
             state0=s0.numpy(),
             u_seq=u_seq.numpy(),
             states=states.numpy(),
+            dt=np.float32(args.dt),
         )
         print(f"[OK] Wrote rollout_check -> {npz_path}")
 

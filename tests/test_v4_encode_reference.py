@@ -76,7 +76,13 @@ def encode_cpp_equiv(model, dyn_norm: np.ndarray) -> np.ndarray:
 
 
 def main() -> int:
-    model, stats = load_v4_model("checkpoints/koopman_v4_best.pth")
+    import argparse
+
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--ckpt", default="checkpoints/koopman_v4_best.pth")
+    args = p.parse_args()
+
+    model, stats = load_v4_model(args.ckpt)
     dyn_mean = np.asarray(stats["state_mean"][3:6], dtype=np.float32)
     dyn_std = np.asarray(stats["state_std"][3:6], dtype=np.float32)
 
