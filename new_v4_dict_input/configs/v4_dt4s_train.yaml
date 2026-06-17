@@ -1,0 +1,15 @@
+# v4 模型 4s 采样步长训练配置
+# 用法: python3 new_v4_dict_input/train_v4_dict_input.py --config new_v4_dict_input/configs/v4_dt4s_train.yaml
+run_tag: v4_dt4s
+dt: 4.0
+data_dt: 0.1
+pred_time_sec: 20.0
+pred_time_start_sec: 4.0
+epochs: 120
+batch_size: 512
+grad_accum_steps: 2
+val_batch_size: 128
+val_max_samples: 512
+hidden_dim: 32
+w_recon: 0.5
+ckpt_dir: checkpoints/v4_dt4s
