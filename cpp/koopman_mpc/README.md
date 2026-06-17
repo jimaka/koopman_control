@@ -86,6 +86,22 @@ CONTAINER_NAME=my_ctr bash cpp/koopman_mpc/build_v4_in_docker.sh \
   --ckpt /workspace/checkpoints/run_v4_xxx/koopman_v4_best.pth --pred_len 20 --sync
 ```
 
+**C. 仅编译 MPC 核心（不依赖 ONNX）** —— `cpp/koopman_control/build_mpc_only.sh`
+只跑 OSQP 优化、想规避 ONNX Runtime 下载时使用（`-DKOOPMAN_ENABLE_ONNX=OFF`）：
+
+```bash
+bash cpp/koopman_control/build_mpc_only.sh   # 依赖仅 g++/cmake/git/yaml-cpp
+```
+
+### 网络受限 / 跨机器注意
+
+- **ORT 下载失败（curl 56 等）**：脚本已内置重试 + 断点续传；仍失败时
+  - 离线包：`bash ... build_in_docker.sh --ort-tgz /path/onnxruntime-linux-x64-1.26.0.tgz`
+  - 镜像：`ORT_URL=<镜像tgz> bash ...`
+  - 或干脆用方式 C 跳过 ONNX。
+- **跨机器复用 checkout 报 `CMakeCache.txt` 源目录不一致**：脚本会自动清理陈旧
+  `build/`；手动可 `rm -rf cpp/koopman_*/build` 后重跑。
+
 MPC 参数：[`../koopman_control/config/mpc_config.yaml`](../koopman_control/config/mpc_config.yaml)
 
 | 关键参数 | v4 默认 | 含义 |

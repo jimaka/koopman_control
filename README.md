@@ -75,11 +75,19 @@ python3 new_v4_dict_input/export_v4_onnx.py \
   --ckpt checkpoints/run_v4_20260520_034545/koopman_v4_best.pth \
   --pred_len 200 --out_dir cpp/koopman_mpc/weights
 
-# 3. 编译与冒烟
+# 3. 编译与冒烟（全量；含 ONNX plant 与 demo）
 bash cpp/koopman_mpc/build_v4.sh
 export LD_LIBRARY_PATH=cpp/koopman_mpc/third_party/onnxruntime/lib:$LD_LIBRARY_PATH
 ./cpp/koopman_mpc/build/koopman_mpc_cpp \
   --config cpp/koopman_control/config/mpc_config.yaml --smoketest
 ```
+
+**仅编译 MPC 核心（不依赖 ONNX，规避 ORT 下载）**：
+
+```bash
+bash cpp/koopman_control/build_mpc_only.sh   # -DKOOPMAN_ENABLE_ONNX=OFF
+```
+
+构建脚本一览：`build_mpc_only.sh`（仅 MPC，无 ONNX）、`build_in_docker.sh`（容器内全量）、`build_v4_in_docker.sh`（宿主机启动器）。ONNX 下载受限时用 `--ort-tgz <离线包>` 或 `ORT_URL=<镜像>`。
 
 见 [docs/MPC使用指南.md](docs/MPC使用指南.md)、[cpp/koopman_mpc/README.md](cpp/koopman_mpc/README.md) 与 [cpp/koopman_control/config/mpc_config.yaml](cpp/koopman_control/config/mpc_config.yaml)。

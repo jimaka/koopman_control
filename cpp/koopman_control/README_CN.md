@@ -44,7 +44,10 @@ cpp/koopman_control/
 | C++17 | 语言标准 |
 | **OSQP v0.6.3** | 凸 QP 求解（CMake FetchContent 自动获取） |
 | yaml-cpp | 读取 `config/mpc_config.yaml` |
-| ONNX Runtime C++ ≥ 1.26 | 可选；仅 `simulate` / demo 闭环 plant |
+| ONNX Runtime C++ ≥ 1.26 | **可选**；仅 `simulate` / demo 闭环 plant。`-DKOOPMAN_ENABLE_ONNX=OFF` 可完全去除（见 §7.3） |
+
+> **仅 MPC 核心**：只跑 OSQP 优化（Tier-1/Tier-2）时用 `KOOPMAN_ENABLE_ONNX=OFF`，
+> 依赖仅 OSQP + yaml-cpp，无需 ONNX Runtime（规避其下载）。
 
 权重由 Python 导出：
 
