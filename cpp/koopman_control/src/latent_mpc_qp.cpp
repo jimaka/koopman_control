@@ -94,7 +94,9 @@ float effectiveDuMax(const MpcConfig& cfg, int channel) {
 LatentMpcQpSolver::LatentMpcQpSolver(const KoopmanLatentModel& model, MpcConfig mpc_cfg,
                                      LatentMpcQpConfig qp_cfg)
     : model_(model), mpc_cfg_(mpc_cfg), qp_cfg_(qp_cfg) {
-    n_ = model.horizon();
+    // 使用配置 horizon：model 在 KoopmanMpcController 构造体中于 solver_ 之后 load，
+    // 初始化时 model.horizon() 仍为默认值，不能与 mpc_cfg 不一致。
+    n_ = mpc_cfg_.horizon;
     nz_ = model.nz();
     nu_ = model.nu();
     hold_ = std::max(1, mpc_cfg_.control_hold_steps);

@@ -94,6 +94,7 @@ def main() -> int:
         default="cpp/koopman_mpc/weights/koopman_v4_latent.yaml",
     )
     p.add_argument("--horizon", type=int, default=20)
+    p.add_argument("--dt", type=float, default=1.0, help="模型离散步长 [s]，写入 YAML 供 C++ 验证工具读取")
     args = p.parse_args()
 
     model, stats = load_v4_model(args.ckpt)
@@ -115,6 +116,7 @@ def main() -> int:
         "encoder_arch": str(getattr(model, "encoder_arch", "conv")),
         "feature_dict_atoms": list(FEATURE_DICT_ATOMS_16),
         "horizon_default": n,
+        "dt": float(args.dt),
         "normalization": {
             "dyn_mean": np.asarray(stats["state_mean"][3:6], dtype=float).tolist(),
             "dyn_std": np.asarray(stats["state_std"][3:6], dtype=float).tolist(),

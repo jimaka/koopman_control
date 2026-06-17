@@ -40,6 +40,9 @@ KoopmanMpcController::KoopmanMpcController(std::string latent_yaml_path, MpcConf
     : cfg_(cfg), qp_cfg_(qp_cfg), solver_(model_, cfg_, qp_cfg_) {
     model_.loadFromYaml(latent_yaml_path, cfg_.horizon);
     model_.precomputePredictionMatrices();
+    if (model_.horizon() != cfg_.horizon) {
+        throw std::runtime_error("latent model horizon mismatch after YAML load");
+    }
     encoder_.loadFromYaml(latent_yaml_path);
     decoder_.loadFromYaml(latent_yaml_path);  // 旧 YAML 无 decoder 时静默禁用 Tier-2
 }
@@ -175,6 +178,8 @@ MpcTrajectory KoopmanMpcController::simulate(const std::array<float, 6>& state0,
     const int T = static_cast<int>(ref_traj.size());
     const int n_sim = std::min(max_steps, T - 1);
     const int H = cfg_.horizon;
+    const int ref_stride =
+        std::max(1, static_cast<int>(std::lround(cfg_.dt / cfg_.data_dt)));
 
     traj.state.resize(static_cast<size_t>(n_sim + 1));
     traj.control.resize(static_cast<size_t>(n_sim));
@@ -183,10 +188,11 @@ MpcTrajectory KoopmanMpcController::simulate(const std::array<float, 6>& state0,
     traj.state[0] = state0;
     traj.t[0] = 0.f;
 
-    if (ref_ctrl && static_cast<int>(ref_ctrl->size()) >= H) {
+    if (ref_ctrl && static_cast<int>(ref_ctrl->size()) >= (H - 1) * ref_stride + 1) {
         u_warm_tilde_.assign(static_cast<size_t>(H * model_.nu()), 0.f);
         for (int i = 0; i < H; ++i) {
-            const auto u_n = model_.normalizeControl((*ref_ctrl)[static_cast<size_t>(i)]);
+            const auto u_n = model_.normalizeControl(
+                (*ref_ctrl)[static_cast<size_t>(i * ref_stride)]);
             for (int j = 0; j < model_.nu(); ++j) {
                 u_warm_tilde_[static_cast<size_t>(i * model_.nu() + j)] = u_n[static_cast<size_t>(j)];
             }
@@ -197,10 +203,12 @@ MpcTrajectory KoopmanMpcController::simulate(const std::array<float, 6>& state0,
     std::array<float, 6> cur = state0;
     for (int t = 0; t < n_sim; ++t) {
         traj.t[static_cast<size_t>(t + 1)] = static_cast<float>(t + 1) * cfg_.dt;
+        const int base = t * ref_stride;
         std::vector<std::array<float, 6>> ref_win;
         ref_win.reserve(static_cast<size_t>(H + 1));
         for (int k = 0; k <= H; ++k) {
-            ref_win.push_back(ref_traj[static_cast<size_t>(std::min(t + k, T - 1))]);
+            ref_win.push_back(
+                ref_traj[static_cast<size_t>(std::min(base + k * ref_stride, T - 1))]);
         }
         auto [u_opt, c] = solveStep(cur, ref_win, nullptr);
         traj.control[static_cast<size_t>(t)] = u_opt;

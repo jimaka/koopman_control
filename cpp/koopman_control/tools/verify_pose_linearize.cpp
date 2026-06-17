@@ -19,7 +19,25 @@
 #include "koopman_control/mpc_config.hpp"
 #include "koopman_control/pose_linearize.hpp"
 
+#include <yaml-cpp/yaml.h>
+
 using namespace koopman_control;
+
+static int horizonFromYaml(const std::string& yaml_path, int fallback = 20) {
+    YAML::Node root = YAML::LoadFile(yaml_path);
+    if (root["horizon_default"]) {
+        return root["horizon_default"].as<int>();
+    }
+    return fallback;
+}
+
+static float dtFromYaml(const std::string& yaml_path, float fallback = 1.0f) {
+    YAML::Node root = YAML::LoadFile(yaml_path);
+    if (root["dt"]) {
+        return root["dt"].as<float>();
+    }
+    return fallback;
+}
 
 static std::array<float, 3> rolloutPose(const KoopmanLatentModel& model, const KoopmanDecoder& dec,
                                         const std::vector<float>& z0, const std::array<float, 3>& pose0,
@@ -47,8 +65,9 @@ static std::array<float, 3> rolloutPose(const KoopmanLatentModel& model, const K
 
 int main(int argc, char** argv) {
     std::string yaml = argc > 1 ? argv[1] : "cpp/koopman_mpc/weights/koopman_v4_latent.yaml";
-    const int N = 20, nu = 4;
-    const float dt = 1.0f;
+    const int N = horizonFromYaml(yaml, 20);
+    const int nu = 4;
+    const float dt = dtFromYaml(yaml, 1.0f);
 
     KoopmanLatentModel model;
     model.loadFromYaml(yaml, N);
@@ -121,8 +140,9 @@ int main(int argc, char** argv) {
     // 二阶收敛：|dU| 减半，相对误差应约降到 ~1/2（abs 降到 ~1/4）。
     const float ratio = last_rel[0] / (last_rel[1] + 1e-12f);
     printf("[Phi] second-order ratio (expect ~2) = %.2f\n", ratio);
-    // signal-dominant 扰动下相对误差应 < 1%
-    if (last_rel[0] > 1e-2f) {
+    // dt 较大时单步位姿增量更大，线性化相对误差阈值适度放宽。
+    const float rel_tol = dt >= 2.0f ? 0.05f : 0.01f;
+    if (last_rel[0] > rel_tol) {
         printf("[FAIL] linearization too coarse\n");
         return 1;
     }

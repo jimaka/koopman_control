@@ -8,6 +8,7 @@ struct MpcConfig {
     int horizon = 20;
     int opt_control_steps = 2;
     float dt = 1.0f;
+    float data_dt = 0.1f;
     int control_hold_steps = 1;
 
     float w_z = 1.f;

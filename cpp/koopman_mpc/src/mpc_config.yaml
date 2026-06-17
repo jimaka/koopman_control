@@ -1,8 +1,9 @@
-# MPC Controller Configuration (v4 OSQP, H=20 @ dt=1.0s)
+# MPC Controller Configuration (v4 OSQP, H=10 @ dt=4.0s)
 # demo（koopman_mpc_cpp）用配置；权重路径相对仓库根目录。
-horizon: 20
+horizon: 10
 opt_control_steps: 2
-dt: 1.0
+dt: 4.0
+data_dt: 0.1
 control_hold_steps: 1
 
 # --- 潜空间 QP 代价 ---

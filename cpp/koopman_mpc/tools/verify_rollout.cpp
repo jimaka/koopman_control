@@ -13,6 +13,7 @@ bool loadNpzRollout(const std::string& path,
                     std::array<float, 6>& state0,
                     std::vector<float>& u_flat,
                     int& H,
+                    float& dt,
                     std::vector<float>& states_ref) {
     const std::string txt = path + ".txt";
     std::ifstream in(txt);
@@ -23,6 +24,10 @@ bool loadNpzRollout(const std::string& path,
         in >> state0[i];
     }
     in >> H;
+    in >> dt;
+    if (!in) {
+        dt = 1.0f;
+    }
     const int nu = H * 4;
     u_flat.resize(nu);
     for (int i = 0; i < nu; ++i) {
@@ -54,14 +59,15 @@ int main(int argc, char** argv) {
     std::vector<float> u_flat;
     std::vector<float> states_ref;
     int H = 0;
-    if (!loadNpzRollout(check_txt, s0, u_flat, H, states_ref)) {
+    float dt = 1.0f;
+    if (!loadNpzRollout(check_txt, s0, u_flat, H, dt, states_ref)) {
         std::cerr << "Missing " << check_txt << ".txt — run write_rollout_check_txt.py first\n";
         return 1;
     }
 
     try {
         koopman_control::KoopmanOnnxModel model(onnx);
-        auto states = model.rollout(s0, u_flat, 1.0f);
+        auto states = model.rollout(s0, u_flat, dt);
         const int rows = static_cast<int>(states.size() / 6);
         float max_err = 0.f;
         for (int i = 0; i < rows; ++i) {
