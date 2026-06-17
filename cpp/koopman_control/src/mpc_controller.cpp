@@ -14,9 +14,14 @@ namespace {
 
 std::array<float, 6> rolloutOneStepOnnx(const KoopmanOnnxModel& plant, const std::array<float, 6>& state0,
                                         const std::array<float, 4>& u0, float dt) {
-    std::vector<float> u_flat(4);
-    for (int j = 0; j < 4; ++j) {
-        u_flat[static_cast<size_t>(j)] = u0[static_cast<size_t>(j)];
+    // ONNX 图固定 H 步 rollout，要求 u_seq 长度为 H*4；单步推进只取 states[1]，
+    // 其余步用 u0 填充（state[1] 仅依赖 u_seq[0]，填充值不影响结果）。
+    const int H = plant.horizon();
+    std::vector<float> u_flat(static_cast<size_t>(H * 4));
+    for (int k = 0; k < H; ++k) {
+        for (int j = 0; j < 4; ++j) {
+            u_flat[static_cast<size_t>(k * 4 + j)] = u0[static_cast<size_t>(j)];
+        }
     }
     const auto states = plant.rollout(state0, u_flat, dt);
     std::array<float, 6> out{};

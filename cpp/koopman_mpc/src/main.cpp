@@ -12,6 +12,7 @@
 
 namespace fs = std::filesystem;
 using koopman_control::KoopmanMpcController;
+using koopman_control::KoopmanOnnxModel;
 using koopman_control::MpcConfig;
 using koopman_control::computeMetrics;
 using koopman_control::latentQpConfigFromMpc;
