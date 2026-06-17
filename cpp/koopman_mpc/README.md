@@ -11,7 +11,8 @@ MPC **优化**通过潜空间 **OSQP** 求解；ONNX 仅作闭环仿真 **被控
 cpp/koopman_mpc/
 ├── CMakeLists.txt           # 链接 koopman_control 库
 ├── build.sh                 # v3：下载 ORT、导出 H=20 ONNX、编译、验证
-├── build_v4.sh              # v4：导出权重 + 编译（推荐）
+├── build_v4.sh              # v4：导出 latent YAML + ONNX + 编译 + 验证（推荐）
+├── build_v4_in_docker.sh    # v4：本地 Docker 内编译（先检测环境/依赖再按需安装）
 ├── include/                 # 兼容头文件（转发至 koopman_control）
 ├── src/
 │   ├── main.cpp             # demo：koopman_mpc_cpp（OSQP MPC + ONNX plant）
@@ -50,6 +51,25 @@ python3 new_v4_dict_input/export_v4_onnx.py \
 
 # 3. 下载 ORT、编译 demo
 bash cpp/koopman_mpc/build_v4.sh
+```
+
+> `build_v4.sh` 现在会**同时导出** latent YAML（`export_v4_encode_weights.py`，OSQP MPC 必需）
+> 与 ONNX plant，再 CMake 构建并跑冒烟。
+
+### 在本地 Docker 容器内编译
+
+`build_v4_in_docker.sh` 会先检测本地 Docker 环境（CLI / 容器存在且运行中），
+再在容器内**检测构建依赖、仅安装缺失项**，最后在容器内执行 `build_v4.sh`：
+
+```bash
+# 默认容器 koopman_latest_sm120_martin
+bash cpp/koopman_mpc/build_v4_in_docker.sh
+
+# 指定容器 / ckpt / horizon；源码未挂载时用 --sync 复制进容器
+CONTAINER_NAME=my_ctr bash cpp/koopman_mpc/build_v4_in_docker.sh \
+  --ckpt /workspace/checkpoints/run_v4_xxx/koopman_v4_best.pth --pred_len 20 --sync
+
+# 依赖控制：--force-deps 强制安装，--skip-deps 仅检测不安装
 ```
 
 MPC 参数：[`../koopman_control/config/mpc_config.yaml`](../koopman_control/config/mpc_config.yaml)

@@ -26,7 +26,14 @@ if [[ ! -f "$ORT_DIR/include/onnxruntime_cxx_api.h" ]]; then
     rm -rf "$tmp"
 fi
 
-echo ">>> Export v4 ONNX (pred_len=${PRED_LEN}, dt=${MODEL_DT})..."
+echo ">>> Export v4 latent weights (OSQP MPC: Ā/B + encoder + decoder)..."
+python3 "$ROOT/new_v4_dict_input/export_v4_encode_weights.py" \
+    --ckpt "$CKPT" \
+    --horizon "$PRED_LEN" \
+    --out "$ROOT/cpp/koopman_mpc/weights/koopman_v4_latent.json" \
+    --out-yaml "$ROOT/cpp/koopman_mpc/weights/koopman_v4_latent.yaml"
+
+echo ">>> Export v4 ONNX plant (pred_len=${PRED_LEN}, dt=${MODEL_DT})..."
 python3 "$ROOT/new_v4_dict_input/export_v4_onnx.py" \
     --ckpt "$CKPT" \
     --out_dir "$ROOT/cpp/koopman_mpc/weights" \
