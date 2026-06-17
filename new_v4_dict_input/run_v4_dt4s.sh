@@ -4,42 +4,49 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CKPT_DIR="${CKPT_DIR:-checkpoints/v4_dt4s}"
-CONFIG="new_v4_dict_input/configs/v4_dt4s_train.yaml"
+CONFIG="${CONFIG:-new_v4_dict_input/configs/v4_dt4s_train.yaml}"
+RESUME="${RESUME:-}"
 
 echo "=== Train v4 @ dt=4s ==="
-python3 new_v4_dict_input/train_v4_dict_input.py \
-  --config "$CONFIG" \
-  --ckpt_dir "$CKPT_DIR" \
-  "$@"
-
-# 找到最新 run 目录下的 best ckpt
-BEST=$(find "$CKPT_DIR" -name koopman_v4_best.pth | sort | tail -1)
-if [[ -z "$BEST" ]]; then
-  echo "ERROR: no koopman_v4_best.pth found under $CKPT_DIR" >&2
-  exit 1
+TRAIN_ARGS=(--config "$CONFIG" --ckpt_dir "$CKPT_DIR")
+if [[ -n "$RESUME" ]]; then
+  TRAIN_ARGS+=(--resume "$RESUME")
 fi
-echo "Best checkpoint: $BEST"
+python3 new_v4_dict_input/train_v4_dict_input.py "${TRAIN_ARGS[@]}" "$@"
 
-echo "=== Eval dt=4s (GT vs Pred) ==="
+# 找到最新 run 目录下的 best/latest ckpt
+RUN_DIR=$(find "$CKPT_DIR" -name koopman_v4_latest.pth | sort | tail -1 | xargs dirname)
+BEST="$RUN_DIR/koopman_v4_best.pth"
+if [[ ! -f "$BEST" ]]; then
+  echo "WARN: no best.pth in $RUN_DIR, promoting latest.pth"
+  python3 - <<PY
+import torch
+src = "$RUN_DIR/koopman_v4_latest.pth"
+dst = "$RUN_DIR/koopman_v4_best.pth"
+ck = torch.load(src, map_location="cpu", weights_only=False)
+torch.save(ck, dst)
+PY
+fi
+echo "Checkpoint: $BEST"
+
+# 从配置推断 pred_len（默认 5 步 / 20s）
+PRED_LEN=$(python3 - <<'PY'
+import yaml, os
+cfg = yaml.safe_load(open(os.environ.get("CONFIG", "new_v4_dict_input/configs/v4_dt4s_train.yaml")))
+dt = float(cfg.get("dt", 4.0))
+if cfg.get("pred_len_max"):
+    print(int(cfg["pred_len_max"]))
+else:
+    print(max(1, int(round(float(cfg.get("pred_time_sec", 20.0)) / dt))))
+PY
+)
+
+echo "=== Eval dt=4s pred_len=$PRED_LEN (GT vs Pred) ==="
 python3 new_v4_dict_input/eval_v4_dict_input.py \
   --ckpt "$BEST" \
   --data data/koopman_test.npz \
-  --pred_len 5 --dt 4.0 \
-  --out_dir eval_out/v4_dt4s \
-  --tag v4_dt4s
+  --pred_len "$PRED_LEN" --dt 4.0 \
+  --out_dir "eval_out/v4_dt4s_${PRED_LEN}step" \
+  --tag "v4_dt4s_${PRED_LEN}step"
 
-echo "=== Eval dt=1s original ==="
-python3 new_v4_dict_input/eval_v4_dict_input.py \
-  --ckpt checkpoints/koopman_v4_best.pth \
-  --data data/koopman_test.npz \
-  --pred_len 20 --dt 1.0 \
-  --out_dir eval_out/v4_dt1s_original \
-  --tag v4_dt1s_original
-
-echo "=== Compare dt=4s vs dt=1s ==="
-python3 new_v4_dict_input/compare_dt4s_vs_original.py \
-  --dt4s_dir eval_out/v4_dt4s \
-  --dt1s_dir eval_out/v4_dt1s_original \
-  --out_dir eval_out/v4_dt4s_vs_original
-
-echo "[OK] Done. See eval_out/v4_dt4s/ and eval_out/v4_dt4s_vs_original/"
+echo "[OK] Done. See eval_out/v4_dt4s_${PRED_LEN}step/"
