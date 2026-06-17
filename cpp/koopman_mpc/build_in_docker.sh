@@ -155,6 +155,14 @@ fi
 # 4) CMake 配置 + 构建
 # ----------------------------------------------------------------------------
 echo ">>> [4/4] CMake 配置与构建（-j${JOBS}）..."
+# 清理陈旧/跨机器的 CMake 缓存
+if [[ -f build/CMakeCache.txt ]]; then
+  cached_home="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' build/CMakeCache.txt | head -1)"
+  if [[ -n "$cached_home" && "$cached_home" != "$CPP_DIR" ]]; then
+    echo "    检测到陈旧 CMakeCache（home=$cached_home），清理 build/"
+    rm -rf build
+  fi
+fi
 mkdir -p build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_COMPILER="${CXX:-g++}" \

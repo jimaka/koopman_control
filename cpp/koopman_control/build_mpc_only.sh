@@ -72,6 +72,14 @@ fi
 # ----------------------------------------------------------------------------
 echo ">>> [2/3] 构建 MPC 核心（-DKOOPMAN_ENABLE_ONNX=OFF, -j${JOBS}）..."
 cd "$CONTROL_DIR"
+# 清理陈旧/跨机器的 CMake 缓存（CMakeCache 记录的源目录与当前不一致时会报错）
+if [[ -f build/CMakeCache.txt ]]; then
+  cached_home="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' build/CMakeCache.txt | head -1)"
+  if [[ -n "$cached_home" && "$cached_home" != "$CONTROL_DIR" ]]; then
+    echo "    检测到陈旧 CMakeCache（源目录=$cached_home，当前=$CONTROL_DIR），清理 build/"
+    rm -rf build
+  fi
+fi
 mkdir -p build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_COMPILER="${CXX:-g++}" \

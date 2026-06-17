@@ -55,6 +55,14 @@ python3 "$ROOT/cpp/koopman_mpc/scripts/export_v4_cpp_test_ref.py" \
     --dt "$MODEL_DT"
 
 echo ">>> CMake configure & build..."
+# 清理陈旧/跨机器的 CMake 缓存
+if [[ -f build/CMakeCache.txt ]]; then
+    cached_home="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' build/CMakeCache.txt | head -1)"
+    if [[ -n "$cached_home" && "$cached_home" != "$CPP_DIR" ]]; then
+        echo ">>> stale CMakeCache (home=$cached_home), wiping build/"
+        rm -rf build
+    fi
+fi
 mkdir -p build
 cd build
 CXX_COMPILER="${CXX:-g++}"
