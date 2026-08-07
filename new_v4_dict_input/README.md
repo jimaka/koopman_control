@@ -8,7 +8,7 @@
 ## 文件
 
 - `model_v4_dict_input.py`：16 阶字典作为主输入的 Koopman 模型。
-- `train_v4_dict_input.py`：参考 `train_v2.py` 重写的训练脚本（独立版本）。
+- `train_v4_dict_input.py`：参考 `train_v2.py` 重写的训练脚本（独立版本；支持 `--noise_std` / `--ctrl_noise_std`，见 [数据增强技术方案](../docs/数据增强技术方案.md)）。
 - `eval_v4_dict_input.py`：v4 单模型验证脚本（默认使用 `data/koopman_test.npz`）。
 - `export_v4_onnx.py`：v4 checkpoint 导出 ONNX（供 C++ plant 仿真）。
 - `export_v4_encode_weights.py`：导出潜空间 OSQP-MPC 权重 YAML（含 Ā/B、encoder 与 decoder；decoder 供 Tier-2 位姿跟踪）。

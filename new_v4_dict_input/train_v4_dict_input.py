@@ -299,13 +299,26 @@ def rollout_train(
     model: nn.Module,
     x_t_dyn_n: torch.Tensor,
     u_seq_n: torch.Tensor,
+    noise_std: float = 0.0,
+    ctrl_noise_std: float = 0.0,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
+    """归一化空间 rollout；训练时可注入噪声（与 train_v2 对齐）。
+
+    * ``noise_std``：对 t0 的 dyn ``(u,v,r)`` 加 N(0, σ)
+    * ``ctrl_noise_std``：对每步控制加 N(0, σ)
+    验证 / eval 应传 0。
+    """
     k = u_seq_n.size(1)
+    if noise_std > 0:
+        x_t_dyn_n = x_t_dyn_n + torch.randn_like(x_t_dyn_n) * noise_std
     z = model.encode(x_t_dyn_n)
     pred_norm: List[torch.Tensor] = []
     pred_lat: List[torch.Tensor] = []
     for i in range(k):
-        z = model.latent_step(z, u_seq_n[:, i, :])
+        u_in = u_seq_n[:, i, :]
+        if ctrl_noise_std > 0:
+            u_in = u_in + torch.randn_like(u_in) * ctrl_noise_std
+        z = model.latent_step(z, u_in)
         pred_lat.append(z)
         pred_norm.append(model.reconstruct_state(z))
     return torch.stack(pred_norm, dim=1), torch.stack(pred_lat, dim=1)
@@ -327,7 +340,13 @@ def compute_losses(
     dyn_t_n = x_t_full_n[:, 3:6]
     dyn_target_n = x_target_seq_n[:, :, 3:6]
 
-    pred_norm_seq, pred_lat_seq = rollout_train(model, dyn_t_n, u_seq_n)
+    pred_norm_seq, pred_lat_seq = rollout_train(
+        model,
+        dyn_t_n,
+        u_seq_n,
+        noise_std=float(getattr(args, "noise_std", 0.0) or 0.0) if model.training else 0.0,
+        ctrl_noise_std=float(getattr(args, "ctrl_noise_std", 0.0) or 0.0) if model.training else 0.0,
+    )
     pred_phys = pred_norm_seq * dyn_std + dyn_mean
     target_phys = dyn_target_n * dyn_std + dyn_mean
 
@@ -573,6 +592,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gamma_step", type=float, default=0.97)
     p.add_argument("--huber_beta", type=float, default=0.1)
     p.add_argument("--rho_max", type=float, default=1.005)
+    p.add_argument(
+        "--noise_std",
+        type=float,
+        default=0.0,
+        help="训练时对 t0 归一化 dyn (u,v,r) 注入 N(0,σ)；0=关闭。"
+             "实船/sim→real 建议 0.02～0.03（见 docs/数据增强技术方案.md）",
+    )
+    p.add_argument(
+        "--ctrl_noise_std",
+        type=float,
+        default=0.0,
+        help="训练时对每步归一化控制注入 N(0,σ)；0=关闭。"
+             "实船/sim→real 建议 0.003～0.005",
+    )
     p.add_argument("--ramp_epochs", type=int, default=5)
     p.add_argument("--pose_ramp_epochs", type=int, default=10, help="位姿损失权重线性 ramp 的 epoch 数")
     p.add_argument("--ema_decay", type=float, default=0.999)
@@ -873,7 +906,7 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
         "Start v4 dict-input training | device=%s | ddp=%s rank=%d/%d | latent=%d | hidden=%d | atoms=%d | "
         "pred_time %.1fs->%.1fs (%d->%d steps, dt=%.3f, data_dt=%.3f, model_stride=%d) curriculum step=%d every=%d epoch | "
         "batch=%d accum=%d (per_gpu=%d global=%d) eval_batch=%d | w_xy=%.2f w_yaw=%.2f pose_ramp=%d | "
-        "train=%s test=%s",
+        "noise_std=%.4f ctrl_noise_std=%.4f | train=%s test=%s",
         device,
         dinfo.enabled,
         dinfo.rank,
@@ -898,6 +931,8 @@ def train(args: argparse.Namespace, dinfo: DistInfo) -> None:
         args.w_xy,
         args.w_yaw,
         args.pose_ramp_epochs,
+        float(getattr(args, "noise_std", 0.0) or 0.0),
+        float(getattr(args, "ctrl_noise_std", 0.0) or 0.0),
         args.train_data,
         args.test_data,
     )
@@ -1174,6 +1209,11 @@ def run_smoketest(args: argparse.Namespace, dinfo: DistInfo) -> int:
     args.num_workers = 0
     args.ckpt_dir = str(out_dir / "ckpt")
     args.log_dir = str(out_dir / "log")
+    # 冒烟覆盖噪声路径（默认仍为 0；显式打开以验证注入不崩）
+    if float(getattr(args, "noise_std", 0.0) or 0.0) <= 0.0:
+        args.noise_std = 0.02
+    if float(getattr(args, "ctrl_noise_std", 0.0) or 0.0) <= 0.0:
+        args.ctrl_noise_std = 0.003
     Path(args.ckpt_dir).mkdir(parents=True, exist_ok=True)
     Path(args.log_dir).mkdir(parents=True, exist_ok=True)
 
