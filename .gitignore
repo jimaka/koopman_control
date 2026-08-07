@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .tmp/
 logs/
+graphify-out/
 eval_out/
 test_analysis/
 dataset_plots/
