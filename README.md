@@ -4,11 +4,16 @@
 
 **文档**：
 
+- [docs/工程全景说明文档.md](docs/工程全景说明文档.md) — 工程全景：数学推导、全流程实现、分支演进史、测试体系与改进路线图
 - [docs/工程分析与优化.md](docs/工程分析与优化.md) — 工程分析、可优化点与「基线 vs 优化」对照训练结果
 - [docs/项目指南.md](docs/项目指南.md) — 项目总览与全流程
 - [docs/训练流程指南.md](docs/训练流程指南.md) — 训练流程详解、性能优化说明与新参数（早停 / AMP / 断点续训 / DDP）
+- [docs/仿真到实船优化指南.md](docs/仿真到实船优化指南.md) — 仿真/辨识数据切到实船时的差距分析与 P0–P3 优化清单
+- [docs/数据增强技术方案.md](docs/数据增强技术方案.md) — v4 状态/控制噪声增强：参数、边界与开/关验收
+- [docs/数据采集运行指南.md](docs/数据采集运行指南.md) — 海试开环机动调度：全动作日程、rosbag 与后处理对齐
 - [docs/MPC使用指南.md](docs/MPC使用指南.md) — OSQP 潜空间 MPC 快速上手
 - [docs/潜空间QP-MPC实现.md](docs/潜空间QP-MPC实现.md) — QP 推导与 C++ 模块说明
+- [docs/卡尔曼滤波推导.md](docs/卡尔曼滤波推导.md) — 线性 KF 完整推导与 NumPy 参考实现
 - [cpp/koopman_control/模型输入输出接口说明.md](cpp/koopman_control/模型输入输出接口说明.md) — v4 ONNX / MPC 接口（中文）
 - [cpp/koopman_control/README_CN.md](cpp/koopman_control/README_CN.md) — C++ 库与 motion 集成
 
@@ -30,6 +35,7 @@
 │   ├── train_v1.py
 │   ├── eval.py
 │   ├── reselect_v3a.py
+│   ├── sea_trial/            # 海试开环采集（机动调度 → control_cmd）
 │   └── data/                 # 数据集处理（rosbag → npz）
 ├── data/                     # 所有 .npz 数据集
 ├── checkpoints/              # 预训练权重
