@@ -374,7 +374,8 @@ $H$ 中与 $U^0$ 无关的部分只算一次（`buildHessian`+`ensureMats`）。
 | Tier-2（$w_z{=}1,w_{xy}{=}1,w_{\rm yaw}{=}50$） | 8.24e-2 | 4.01e2 | 4.9e3 |
 | Tier-2 only（$w_z{=}0$） | **8.24e-4** | 3.89e2 | **4.7e5** |
 
-结论：$w_z=0$ 时 $\lambda_{\min}(P)\approx2w_u$，即 **$w_u$ 是 QP 唯一可解性的保证项**，
+结论：$P\succeq2w_uI$（$w_z=0$ 时实测 $\lambda_{\min}(P)=8.2\times10^{-4}$，与 $2w_u=2\times10^{-4}$ 同量级），
+即 **$w_u$ 是 QP 唯一可解性的保证项**，
 不只是"控制能耗惩罚"；且 ${\rm cond}(P)\sim5\times10^5$ 在 float32（$\varepsilon\approx1.2\times10^{-7}$）下
 相对误差已达 $10^{-2}$ 量级 → 建议保留 $w_z>0$ 或把 $P$ 的组装升为 double（§6 G8）。
 
@@ -477,7 +478,7 @@ $$g_\psi^{(m)}(U)=\psi_m(U)-\psi_{{\rm ref},m}-2\pi k_m$$
 | 判据 | 表达式 | 建议阈值 |
 |------|--------|----------|
 | 步长 | $\lVert d\rVert _\infty\le\epsilon_d$ | 1e-3（归一化控制） |
-| 相对下降 | $F(U^0)-F(U^+)\le\epsilon_F\max(1,|F|)$ | 1e-4 |
+| 相对下降 | $F(U^0)-F(U^+)\le\epsilon_F\max(1,\lvert F\rvert)$ | 1e-4 |
 | 一阶最优（KKT） | $\big\lVert U-{\rm Proj}_{\mathcal F}(U-\nabla F(U))\big\rVert _\infty\le\epsilon_g$ | 1e-3 |
 | 预算 | 迭代数 $\ge$ `sqp_iters` | 见 §5.8 |
 | 拒绝保护 | $\alpha=0\ \wedge\ \Delta_{\rm tr}\le\Delta_{\min}$ | 直接退出 |
@@ -791,7 +792,7 @@ bash cpp/koopman_control/build_mpc_only.sh
 |------|------|------|------|
 | `sqp_iters` | 2 | 修好 G3 后设 4–8，并开启提前退出 | §5.8（8 轮仅 6.8 ms；iters=4 时精度提升 9×） |
 | `w_xy` / `w_yaw` | 0 / 0（Tier-2 关闭） | 启用前先完成 G1–G4 | §6 |
-| `w_u` | 1e-4 | 不要设 0 | $\lambda_{\min}(P)\approx2w_u$，是唯一可解性保证（§4.5） |
+| `w_u` | 1e-4 | 不要设 0 | $P\succeq2w_uI$，是唯一可解性保证（§4.5） |
 | `w_z`（Tier-2 同时开启时） | 1.0 | 保留 > 0 | $w_z=0$ 时 ${\rm cond}(P)$ 从 4.9e3 升到 4.7e5（§4.5） |
 | `throttle_du_max` / `rudder_du_max` | 15 / 3.5 | 放宽时**必须**先有步长控制 | §4.9 隐式信赖域 |
 | `opt_control_steps` / `control_hold_steps` | 2 / 1 | 改用降维实现后可自由调 | §4.15（`hold>1` 现状会违反速率约束） |
