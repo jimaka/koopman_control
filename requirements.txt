@@ -5,6 +5,9 @@ matplotlib>=3.7
 pyyaml>=6.0
 scipy>=1.10
 
+# 代价函数分析（scripts/analyze_v4_cost.py：Python 侧镜像 C++ 潜空间 QP 做对照实验）
+osqp>=0.6
+
 # PT → ONNX 导出与精度验证（C++ MPC 部署）
 onnx>=1.16
 onnxruntime>=1.17
