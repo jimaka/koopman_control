@@ -86,4 +86,7 @@ if(KOOPMAN_BUILD_QP_VERIFY)
 
     add_executable(verify_pose_linearize tools/verify_pose_linearize.cpp)
     target_link_libraries(verify_pose_linearize PRIVATE koopman_control)
+
+    add_executable(benchmark_latent_sqp tools/benchmark_latent_sqp.cpp)
+    target_link_libraries(benchmark_latent_sqp PRIVATE koopman_control)
 endif()
