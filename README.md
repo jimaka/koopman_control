@@ -13,6 +13,7 @@
 - [docs/数据采集运行指南.md](docs/数据采集运行指南.md) — 海试开环机动调度：全动作日程、rosbag 与后处理对齐
 - [docs/MPC使用指南.md](docs/MPC使用指南.md) — OSQP 潜空间 MPC 快速上手
 - [docs/潜空间QP-MPC实现.md](docs/潜空间QP-MPC实现.md) — QP 推导与 C++ 模块说明
+- [docs/v4训练与MPC任务拆解与SQP方案推导.md](docs/v4训练与MPC任务拆解与SQP方案推导.md) — v4 训练/MPC 任务拆解（WBS）、Tier-2 位姿跟踪的 SQP 完整推导、选型理由与实测对照
 - [docs/卡尔曼滤波推导.md](docs/卡尔曼滤波推导.md) — 线性 KF 完整推导与 NumPy 参考实现
 - [cpp/koopman_control/模型输入输出接口说明.md](cpp/koopman_control/模型输入输出接口说明.md) — v4 ONNX / MPC 接口（中文）
 - [cpp/koopman_control/README_CN.md](cpp/koopman_control/README_CN.md) — C++ 库与 motion 集成

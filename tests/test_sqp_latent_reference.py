@@ -381,6 +381,15 @@ def test_hessian_curvature(model, sys, horizon, dt, blocking) -> None:
         check(float(np.min(np.linalg.eigvalsh(P_gn))) >= -1e-9, f"GN Hessian 半正定（{tag}）")
 
 
+#: 绘图用 ASCII 标题（避免默认字体缺中文字形）
+PLOT_TITLES = {
+    "A 可达参考 + 速率约束放开": "A: reachable ref, rate limits relaxed",
+    "B 不可达激进回转 + 默认速率约束": "B: infeasible hard turn, default rate limits",
+    "C 不可达激进回转 + 速率约束放开": "C: infeasible hard turn, rate limits relaxed",
+}
+PLOT_LABELS = {"定步长(现状)": "fixed unit step (current C++)", "信赖域+充分下降": "trust region + sufficient decrease"}
+
+
 def _plot_curves(curves: Dict[str, Dict[str, List[float]]], out_dir: Path) -> None:
     """把各场景的代价下降曲线画在一张图上（横轴 = SQP 外迭代次数）。"""
     import matplotlib
@@ -394,13 +403,14 @@ def _plot_curves(curves: Dict[str, Dict[str, List[float]]], out_dir: Path) -> No
     for ax, (tag, series) in zip(axes, curves.items()):
         for name, hist in series.items():
             style = "--o" if "定步长" in name else "-s"
-            ax.semilogy(range(len(hist)), np.maximum(hist, 1e-12), style, label=name, markersize=4)
-        ax.set_title(tag, fontsize=9)
+            ax.semilogy(range(len(hist)), np.maximum(hist, 1e-12), style,
+                        label=PLOT_LABELS.get(name, name), markersize=4)
+        ax.set_title(PLOT_TITLES.get(tag, tag), fontsize=9)
         ax.set_xlabel("SQP outer iteration")
-        ax.set_ylabel("objective J (log)")
+        ax.set_ylabel("objective J (log scale)")
         ax.grid(True, which="both", alpha=0.3)
-        ax.legend(fontsize=8, prop={"family": ["DejaVu Sans"]})
-    fig.suptitle("Latent Tier-2 SQP: fixed unit step (current C++) vs trust region + sufficient decrease", fontsize=10)
+        ax.legend(fontsize=8)
+    fig.suptitle("Latent Tier-2 pose tracking: SQP outer-loop cost history (v4 dt=4s, N=10)", fontsize=11)
     fig.tight_layout()
     path = out_dir / "sqp_cost_history.png"
     fig.savefig(path, dpi=140)

@@ -5,6 +5,10 @@ matplotlib>=3.7
 pyyaml>=6.0
 scipy>=1.10
 
+# SQP/QP 参考实现（tests/test_sqp_latent_reference.py；C++ 部署侧的 OSQP 由 CMake FetchContent 构建）
+# 缺失时自动退回 scipy trust-constr，精度略低但可用
+osqp>=0.6
+
 # PT → ONNX 导出与精度验证（C++ MPC 部署）
 onnx>=1.16
 onnxruntime>=1.17
