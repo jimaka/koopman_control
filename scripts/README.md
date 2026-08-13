@@ -8,6 +8,7 @@
 | `train_v1.py` | v1 baseline 训练 |
 | `eval.py` | 量化评估与多模型对比 |
 | `reselect_v3a.py` | v3a 离线 composite 重选 best ckpt |
+| `analysis/drift_analysis.py` | 多步漂移机制诊断（谱/误差分解/同物理时长对比/残差结构/offset-free），见 [docs/多步漂移可解性分析.md](../docs/多步漂移可解性分析.md) |
 | `data/auto_split_bag.py` | 日程驱动 + 控制命令对时的自动 bag 切分（推荐），见 `docs/数据采集运行指南.md` §4.4 |
 | `data/bag_test.py` 等 | 手工时间边界切分 / 合并 / 检查数据集（历史数据集复现） |
 
