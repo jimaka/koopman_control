@@ -30,7 +30,132 @@ flowchart TD
 一个控制周期 = ① 坐标系准备 → ② 编码 → ③ SQP 外迭代（每轮含 ④⑤⑥）→ ⑦ 输出。
 以下逐节展开。
 
-## 2. ① 坐标系准备（`motion_bridge.cpp`）
+## 2. 功能模块拆解
+
+求解链路按职责分为四层：**接口层 → 编排层 → 模型层 → 求解层**，外加贯穿始终的配置与数学工具。
+
+```mermaid
+flowchart TD
+    subgraph L0["接口层"]
+        MB["KoopmanMotionMpc<br/>motion_bridge.cpp<br/>参考重采样 / 坐标变换 / 耗时统计"]
+    end
+    subgraph L1["编排层"]
+        CTL["KoopmanMpcController<br/>mpc_controller.cpp<br/>SQP 外迭代 / 暖启动 / 输出"]
+    end
+    subgraph L2["模型层"]
+        ENC["KoopmanEncoder<br/>koopman_encode.cpp<br/>(u,v,r) → z"]
+        LAT["KoopmanLatentModel<br/>koopman_latent_model.cpp<br/>Γ/Θ/ξ 预计算与预测"]
+        DEC["KoopmanDecoder<br/>koopman_decoder.cpp<br/>z → (u,v,r) + Jacobian"]
+    end
+    subgraph L3["求解层"]
+        PL["buildPoseLinearization<br/>pose_linearize.cpp<br/>标称轨迹 + Φ, b, wq"]
+        QP["LatentMpcQpSolver<br/>latent_mpc_qp.cpp<br/>QP 组装 + OSQP"]
+    end
+    subgraph L4["配置与工具"]
+        CFG["MpcConfig / mpc_config_loader<br/>参数载体与 YAML 解析"]
+        MAT["detail::Matrix<br/>detail/dense_matrix.hpp<br/>稠密矩阵运算 / gelu / wrapAngle"]
+    end
+
+    MB --> CTL
+    CTL --> ENC
+    CTL --> PL
+    CTL --> QP
+    PL --> LAT
+    PL --> DEC
+    QP --> LAT
+    CFG --> MB
+    CFG --> CTL
+    MAT -.-> L2
+    MAT -.-> L3
+```
+
+### 2.1 模块一览
+
+| 模块 | 文件 | 职责 | 关键接口 | 对应环节 |
+|---|---|---|---|---|
+| `KoopmanMotionMpc` | `motion_bridge.cpp` | motion.cpp 桥接：参考重采样、全局→船体系变换、耗时统计 | `solve(MotionSolveInput) → MotionSolveOutput` | ① |
+| `KoopmanMpcController` | `mpc_controller.cpp` | 求解编排：编码、参考堆叠、SQP 外迭代、暖启动管理 | `solveStep(state0, ref_window, u_prev) → (u0, cost)` | ②③⑦ |
+| `KoopmanEncoder` | `koopman_encode.cpp` | (u,v,r) → z₀（16 PIF 原子 + 残差 MLP） | `encode(dyn_norm) → z(48)` | ② |
+| `KoopmanLatentModel` | `koopman_latent_model.cpp` | latent YAML 加载、Γ/Θ/ξ 预计算、自由响应/堆叠预测、控制归一化 | `loadFromYaml` / `precomputePredictionMatrices` / `freeResponse` / `predictStacked` | ④⑥ |
+| `KoopmanDecoder` | `koopman_decoder.cpp` | z → (u,v,r) 前向解码 + 解析 Jacobian | `decodePhysical(z)` / `jacobianPhysical(z)` | ④⑤ |
+| `buildPoseLinearization` | `pose_linearize.cpp` | 标称轨迹生成与逐点线性化 | 返回 `PoseLinearization{Φ, b, wq, valid}` | ④⑤ |
+| `LatentMpcQpSolver` | `latent_mpc_qp.cpp` | Hessian 预计算、QP 组装（含位姿叠加）、约束构建、OSQP 调用 | `solve(z0, z_ref, u_prev, U_init, pose) → solution` | ⑥ |
+| `MpcConfig` / `LatentMpcQpConfig` | `mpc_config.hpp` + `mpc_config_loader.cpp` | 参数载体与 YAML 解析（`control_period` 换算、horizon 对齐） | `loadMpcConfigFromYaml` / `latentQpConfigFromMpc` | 初始化 |
+| `detail::Matrix` | `detail/dense_matrix.hpp` | 稠密矩阵运算（matmul/matvec/transpose）、`gelu`/`geluGrad`、`wrapAngle` | 被模型层与求解层共用 | 贯穿 |
+| `KoopmanOnnxModel` | `koopman_onnx_model.cpp` | 闭环仿真 plant（**仅 demo/simulate**，优化器不依赖） | `rollout` | 仅仿真 |
+
+### 2.2 接口层：`KoopmanMotionMpc`
+
+- **职责**：把 motion.cpp 的全局参考与状态翻译成控制器可用的随体系输入，并把求解结果与耗时带回去；
+- **输入**：`MotionSolveInput{ref, u/v/r, x/y/psi, u_prev, has_pose/has_u_prev}`；
+- **输出**：`MotionSolveOutput{control, cost, horizon, timing}`；
+- **内部状态**：`MotionBridgeConfig{ref_dt, ref_time_offset}` + 持有 `KoopmanMpcController` 实例（pImpl）；
+- **调用频率**：每控制周期 1 次；不做任何与模型相关的计算。
+
+### 2.3 编排层：`KoopmanMpcController`
+
+- **职责**：整个求解流程的"总线"——编码当前状态与参考、管理标称序列与暖启动、驱动 SQP 外迭代、
+  产出物理控制量；另提供 `simulate` 闭环仿真（用 ONNX plant，优化路径不用）；
+- **持有**：`KoopmanLatentModel model_`、`KoopmanEncoder encoder_`、`KoopmanDecoder decoder_`、
+  `LatentMpcQpSolver solver_`（构造顺序有讲究：solver_ 先于 model_ 加载构造，horizon 以配置为准）；
+- **内部状态**：`u_warm_tilde_` / `has_warm_`（暖启动解），`resetWarmStart()` 可清空；
+- **每周期调用**：`solveStep` 1 次，内部驱动 ③ 外迭代 `sqp_iters` 轮。
+
+### 2.4 模型层
+
+**`KoopmanEncoder`**：无状态权重容器（pImpl 存残差块与输出层权重）。
+`encode` 一次调用 = 16 原子计算 + 2 个残差块 + 输出线性层 + 拼接，纯前向，O(nz) 级。
+每周期调用次数：1（z₀）+ N（参考逐帧 encode，`buildRefLatentStack` 循环 k=0..N−1）。
+
+**`KoopmanLatentModel`**：加载 YAML 后 `precomputePredictionMatrices` **一次性**算好
+Γ（48N×48）、Θ（48N×4N）、ξ（48N），之后 `freeResponse` / `predictStacked` 只是矩阵乘。
+是 Tier-1 代价、约束归一化（`ctrlMean/ctrlStd`）、标称 rollout 的共同数据来源。
+
+**`KoopmanDecoder`**：同样无状态；`decodePhysical` 与 `jacobianPhysical` 共享同一套层遍历逻辑，
+后者逐层链式累乘 Jacobian（Linear 层左乘 W，GELU 层按行乘 gelu′）。每个 SQP 轮次内被调用
+2N 次（每步各一次前向 + 一次 Jacobian）。
+
+**`buildPoseLinearization`**（自由函数）：无内部状态，输入 `(model, decoder, z0, pose0, U, pose_ref, dt, w_xy, w_yaw)`，
+输出 `PoseLinearization{Φ(3N×nvar), b(3N), wq(3N), valid}`。decoder 未加载或输入维度不符时
+`valid=false`，求解器自动跳过位姿项（退化 Tier-1）。
+
+### 2.5 求解层：`LatentMpcQpSolver`
+
+- **内部缓存**：Hessian H = w_zΘᵀΘ + w_uI + w_duDᵀD 首次 solve 时构建并缓存（`ensureMats`），
+  此后每轮只做 P = 2H (+ 位姿叠加) 的拷贝与加法；
+- **每次 solve 的工作**：自由响应 → q₀ →（有位姿时）P/q 叠加 → 盒约束与变化率约束 →
+  CSC 转换 → `osqp_setup` /（暖启动）/ `osqp_solve` / `osqp_cleanup` → 截断保持 → `evalCost`；
+- **每周期调用**：`sqp_iters` 次；每次求解 nvar=40、约束 80 行的小 QP，毫秒级。
+
+### 2.6 配置与工具
+
+- `MpcConfig`（业务参数：horizon、dt、权重、约束限值、Tier-2 开关）与 `LatentMpcQpConfig`
+  （QP/OSQP 参数）分离，`latentQpConfigFromMpc` 负责前者→后者的抽取；
+- `loadMpcConfigFromYaml` 支持 `control_period` 自动换算 `control_hold_steps`，
+  `syncHorizonWithOnnx` 可把 horizon 对齐到 ONNX plant；
+- `detail::Matrix` 是全链路唯一的矩阵实现（无外部 BLAS 依赖），矩阵规模小，三重循环足够。
+
+### 2.7 模块间的数据流
+
+```mermaid
+flowchart LR
+    subgraph 每周期一次
+        A["state/ref/u_prev"] --> B["z0(48), Z_ref(48N),<br/>pose_ref(3N), pose0"]
+    end
+    subgraph 每 SQP 轮
+        B --> C["标称 U"] --> D["Z⁰, d_m, p⁰<br/>Jp_m, V_m"] --> E["Φ(3N×4N), b(3N), wq"]
+    end
+    subgraph 每 QP 求解
+        E --> F["P, q, A, l, u"] --> G["OSQP → Ũ*"]
+        G --> H["截断保持 → u0 下发<br/>解序列 → 暖启动"]
+    end
+    H -.->|下一周期| C
+```
+
+三类缓存/复用决定了性能特征：**Γ/Θ/ξ 与 H 跨周期不变**（模型加载与首次求解时各算一次）；
+**暖启动解跨周期复用**；每 SQP 轮只有 Φ、b 与 P/q 的位姿部分需要重建。
+
+## 3. ① 坐标系准备（`motion_bridge.cpp`）
 
 `KoopmanMotionMpc::solve` 是 motion.cpp 侧的入口，先做两件事：
 
@@ -50,7 +175,7 @@ p_{body} = R(-\psi_{cur})\,(p_{global} - p_{cur}),\qquad
 位姿直接置零（`motion_bridge.cpp:111`）——MPC 内部一切位姿量都在这个随体系中表示，
 **每个控制周期重建一次坐标系**，避免全局坐标数值过大带来的精度问题。
 
-## 3. ② 编码（`mpc_controller.cpp:114-126`）
+## 4. ② 编码（`mpc_controller.cpp:114-126`）
 
 进入 `KoopmanMpcController::solveStep` 后：
 
@@ -62,7 +187,7 @@ p_{body} = R(-\psi_{cur})\,(p_{global} - p_{cur}),\qquad
 同时准备**标称控制序列 U**（SQP 线性化工作点）：优先取上一周期保存的暖启动解
 `u_warm_tilde_`，首周期为全零（`mpc_controller.cpp:130-132`）。
 
-## 4. ③ SQP 外迭代框架
+## 5. ③ SQP 外迭代框架
 
 位姿传播含 decoder（GELU 网络）与旋转矩阵 sin/cos 两处非线性，无法直接写进凸 QP。
 策略是**序列二次规划（SQP）**：在当前标称控制序列 U 处把位姿约束线性化，解一个凸 QP，
@@ -80,7 +205,7 @@ flowchart LR
 每轮 QP 都以上一轮的解暖启动 OSQP，第二轮的线性化工作点已经比暖启动更接近真解，
 因此 2 轮即可显著修正长 horizon 下的线性化漂移（继续增加轮数收益递减，且每轮约多花一倍求解时间）。
 
-## 5. ④ 标称轨迹生成（`pose_linearize.cpp:32-75`）
+## 6. ④ 标称轨迹生成（`pose_linearize.cpp:32-75`）
 
 给定当前标称 U，分三步生成标称轨迹：
 
@@ -107,7 +232,7 @@ d_m = \mathrm{diag}(\sigma_{dyn})\cdot \mathrm{MLP}(z_m^0) + \mu_{dyn} \in \math
 \psi_m^0 = \psi_{m-1}^0 + \Delta t\, r_m
 \]
 
-## 6. ⑤ 逐点线性化：灵敏度 Φ 与偏置 b
+## 7. ⑤ 逐点线性化：灵敏度 Φ 与偏置 b
 
 目标：把"位姿误差"写成控制序列 U 的仿射函数。链条是
 U →(Θ)→ z →(decoder)→ d →(欧拉积分)→ p，逐环求导再相乘。
@@ -156,9 +281,9 @@ e_{pose} \approx \Phi U + b
 yaw 分量先做 `wrapAngle` 折到 ±π 再相减，避免 2π 跳变污染梯度。
 权重向量 wq 逐步取 (w_xy, w_xy, w_yaw)。
 
-## 7. ⑥ QP 组装与 OSQP 求解（`latent_mpc_qp.cpp`）
+## 8. ⑥ QP 组装与 OSQP 求解（`latent_mpc_qp.cpp`）
 
-### 7.1 目标函数：Tier-1 基底 + 位姿叠加
+### 8.1 目标函数：Tier-1 基底 + 位姿叠加
 
 Tier-1 部分（H 预计算一次，不随 SQP 轮次变化）：
 
@@ -178,7 +303,7 @@ J_{pose} = \|W^{1/2}(\Phi U + b)\|^2
 W = diag(wq)。实现上先对 Φ 按行乘 wq 再做 Φᵀ(WΦ)，避免显式构造 W（`latent_mpc_qp.cpp:246-273`）。
 ΦᵀWΦ 半正定，叠加后 Hessian 仍半正定，**问题保持凸 QP**。
 
-### 7.2 约束：只管控制量
+### 8.2 约束：只管控制量
 
 约束矩阵 A（2·nvar × nvar）只含两类硬约束，位姿不进入约束：
 
@@ -187,14 +312,14 @@ W = diag(wq)。实现上先对 Φ 按行乘 wq 再做 Φᵀ(WΦ)，避免显式�
 | 盒约束 | (u_min−μ)/σ ≤ ũ ≤ (u_max−μ)/σ | 物理幅值映射到归一化空间；油门 ±100、舵 ±35 |
 | 变化率约束 | k=0：\|ũ₀−ũ_prev\| ≤ du_max/σ；k≥1：\|ũ_k−ũ_{k−1}\| ≤ du_max/σ | 首步锚定上一周期实际下发量；油门 15/周期、舵 3.5/周期 |
 
-### 7.3 OSQP 求解
+### 8.3 OSQP 求解
 
 - P 取上三角转 CSC、A 转 CSC，每次 solve 重建 workspace（nvar=40 的小问题，开销可忽略）；
 - `eps_abs=eps_rel=1e-4`、`max_iter=4000`、`warm_start=1`，并以上一轮/上一周期的 U
   `osqp_warm_start_x`——SQP 第二轮和相邻控制周期的求解因此都只需少量迭代；
 - 求解失败直接抛异常，由上层决定降级。
 
-## 8. ⑦ 输出与周期衔接（`mpc_controller.cpp:145-166`）
+## 9. ⑦ 输出与周期衔接（`mpc_controller.cpp:145-166`）
 
 最后一轮 QP 解出后：
 
@@ -231,7 +356,7 @@ sequenceDiagram
     Note over CTL: 解序列留存，供周期 t+1 暖启动
 ```
 
-## 9. 配置与调优
+## 10. 配置与调优
 
 | 参数（`mpc_config.yaml`） | 默认 | 作用与调优 |
 |---|---|---|
@@ -244,7 +369,7 @@ sequenceDiagram
 开启 Tier-2 的前提：`koopman_v4_latent.yaml` 含 `decoder` 段（由 `export_v4_encode_weights.py`
 导出）；否则 `decoder_.loaded()` 为 false，自动退化为纯 Tier-1，不报错。
 
-## 10. 验证
+## 11. 验证
 
 ```bash
 python3 tests/test_pose_linearize.py            # decoder Jacobian 与 Φ 的二阶收敛性（float64 数值微分对照）
@@ -256,7 +381,7 @@ python3 tests/test_pose_linearize.py            # decoder Jacobian 与 Φ 的二
 `verify_pose_linearize` 在 C++ 侧对同一份 latent YAML 做端到端复核，保证 Python 训练口径与
 C++ 部署口径一致。
 
-## 11. 设计要点回顾
+## 12. 设计要点回顾
 
 - **位姿只作代价项（软约束）**：欠驱动系统 + 线性化近似下，硬约束可能无可行解；
   软约束永远有解，误差以代价形式被权衡（详见《潜空间QP-MPC实现.md》§4.5）；
